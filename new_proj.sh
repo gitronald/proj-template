@@ -5,9 +5,9 @@
 # read PROJ
 
 # Check if no name (arg) provided
-if [ $1 -eq 0 ]; then
-    echo "No arguments provided"
-    exit 1
+if [ "$#" == 0 ]; then
+    echo "Enter a project name after script"
+    exit
 fi
 
 PROJ=$1
