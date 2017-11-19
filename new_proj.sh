@@ -3,6 +3,13 @@
 
 # echo -n "Enter project name: "
 # read PROJ
+
+# Check if no name (arg) provided
+if [ $1 -eq 0 ]; then
+    echo "No arguments provided"
+    exit 1
+fi
+
 PROJ=$1
 mkdir -p "$PROJ" 
 for i in code data data-raw notebooks manuscript
