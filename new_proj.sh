@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 # Make a dank new project, dealer's choice.
 
-echo -n "Enter project name: "
-read PROJ
+# echo -n "Enter project name: "
+# read PROJ
+PROJ=$1
 mkdir -p "$PROJ" 
 for i in code data data-raw notebooks manuscript
     do mkdir -p "$PROJ/$i"
