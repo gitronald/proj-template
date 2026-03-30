@@ -13,13 +13,13 @@ curl -s https://raw.githubusercontent.com/gitronald/proj-template/main/scaffold.
 Or add an alias to your `.bashrc` or `.zshrc`:
 
 ```bash
-alias proj-template='curl -s https://raw.githubusercontent.com/gitronald/proj-template/main/scaffold.sh | bash -s'
+alias proj-init='curl -s https://raw.githubusercontent.com/gitronald/proj-template/main/scaffold.sh | bash -s'
 ```
 
 Then create a new project:
 
 ```bash
-proj-template ~/repos/myproject
+proj-init ~/repos/myproject
 proj-template --license apache-2.0 ~/repos/myproject
 ```
 
