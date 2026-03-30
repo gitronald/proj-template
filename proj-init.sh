@@ -8,6 +8,8 @@
 #   path  Target directory (e.g., ~/repos/gdrive). Basename becomes the package name.
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+VERSION=$(cat "$SCRIPT_DIR/VERSION")
 REPO_URL="https://github.com/gitronald/proj-template.git"
 
 show_help() {
@@ -21,6 +23,11 @@ show_help() {
 
 if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
     show_help
+    exit 0
+fi
+
+if [ "${1:-}" = "-v" ] || [ "${1:-}" = "--version" ]; then
+    echo "proj-init $VERSION"
     exit 0
 fi
 
