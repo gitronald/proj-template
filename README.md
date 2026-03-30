@@ -7,20 +7,20 @@ Python project template with uv, ruff, pytest, pre-commit, GitHub Actions CI, an
 Download and run the scaffold script to create a new project:
 
 ```bash
-curl -s https://raw.githubusercontent.com/gitronald/proj-template/main/scaffold.sh | bash -s <path>
+curl -s https://raw.githubusercontent.com/gitronald/proj-template/main/proj-init.sh | bash -s <path>
 ```
 
 Or add an alias to your `.bashrc` or `.zshrc`:
 
 ```bash
-alias proj-init='curl -s https://raw.githubusercontent.com/gitronald/proj-template/main/scaffold.sh | bash -s'
+alias proj-init='curl -s https://raw.githubusercontent.com/gitronald/proj-template/main/proj-init.sh | bash -s'
 ```
 
 Then create a new project:
 
 ```bash
 proj-init ~/repos/myproject
-proj-template --license apache-2.0 ~/repos/myproject
+proj-init --license apache-2.0 ~/repos/myproject
 ```
 
 ## What it does

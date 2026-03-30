@@ -4,14 +4,14 @@
 # Copies the template, replaces PACKAGE placeholders with the given name,
 # initializes git, installs dependencies, and makes the initial commit.
 #
-# Usage: scaffold.sh <path>
+# Usage: proj-init.sh <path>
 #   path  Target directory (e.g., ~/repos/gdrive). Basename becomes the package name.
 set -e
 
 REPO_URL="https://github.com/gitronald/proj-template.git"
 
 show_help() {
-    echo "Usage: scaffold.sh [--license <key>] <path>"
+    echo "Usage: proj-init.sh [--license <key>] <path>"
     echo ""
     echo "  path     Target directory (e.g., ~/repos/gdrive)"
     echo "           Basename becomes the package name."
