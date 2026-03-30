@@ -9,6 +9,9 @@ requires-python = ">=3.11"
 dependencies = []
 readme = "README.md"
 
+[project.urls]
+repository = "https://github.com/gitronald/PACKAGE"
+
 [project.scripts]
 PACKAGE = "PACKAGE.cli:app"
 

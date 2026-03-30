@@ -8,14 +8,15 @@
 #   path  Target directory (e.g., ~/repos/gdrive). Basename becomes the package name.
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-TEMPLATE_DIR="$SCRIPT_DIR/template"
+REPO_URL="https://github.com/gitronald/proj-template.git"
 
 show_help() {
-    echo "Usage: scaffold.sh <path>"
+    echo "Usage: scaffold.sh [--license <key>] <path>"
     echo ""
-    echo "  path  Target directory (e.g., ~/repos/gdrive)"
-    echo "        Basename becomes the package name."
+    echo "  path     Target directory (e.g., ~/repos/gdrive)"
+    echo "           Basename becomes the package name."
+    echo "  --license  License key (default: mit)"
+    echo "             Run 'gh api licenses --jq .[].key' for options."
 }
 
 if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
@@ -23,21 +24,29 @@ if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
     exit 0
 fi
 
-if [ -z "$1" ]; then
+LICENSE="mit"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --license) LICENSE="$2"; shift 2 ;;
+        *) DEST="$1"; shift ;;
+    esac
+done
+
+if [ -z "${DEST:-}" ]; then
     echo "Error: path required"
     show_help
     exit 1
 fi
 
-DEST="$1"
 NAME="$(basename "$DEST")"
 
-if [ ! -d "$TEMPLATE_DIR" ]; then
-    echo "Error: template not found at $TEMPLATE_DIR"
-    exit 1
-fi
-
 echo "Scaffolding ${NAME} at ${DEST}"
+
+# Clone template to a temp directory
+TMPDIR=$(mktemp -d)
+trap 'rm -rf "$TMPDIR"' EXIT
+git clone --quiet --depth 1 "$REPO_URL" "$TMPDIR/proj-template"
+TEMPLATE_DIR="$TMPDIR/proj-template/template"
 
 # Fails if DEST already exists (atomic guard)
 mkdir "$DEST"
@@ -51,16 +60,26 @@ done
 # Replace PACKAGE placeholder in file contents
 grep -rl "PACKAGE" "$DEST" | xargs sed -i "s/PACKAGE/${NAME}/g"
 
+# Fetch license from GitHub API
+SPDX_ID=$(gh api "licenses/${LICENSE}" --jq '.spdx_id')
+AUTHOR=$(gh api user --jq '.name')
+YEAR=$(date +%Y)
+gh api "licenses/${LICENSE}" --jq '.body' \
+    | sed "s/\[year\]/${YEAR}/g; s/\[fullname\]/${AUTHOR}/g" \
+    > "$DEST/LICENSE"
+sed -i "/^readme = /a license = \"${SPDX_ID}\"" "$DEST/pyproject.toml"
+
 cd "$DEST"
 git init
 git checkout -b dev
 
 uv sync --all-groups
 uv run pre-commit install
-stanza init
 
 git add -A
 git commit -m "initial commit"
+
+stanza init --yes
 
 echo ""
 echo "Done. Project ready at ${DEST}"

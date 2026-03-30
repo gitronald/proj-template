@@ -20,15 +20,21 @@ Then create a new project:
 
 ```bash
 new-proj ~/repos/myproject
+new-proj --license apache-2.0 ~/repos/myproject
 ```
 
 ## What it does
 
-1. Copies the template and replaces `PACKAGE` placeholders with your project name
-2. Initializes a git repo on a `dev` branch
-3. Installs dependencies with `uv sync`
-4. Sets up pre-commit hooks and stanza
-5. Makes the initial commit
+1. Clones the template repo and replaces `PACKAGE` placeholders with your project name
+2. Fetches a LICENSE file from GitHub's API (default: MIT)
+3. Initializes a git repo on a `dev` branch
+4. Installs dependencies with `uv sync`
+5. Sets up pre-commit hooks and stanza
+6. Makes the initial commit
+
+## Future
+
+- Support GitHub's [template repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-template-repository) feature via `gh repo create --template` to replace the clone step
 
 ## Template structure
 
