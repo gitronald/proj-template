@@ -82,13 +82,13 @@ sed -i "/^readme = /a license = \"${SPDX_ID}\"" "$DEST/pyproject.toml"
 
 cd "$DEST"
 git init
-git checkout -b dev
 
 uv sync --all-groups
 uv run pre-commit install
 
 git add -A
 git commit -m "initial commit"
+git checkout -b dev
 
 stanza init --yes
 
