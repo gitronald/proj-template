@@ -4,7 +4,7 @@ VERSION="0.1.0"
 
 # Check if no name (arg) provided
 if [ "$1" = "--version" ] || [ "$1" = "-v" ]; then
-    echo "new_proj $VERSION"
+    echo "proj-template $VERSION"
     exit 0
 fi
 
