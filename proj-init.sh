@@ -88,10 +88,11 @@ uv run pre-commit install
 
 git add -A
 git commit -m "initial commit"
-git checkout -b dev
 
 stanza init --yes
-gh repo edit --default-branch main
+
+git checkout -b dev
+git push -u origin dev
 
 echo ""
 echo "Done. Project ready at ${DEST}"
