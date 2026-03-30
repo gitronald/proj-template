@@ -9,7 +9,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-VERSION=$(cat "$SCRIPT_DIR/VERSION")
+VERSION_FILE="$SCRIPT_DIR/VERSION"
 REPO_URL="https://github.com/gitronald/proj-template.git"
 
 show_help() {
@@ -27,7 +27,11 @@ if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
 fi
 
 if [ "${1:-}" = "-v" ] || [ "${1:-}" = "--version" ]; then
-    echo "proj-init $VERSION"
+    if [ -f "$VERSION_FILE" ]; then
+        echo "proj-init $(cat "$VERSION_FILE")"
+    else
+        echo "proj-init (version unknown — run from local clone for version info)"
+    fi
     exit 0
 fi
 
