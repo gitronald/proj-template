@@ -19,6 +19,7 @@ show_help() {
     echo "           Basename becomes the package name."
     echo "  --license  License key (default: mit)"
     echo "             Run 'gh api licenses --jq .[].key' for options."
+    echo "  --branch   Template branch to clone (default: main)"
 }
 
 if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
@@ -36,9 +37,11 @@ if [ "${1:-}" = "-v" ] || [ "${1:-}" = "--version" ]; then
 fi
 
 LICENSE="mit"
+BRANCH="main"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --license) LICENSE="$2"; shift 2 ;;
+        --branch) BRANCH="$2"; shift 2 ;;
         *) DEST="$1"; shift ;;
     esac
 done
@@ -56,7 +59,7 @@ echo "Scaffolding ${NAME} at ${DEST}"
 # Clone template to a temp directory
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
-git clone --quiet --depth 1 --branch dev "$REPO_URL" "$TMPDIR/proj-template"
+git clone --quiet --depth 1 --branch "$BRANCH" "$REPO_URL" "$TMPDIR/proj-template"
 TEMPLATE_DIR="$TMPDIR/proj-template/template"
 
 # Fails if DEST already exists (atomic guard)
