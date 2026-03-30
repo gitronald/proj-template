@@ -1,28 +1,63 @@
-# Project Template
+# proj-template
 
-This is a bash script and alias that automatically generates a directory template for a research project. The template is relatively tool and discipline agnostic, but includes traces of the tools I typically leverage the most these days: python (`replicate.sh` comes with code for creating a new virtual environment), and latex (`winmake.sh` and `manuscript/MakeFile` for compiling `.tex` and `.bib` files into a beautiful PDF on Windows 10 because I'm a kook). To streamline your new project setup, add this alias to your `.bashrc` or `.profile`:
+Python project template with uv, ruff, pytest, pre-commit, GitHub Actions CI, and stanza release automation.
 
-```{bash}
-alias proj-template='curl -s https://raw.githubusercontent.com/gitronald/proj-template/master/proj-template.sh | bash -s'
+## Quick Start
+
+Download and run the scaffold script to create a new project:
+
+```bash
+curl -s https://raw.githubusercontent.com/gitronald/proj-template/dev/scaffold.sh | bash -s <path>
 ```
 
-`curl -s` retrieves the script located in this repo, `proj-template.sh`.
-`bash -s` runs that script on your system locally.
+Or add an alias to your `.bashrc` or `.zshrc`:
 
-Now when you want to create a new project, you can call `proj-template <projectname>` from within bash and the script will create a new project template named `<projectname>` in your current directory. It should fail and gently ask you for a project name if you don't provide one, but if it doesn't then godspeed. If it does succeed you will see something like this:
+```bash
+alias new-proj='curl -s https://raw.githubusercontent.com/gitronald/proj-template/dev/scaffold.sh | bash -s'
+```
+
+Then create a new project:
+
+```bash
+new-proj ~/repos/myproject
+new-proj --license apache-2.0 ~/repos/myproject
+```
+
+## What it does
+
+1. Clones the template repo and replaces `PACKAGE` placeholders with your project name
+2. Fetches a LICENSE file from GitHub's API (default: MIT)
+3. Initializes a git repo on a `dev` branch
+4. Installs dependencies with `uv sync`
+5. Sets up pre-commit hooks and stanza
+6. Makes the initial commit
+
+## Future
+
+- Support GitHub's [template repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-template-repository) feature via `gh repo create --template` to replace the clone step
+
+## Template structure
 
 ```
-rer@x:~/proj$ proj-template test
-test
-├── code
-├── data
-├── data-raw
-├── manuscript
-│   └── MakeFile
-├── notebooks
+PACKAGE/
+├── __init__.py
+├── cli.py
+tests/
+├── __init__.py
+├── test_PACKAGE.py
+docs/
 ├── README.md
-├── replicate.sh
-└── winmake.sh
+├── guides/
+├── plans/
+.claude/
+├── settings.local.json
+.github/
+├── workflows/test.yml
+CLAUDE.md
+README.md
+TODO.md
+pyproject.toml
+.gitignore
+.pre-commit-config.yaml
+.python-version
 ```
-
-And now you have a lovely new structure to fill with wonderful new bits and bytes of your creation and discovery. Happy researching.
