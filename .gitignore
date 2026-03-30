@@ -1,5 +1,2 @@
-.archive/
-.pytest_cache/
-.ruff_cache/
-.venv/
-__pycache__/
+# Override global ignore for template settings
+!template/.claude/settings.local.json

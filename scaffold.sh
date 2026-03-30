@@ -9,7 +9,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-TEMPLATE_DIR="$SCRIPT_DIR"
+TEMPLATE_DIR="$SCRIPT_DIR/template"
 
 show_help() {
     echo "Usage: scaffold.sh <path>"
@@ -41,7 +41,7 @@ echo "Scaffolding ${NAME} at ${DEST}"
 
 # Fails if DEST already exists (atomic guard)
 mkdir "$DEST"
-rsync -a --exclude='__pycache__' --exclude='.git' --exclude='scaffold.sh' --exclude='README.md' "$TEMPLATE_DIR/" "$DEST/"
+rsync -a --exclude='__pycache__' "$TEMPLATE_DIR/" "$DEST/"
 
 # Rename all PACKAGE-named paths (deepest first to avoid moving parents before children)
 find "$DEST" -name '*PACKAGE*' -depth | while read -r f; do
