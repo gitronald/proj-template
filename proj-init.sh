@@ -91,6 +91,7 @@ git commit -m "initial commit"
 git checkout -b dev
 
 stanza init --yes
+gh repo edit --default-branch main
 
 echo ""
 echo "Done. Project ready at ${DEST}"
