@@ -45,7 +45,7 @@ echo "Scaffolding ${NAME} at ${DEST}"
 # Clone template to a temp directory
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
-git clone --quiet --depth 1 "$REPO_URL" "$TMPDIR/proj-template"
+git clone --quiet --depth 1 --branch dev "$REPO_URL" "$TMPDIR/proj-template"
 TEMPLATE_DIR="$TMPDIR/proj-template/template"
 
 # Fails if DEST already exists (atomic guard)
