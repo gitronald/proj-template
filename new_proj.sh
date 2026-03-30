@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 # Make a dank new project, dealer's choice.
-
-# echo -n "Enter project name: "
-# read PROJ
+VERSION="0.1.0"
 
 # Check if no name (arg) provided
+if [ "$1" = "--version" ] || [ "$1" = "-v" ]; then
+    echo "new_proj $VERSION"
+    exit 0
+fi
+
 if [ "$#" == 0 ]; then
     echo "Enter a project name after script"
     exit
