@@ -4,14 +4,16 @@
 # Copies the template, replaces PACKAGE placeholders with the given name,
 # initializes git, installs dependencies, and makes the initial commit.
 #
-# Usage: scaffold.sh <path>
+# Usage: proj-init.sh <path>
 #   path  Target directory (e.g., ~/repos/gdrive). Basename becomes the package name.
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+VERSION_FILE="$SCRIPT_DIR/VERSION"
 REPO_URL="https://github.com/gitronald/proj-template.git"
 
 show_help() {
-    echo "Usage: scaffold.sh [--license <key>] <path>"
+    echo "Usage: proj-init.sh [--license <key>] <path>"
     echo ""
     echo "  path     Target directory (e.g., ~/repos/gdrive)"
     echo "           Basename becomes the package name."
@@ -21,6 +23,15 @@ show_help() {
 
 if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
     show_help
+    exit 0
+fi
+
+if [ "${1:-}" = "-v" ] || [ "${1:-}" = "--version" ]; then
+    if [ -f "$VERSION_FILE" ]; then
+        echo "proj-init $(cat "$VERSION_FILE")"
+    else
+        echo "proj-init (version unknown — run from local clone for version info)"
+    fi
     exit 0
 fi
 
@@ -71,7 +82,6 @@ sed -i "/^readme = /a license = \"${SPDX_ID}\"" "$DEST/pyproject.toml"
 
 cd "$DEST"
 git init
-git checkout -b dev
 
 uv sync --all-groups
 uv run pre-commit install
@@ -80,6 +90,9 @@ git add -A
 git commit -m "initial commit"
 
 stanza init --yes
+
+git checkout -b dev
+git push -u origin dev
 
 echo ""
 echo "Done. Project ready at ${DEST}"
