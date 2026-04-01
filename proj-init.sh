@@ -72,7 +72,9 @@ find "$DEST" -name '*PACKAGE*' -depth | while read -r f; do
 done
 
 # Replace PACKAGE placeholder in file contents
-grep -rl "PACKAGE" "$DEST" | xargs sed -i "s/PACKAGE/${NAME}/g"
+grep -rl "PACKAGE" "$DEST" | while read -r f; do
+    sed "s/PACKAGE/${NAME}/g" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+done
 
 # Fetch license from GitHub API
 SPDX_ID=$(gh api "licenses/${LICENSE}" --jq '.spdx_id')
@@ -81,7 +83,9 @@ YEAR=$(date +%Y)
 gh api "licenses/${LICENSE}" --jq '.body' \
     | sed "s/\[year\]/${YEAR}/g; s/\[fullname\]/${AUTHOR}/g" \
     > "$DEST/LICENSE"
-sed -i "/^readme = /a license = \"${SPDX_ID}\"" "$DEST/pyproject.toml"
+sed "/^readme = /a\\
+license = \"${SPDX_ID}\"
+" "$DEST/pyproject.toml" > "$DEST/pyproject.toml.tmp" && mv "$DEST/pyproject.toml.tmp" "$DEST/pyproject.toml"
 
 cd "$DEST"
 git init
