@@ -1,6 +1,6 @@
 ---
-status: draft
-branch:
+status: active
+branch: feature/add-type-checker
 created: 2026-04-01T06:41:37-07:00
 completed:
 pr:
