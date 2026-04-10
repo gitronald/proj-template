@@ -4,13 +4,12 @@ Projects created from this template include a [publish workflow](../../template/
 
 ## How it works
 
-When you push a tag matching `v*`, the publish workflow:
+When you push a tag matching `v*`, the publish workflow runs two jobs:
 
-1. Checks out the code
-2. Builds the package with `uv build`
-3. Publishes to PyPI via `pypa/gh-action-pypi-publish`
+1. **Build** — checks out the code, builds the package with `uv build`, and uploads the dist artifacts
+2. **Publish** — downloads the artifacts and publishes to PyPI via `pypa/gh-action-pypi-publish`
 
-Authentication happens automatically through OIDC. The workflow's `id-token: write` permission lets GitHub mint a short-lived token that PyPI verifies against your trusted publisher configuration.
+Separating build and publish ensures the build job has no access to the OIDC token. Authentication happens automatically through OIDC in the publish job — its `id-token: write` permission lets GitHub mint a short-lived token that PyPI verifies against your trusted publisher configuration.
 
 ## Setup
 
