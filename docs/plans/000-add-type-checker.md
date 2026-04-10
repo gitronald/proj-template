@@ -1,9 +1,9 @@
 ---
-status: active
+status: done
 branch: feature/add-type-checker
 created: 2026-04-01T06:41:37-07:00
-completed:
-pr:
+completed: 2026-04-09T13:57:50-07:00
+pr: https://github.com/gitronald/proj-template/pull/4
 ---
 
 # Add type checker to proj-template
@@ -229,3 +229,7 @@ Same as Pyright plan — no changes expected.
 
 - Implemented pyrefly plan: added dev dependency, pyproject.toml config, pre-commit hook, CI step, and docs
 - Created PR #4 (https://github.com/gitronald/proj-template/pull/4) into dev
+
+## Retrospective
+
+Went with Pyrefly over Pyright based on speed (14x over mypy), no Node.js dependency, and sufficient conformance for template-scaffolded projects. The alternative Pyright plan is documented above if a project outgrows Pyrefly's coverage. Implementation was straightforward — four files touched in the template, no changes needed to `proj-init.sh` since `uv sync --all-groups` picks up the new dependency automatically. The main thing to watch going forward is Pyrefly's beta stability and whether the pre-commit hook's `project-includes` behavior causes silent skips in real projects.
