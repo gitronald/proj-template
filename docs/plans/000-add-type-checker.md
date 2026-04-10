@@ -222,3 +222,10 @@ Same as Pyright plan — no changes expected.
 - Verify pre-commit hook runs (and doesn't silently skip files)
 - Verify CI workflow runs type checking
 - Check for false positives — beta tooling may flag valid code
+
+## Log
+
+### 2026-04-09
+
+- Implemented pyrefly plan: added dev dependency, pyproject.toml config, pre-commit hook, CI step, and docs
+- Created PR #4 (https://github.com/gitronald/proj-template/pull/4) into dev
