@@ -15,7 +15,8 @@ PACKAGE/
 - Install: `uv sync --all-groups`
 - Tests: `uv run pytest`
 - Linting: pre-commit hooks run ruff format + lint on commit
-- CI: GitHub Actions runs lint + test matrix (Python 3.11–3.14) on push/PR to dev/main
+- Type checking: pre-commit hooks run pyrefly on commit
+- CI: GitHub Actions runs lint + type check + test matrix (Python 3.11–3.14) on push/PR to dev/main
 
 ## Release Automation
 

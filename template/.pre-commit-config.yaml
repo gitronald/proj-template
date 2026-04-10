@@ -5,3 +5,7 @@ repos:
       - id: ruff-format
       - id: ruff
         args: [--fix]
+  - repo: https://github.com/facebook/pyrefly-pre-commit
+    rev: v0.59.0
+    hooks:
+      - id: pyrefly
