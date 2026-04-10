@@ -1,6 +1,6 @@
 # proj-template
 
-Python project template with uv, ruff, pytest, pre-commit, GitHub Actions CI, and stanza release automation.
+Python project template with uv, ruff, pyrefly, pytest, pre-commit, GitHub Actions CI, and stanza release automation.
 
 ## Quick Start
 
