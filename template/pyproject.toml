@@ -6,7 +6,9 @@ authors = [
     {name = "gitronald", email = "gitronald@users.noreply.github.com"}
 ]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "typer",
+]
 readme = "README.md"
 
 [project.urls]
