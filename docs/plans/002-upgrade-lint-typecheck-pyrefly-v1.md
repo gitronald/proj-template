@@ -22,7 +22,7 @@ The template currently wires both tools through pre-commit and CI but has **no a
 - `template/pyproject.toml`
   - dev group: `pyrefly` and `ruff` are **unpinned**.
   - `[tool.ruff.lint]` selects `F, E, W, I, UP`; `target-version = "py311"`.
-  - `[tool.pyrefly]`: `python-version = "3.11"`, `project-includes = ["."]` — **no preset set**, so v1.0 silently applies the lightweight `basic` preset.
+  - `[tool.pyrefly]`: `python-version = "3.11"`, `project-includes = ["."]` — **no preset set**. Because the section *exists*, pyrefly v1.0 applies the **`default`** preset (the `basic` preset only auto-applies to projects with *no* pyrefly config at all). So the real change this plan makes is **`default` → `strict`**, not `basic` → `strict`.
 - `template/.pre-commit-config.yaml` — `ruff-pre-commit` at `v0.15.5` (ruff-format + ruff `--fix`); a local `pyrefly-check` hook running `uv run pyrefly check`.
 - `template/.github/workflows/test.yml` — runs `ruff check`, `ruff format --check`, `pyrefly check`, `pytest` across Python 3.11–3.14.
 - `template/.claude/settings.local.json` — permissions only; **no hooks**.
@@ -64,52 +64,70 @@ project-excludes = ["**/__pycache__", "**/.venv"]
 
 ### 3. Agentic integration
 
-**3a. Committed Stop hook** — add `template/.claude/settings.json` (a new, shared, committed file — distinct from the existing `settings.local.json` which stays for personal permissions) with a `Stop` hook that runs the checks and surfaces failures back to the agent:
+**3a. Committed Stop hook** — add `template/.claude/settings.json` (a new, shared, committed file — distinct from the existing `settings.local.json` which stays for personal permissions) with a `Stop` hook that runs the checks and surfaces failures back to the agent.
 
-- Command: lint + type-check, non-mutating — `uv run ruff check . && uv run pyrefly check`. (Use `ruff check`, not `ruff format`, in the hook — auto-formatting/mutation stays in pre-commit; the Stop hook only *reports*.)
-- Must redirect output to **stderr** and exit **2** so Claude Code reads the failure and acts on it.
-- Use Claude Code's **actual** Stop-hook schema (matcher object wrapping a nested `hooks` array), not the simplified snippet from the blog post. Verify the exact shape against current Claude Code docs during implementation. Expected shape:
+Confirmed against current Claude Code docs (https://code.claude.com/docs/en/hooks):
+- The `Stop` event takes a **flat array of command objects** — it does **not** use a `matcher`, and there is **no** nested `{ "hooks": [...] }` wrapper (that wrapper is only for matcher-based events like `PreToolUse`). A `matcher` field on `Stop` is silently ignored.
+- For a `Stop` hook, **exit code 2** "prevents Claude from stopping and continues the conversation," and **stderr is fed back to Claude** as the message. That is exactly the desired behavior: on a lint/type failure, the agent keeps going and sees the errors to fix.
 
-  ```json
-  {
-    "hooks": {
-      "Stop": [
-        {
-          "hooks": [
-            {
-              "type": "command",
-              "command": "uv run ruff check . >&2 && uv run pyrefly check >&2 || exit 2",
-              "timeout": 60
-            }
-          ]
-        }
-      ]
-    }
+Rather than embed shell logic in a JSON string (fragile escaping; `exit 2` precedence across `&&`/`||`), ship a small wrapper script `template/.claude/hooks/lint-typecheck.sh` (copied to scaffolded projects via `rsync`, alongside `settings.json`) that runs both tools non-mutatingly and exits 2 if **either** fails:
+
+```bash
+#!/bin/bash
+# Lint + type-check gate for the Claude Code Stop hook.
+# Runs ruff (lint only, no formatting/mutation) and pyrefly; exits 2 with
+# stderr output if either fails, so the agent sees the errors and continues.
+set -u
+fail=0
+uv run ruff check . >&2 || fail=1
+uv run pyrefly check >&2 || fail=1
+[ "$fail" -eq 0 ] || exit 2
+```
+
+`settings.json` then just points at the script:
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": ".claude/hooks/lint-typecheck.sh",
+        "timeout": 120
+      }
+    ]
   }
-  ```
+}
+```
 
-  (Flagged area — confirm the `|| exit 2` precedence/redirection actually propagates a non-zero ruff failure too; may need a small wrapper or grouped command.)
+- Use `ruff check` (lint, non-mutating), **not** `ruff format` — auto-formatting/mutation stays in pre-commit; the Stop hook only *reports*.
+- `timeout: 120` (not 60): the first run after a fresh scaffold may resolve/download the uv environment, which can exceed 60s.
+- `chmod +x` the script so it ships executable.
 
 **3b. Directive in `template/CLAUDE.md`** — add an explicit instruction under Development (and/or a top-level "Before finishing" line) mandating: run `uv run ruff check .` and `uv run pyrefly check` at the project root and fix all reported errors before completing a task. Per pyrefly's guidance this directive is the reliable backstop that a skill alone does not provide. Consider whether scaffolded projects should also get an `AGENTS.md` for editor-agnostic agents (decide during implementation — `CLAUDE.md` is the minimum).
 
 **3c. Reusable skill** — add a skill that codifies the lint + type-check workflow for on-demand invocation (e.g., `lint-and-typecheck`): run ruff format/fix + ruff check, run pyrefly check, interpret pyrefly's output, and apply v1.0 adoption tooling when relevant (`pyrefly suppress`, `pyrefly infer`, baseline files). Decide skill home during implementation: ship inside `template/.claude/skills/` so scaffolded projects inherit it, vs. a user-level skill in `~/.claude/skills/`. Default: ship in the template so the workflow travels with each project. Use `/skill-creator` to author it.
 
-### 4. Guide doc — `docs/guides/lint-and-typecheck.md`
+### 4. Guide doc — `template/docs/guides/lint-and-typecheck.md`
 
-Add a concise reference guide to the **root** `docs/guides/` (alongside `pre-commit.md`), matching that guide's voice ("Projects created from this template include…"). One combined guide covering both tools, with these sections:
+**Placement decision (revised after review):** ship the guide **inside the template** at `template/docs/guides/lint-and-typecheck.md`, not in the repo root `docs/guides/`. Rationale: the guide explains tooling that *lives in each scaffolded project* (the Stop hook, the `CLAUDE.md` directive, the skill, the pyrefly/ruff config), so it should travel with those projects — root `docs/guides/` never ships (`rsync` copies only `template/`). This also fulfills "complement a skill," since the skill (§3c) ships in the template too. Keep the same audience voice ("Projects created from this template include…"). (Note: the existing `pre-commit.md` / `trusted-publishers.md` live root-only and have this same gap — migrating them into `template/` is a reasonable follow-up but is **out of scope** here.)
+
+One combined guide covering both tools, with these sections:
 
 - **Overview** — ruff (format + lint) and pyrefly (type check) and how they divide responsibility; how they relate to pre-commit (commit-time), CI (push/PR), and the Stop hook (agent task completion).
 - **ruff** — the selected rule sets (`F/E/W/I/UP`), `ruff check`/`ruff format`, `--fix`, and how to extend `select`.
-- **pyrefly v1.0** — the preset model (`off`/`basic`/`legacy`/`default`/`strict`) and why the template uses `strict`; core CLI (`pyrefly check`, `init`, `suppress`, `infer`, `report`/coverage JSON); baseline files for incremental adoption; and the **semver caveat** (any version may add errors — pin and upgrade deliberately).
+- **pyrefly v1.0** — the preset model (`off`/`basic`/`legacy`/`default`/`strict`) and why the template uses `strict` (it was previously on `default`); core CLI (`pyrefly check`, `init`, `suppress`, `infer`, and `pyrefly coverage report` for JSON type-coverage — note: the command is `pyrefly coverage report`, not `pyrefly report`); baseline files for incremental adoption (`--baseline=<path>` / `--update-baseline`, or the `baseline = "..."` config key); and the **semver caveat** (any version may add errors — pin and upgrade deliberately).
 - **Agentic use** — what the Stop hook does and the `CLAUDE.md` directive, linking the [pyrefly agentic-loop post](https://pyrefly.org/blog/pyrefly-agentic-loop/) and the `lint-and-typecheck` skill.
 - **Migrating an existing project** — `pyrefly init` to auto-migrate mypy/pyright config; `pyrefly suppress` + baseline to stage adoption.
 
-Cross-link: add the new guide to `docs/README.md`'s Guides section if it enumerates guides, and reference it from `pre-commit.md` where relevant.
+Cross-link from the new project's `template/CLAUDE.md` Development section. (Note: both `docs/README.md` files just say "See `guides/`" without enumerating individual guides, so no index edit is needed there.)
 
 ### 5. CI alignment (`template/.github/workflows/test.yml`)
 
 - CI already runs `ruff check`, `ruff format --check`, and `pyrefly check` — no structural change needed.
-- Confirm the strict preset doesn't break the template's own placeholder package under CI (the `PACKAGE` stub must pass `pyrefly check --preset strict` clean). If the stub trips strict checks, either add minimal annotations to the stub or document the expected first-run cleanup. **This is the main risk** — `strict` on real scaffolded code will surface more errors than `basic`; that is intended, but the template's own sample code must be clean.
+- Confirm the strict preset doesn't break the template's own placeholder package under CI. The current stub (`PACKAGE/cli.py` `hello() -> None` with no params; `tests/test_PACKAGE.py` `test_placeholder()` with no params) is annotated/parameter-free and should pass `strict` clean — `strict` enables `implicit-any-parameter` (fires on unannotated params) but neither stub function has parameters. Verify in practice.
+- **`tests/` are in scope under strict** — `project-includes = ["."]` pulls `tests/` into checking, and `strict`'s `implicit-any-parameter` will fire on the first pytest fixture parameter a developer adds without an annotation (e.g. `def test_x(tmp_path):`). The current stub test passes, but this is friction every scaffolded project hits early. **Decision to make in implementation:** (a) keep tests strictly checked and document in the guide/`CLAUDE.md` that fixture params must be annotated (models good hygiene), or (b) relax tests via `project-excludes` / a scoped sub-config. Lean (a) for a hygiene-focused template, but call it out explicitly. See review finding R5.
+- **Main risk:** `strict` on real scaffolded code surfaces more errors than the previous `default`; that is intended, but the friction (esp. tests) should be documented so it isn't surprising.
 
 ### 6. Verify
 
@@ -128,8 +146,36 @@ Cross-link: add the new guide to `docs/README.md`'s Guides section if it enumera
 
 ## Open questions / flagged areas
 
-- Exact Claude Code Stop-hook JSON schema and whether the chained `ruff && pyrefly … || exit 2` reliably propagates both failures — verify against current docs (§3a).
+- ~~Exact Claude Code Stop-hook JSON schema~~ — **resolved** (flat array, no matcher/wrapper; exit 2 blocks stop and feeds stderr back). Shell fragility resolved via the wrapper script (§3a).
+- ~~Confirm pyrefly v1.0 TOML key spellings~~ — **resolved**: hyphenated (`preset`, `python-version`, `project-includes`, `project-excludes`); same in `pyproject.toml` and `pyrefly.toml`. Still worth a sanity check against `pyrefly init` output during implementation.
+- `tests/` under `strict` — keep checked (annotate fixtures) vs. exclude (§5, R5). **Open decision.**
 - Skill home: ship in `template/.claude/skills/` (travels with projects) vs. user-level (§3c). Leaning template.
 - Whether to also add `AGENTS.md` for non-Claude agents (§3b).
-- Confirm pyrefly v1.0 TOML key spellings via `pyrefly init` rather than trusting hand-written keys (§2).
+- pyrefly pin: bare `>=1.0.0` floor vs. capped (`>=1.0,<1.1` / `<2`). Floor is acceptable since `uv.lock` is the real reproducibility guarantee (R8).
+
+## Review findings (expert fleet)
+
+Four reviewers (Claude Code hooks/skills, Python tooling fact-check, critical plan review, template-propagation) reviewed this plan. Findings, with the resulting changes already folded into the sections above:
+
+**Resolved conflicts between reviewers:**
+- **Stop-hook schema** — reviewers disagreed (flat array vs. nested `hooks` wrapper). Settled against the [current docs](https://code.claude.com/docs/en/hooks): **flat array, no matcher, no wrapper** for `Stop`. §3a corrected.
+- **Will `settings.json` ship?** — one reviewer warned it would be git-ignored. The propagation reviewer empirically ran `git check-ignore` against the live global ignore (`~/.config/git/ignore`), which targets only `**/.claude/settings.local.json` — so a new `.claude/settings.json` and `.claude/skills/` are **not** ignored and will track/clone/rsync fine. No new `.gitignore` negation needed; just `git add` the file explicitly.
+
+**Factual corrections folded in:**
+- R1 — Baseline preset is **`default`**, not `basic` (the template has a `[tool.pyrefly]` section; `basic` only auto-applies to fully unconfigured projects). The change is `default → strict`. (§Context)
+- R2 — Coverage command is **`pyrefly coverage report`**, not `pyrefly report`. (§4)
+- Config keys confirmed hyphenated; `preset`/`strict` confirmed real; pyrefly 1.0.0 and ruff/ruff-pre-commit v0.15.14 confirmed current; non-semver policy confirmed.
+
+**Design changes folded in:**
+- R3 — Replaced inline shell-in-JSON with a wrapper script `template/.claude/hooks/lint-typecheck.sh` (robust exit-2 handling, testable). (§3a)
+- R4 — Hook `timeout` raised 60 → 120s (cold uv resolve on first scaffold). (§3a)
+- R5 — Guide moved from root `docs/guides/` to **`template/docs/guides/`** so scaffolded projects actually receive it (root never ships). (§4)
+- R6 — `tests/` are in scope under `strict`; added an explicit keep-vs-exclude decision. (§5, Open questions)
+
+**Still-open / advisory (not blocking; tracked in Open questions and below):**
+- R7 — ruff version can diverge between the `pre-commit` pinned `rev` and the `pyproject.toml` `ruff>=` floor (the pre-commit hook uses its own ruff; the local pyrefly hook uses `uv run`). Add a convention note in the guide to bump both together. **TODO in §4/implementation.**
+- R8 — `dependabot.yml` (`uv` ecosystem, weekly) will propose pyrefly bumps that may break CI given non-semver; the guide should warn against blind auto-merge of pyrefly PRs. **TODO in §4.**
+- R9 — When authoring the skill, avoid an *unintended* literal uppercase `PACKAGE` token in `SKILL.md` (proj-init's `sed` substitution is case-sensitive and would rewrite it). Lowercase "package" is safe; `PACKAGE/cli.py`-style path placeholders are actually desirable to substitute. (§3c)
+- R10 (pre-existing, out of scope) — The template commits `settings.local.json` with ~50 personal permission grants into every scaffolded project; the new shared `settings.json` is the natural home for shareable config, and dropping/gitignoring `settings.local.json` from the template is worth a separate cleanup.
+- R11 (pre-existing, out of scope) — The template repo does not dogfood its own shipped Stop hook (the hook lives under `template/.claude/`, not the repo-root `.claude/`); adding a root `.claude/settings.json` would make the template self-enforce, but that's separate from what scaffolded projects receive.
 
