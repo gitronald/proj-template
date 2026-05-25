@@ -48,9 +48,15 @@ tests/
 docs/
 ├── README.md
 ├── guides/
+│   └── lint-and-typecheck.md
 ├── plans/
 .claude/
-├── settings.local.json
+├── settings.json              # shared hooks (Stop: lint + type-check gate)
+├── settings.local.json        # personal permissions
+├── hooks/
+│   └── lint-typecheck.sh
+├── skills/
+│   └── lint-and-typecheck/SKILL.md
 .github/
 ├── workflows/test.yml
 CLAUDE.md
