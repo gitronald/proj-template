@@ -1,5 +1,5 @@
 ---
-status: draft
+status: active
 branch: feature/upgrade-lint-typecheck
 created: 2026-05-25T13:10:08-07:00
 completed:
