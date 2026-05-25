@@ -197,3 +197,35 @@ Four reviewers (Claude Code hooks/skills, Python tooling fact-check, critical pl
 - R10 (pre-existing, out of scope) — The template commits `settings.local.json` with ~50 personal permission grants into every scaffolded project; the new shared `settings.json` is the natural home for shareable config, and dropping/gitignoring `settings.local.json` from the template is worth a separate cleanup.
 - R11 (pre-existing, out of scope) — The template repo does not dogfood its own shipped Stop hook (the hook lives under `template/.claude/`, not the repo-root `.claude/`); adding a root `.claude/settings.json` would make the template self-enforce, but that's separate from what scaffolded projects receive.
 
+## Log
+
+### Implementation (2026-05-25)
+
+Implemented in the order specified, committing in logical chunks on `feature/upgrade-lint-typecheck`.
+
+**Pre-implementation validation** (throwaway dirs in `/tmp`):
+- Confirmed `pyrefly 1.0.0` and `ruff 0.15.14` resolve via `uv`.
+- `pyrefly init` confirmed hyphenated config keys (`project-includes`).
+- Validated the `strict` + `tests/**` sub-config (Option C): strict *alone* errors on an unannotated `tmp_path` fixture param (`[implicit-any-parameter]`); strict *with* the sub-config disabling `implicit-any` in `tests/**` → 0 errors. So the sub-config does real work, and the relaxation is scoped to `tests/`.
+- Confirmed the real template stub signatures (`hello() -> None`, `test_placeholder()` with no return annotation) pass `strict` clean.
+
+**Changes made:**
+- §1 — `.pre-commit-config.yaml` ruff rev `v0.15.5 → v0.15.14`; `pyproject.toml` dev pins `pyrefly>=1.0.0`, `ruff>=0.15`.
+- §2 — `[tool.pyrefly]` now sets `preset = "strict"`, adds `project-excludes`, and the `[[tool.pyrefly.sub-config]]` `tests/**` block disabling `implicit-any`. Annotated the shipped `test_placeholder() -> None` to model good practice.
+- §3a — Added `template/.claude/settings.json` (shared `Stop` hook, `timeout: 120`) and the executable wrapper `template/.claude/hooks/lint-typecheck.sh` (runs `ruff check` + `pyrefly check`, exit 2 if either fails). Verified neither is gitignored.
+- §3b — Added a "Before finishing a task" directive and a guide cross-link to `template/CLAUDE.md`. Decided against shipping `AGENTS.md` — the template is Claude-Code-specific (ships `.claude/`), so `CLAUDE.md` is the right home.
+- §3c — Added `template/.claude/skills/lint-and-typecheck/SKILL.md`. Authored directly (the skill-creator eval loop is disproportionate for a deterministic, template-shipped workflow skill). No literal uppercase `PACKAGE` token in the body (R9); verified.
+- §4 — Added `template/docs/guides/lint-and-typecheck.md` (combined ruff + pyrefly guide), including the R7 "keep ruff versions in step" note and the R8 "don't blind-auto-merge pyrefly dependabot PRs" warning.
+- Also updated the root `README.md` "Template structure" block for the new `.claude/` files and guide.
+
+**Verification (§6):** Replicated the scaffold locally (`rsync` + `PACKAGE` substitution) into `/tmp/scaffoldtest` — avoiding `proj-init.sh`'s side effects (license fetch, `stanza init`, `git push origin dev`). Results:
+- `uv sync --all-groups` resolved `pyrefly==1.0.0`, `ruff==0.15.14`.
+- `ruff check`, `ruff format --check`, `pyrefly check` (strict), and `pytest` all pass clean on the scaffold.
+- `pre-commit run --all-files` passes with the bumped ruff rev (all three hooks Passed).
+- Stop hook exercised: exit 0 on clean code; exit 2 with the pyrefly error on stderr when a `[bad-return]` type error was injected (confirming the agent-feedback path).
+- Sub-config smoke test on the scaffold: unannotated `tmp_path` fixture param → 0 errors; a genuine type mismatch in `tests/` → still flagged.
+
+**Deviations from plan:**
+- The plan's §6 "update `CHANGELOG.md`" doesn't map to a real file — the root repo has no `CHANGELOG.md` (it tracks version via `VERSION`, currently `0.3.3a0`); `template/CHANGELOG.md` is the placeholder that ships to scaffolded projects and should not carry proj-template's own history. Updated the root `README.md` structure block instead.
+- Did **not** run `stanza release` on the feature branch — alpha bumps belong on `dev` after merge. The version bump and PR merge are deferred to `/plan-close`.
+
