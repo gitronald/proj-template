@@ -24,10 +24,10 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "pre-commit",
-    "pyrefly",
+    "pyrefly>=1.0.0",
     "pytest>=9.0.2",
     "pytest-cov",
-    "ruff",
+    "ruff>=0.15",
 ]
 
 [tool.ruff]
@@ -43,8 +43,19 @@ select = [
 ]
 
 [tool.pyrefly]
+preset = "strict"
 python-version = "3.11"
 project-includes = ["."]
+project-excludes = ["**/__pycache__", "**/.venv"]
+
+# tests/ stays type-checked (imports, undefined names, type mismatches),
+# but the implicit-any check is relaxed there so unannotated pytest fixture
+# params (e.g. `def test_x(tmp_path):`) don't force annotations.
+[[tool.pyrefly.sub-config]]
+matches = "tests/**"
+
+[tool.pyrefly.sub-config.errors]
+implicit-any = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

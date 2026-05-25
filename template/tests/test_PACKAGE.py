@@ -1,5 +1,5 @@
 """Tests for PACKAGE."""
 
 
-def test_placeholder():
+def test_placeholder() -> None:
     assert True
