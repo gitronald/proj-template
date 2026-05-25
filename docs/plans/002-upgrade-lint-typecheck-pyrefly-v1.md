@@ -1,9 +1,9 @@
 ---
-status: active
+status: done
 branch: feature/upgrade-lint-typecheck
 created: 2026-05-25T13:10:08-07:00
-completed:
-pr:
+completed: 2026-05-25T14:30:43-07:00
+pr: https://github.com/gitronald/proj-template/pull/10
 ---
 
 # Upgrade lint and type-check tooling for pyrefly v1.0 with agentic integration
@@ -228,4 +228,13 @@ Implemented in the order specified, committing in logical chunks on `feature/upg
 **Deviations from plan:**
 - The plan's §6 "update `CHANGELOG.md`" doesn't map to a real file — the root repo has no `CHANGELOG.md` (it tracks version via `VERSION`, currently `0.3.3a0`); `template/CHANGELOG.md` is the placeholder that ships to scaffolded projects and should not carry proj-template's own history. Updated the root `README.md` structure block instead.
 - Did **not** run `stanza release` on the feature branch — alpha bumps belong on `dev` after merge. The version bump and PR merge are deferred to `/plan-close`.
+
+## Retrospective
+
+- **The upfront expert-fleet review paid off.** Nearly every implementation decision was pre-settled in the plan (Stop-hook schema, hyphenated config keys, Option C, guide placement), so implementation was mechanical. The few surprises were caught not by the plan but by *validating in `/tmp` before editing* — confirming the sub-config actually relaxes `implicit-any` (and that strict alone would have errored) turned an assumption into a tested fact.
+- **Verify steps should be checked against real repo state when planning.** §6's "update `CHANGELOG.md`" assumed a file that doesn't exist here; the root repo versions via `VERSION`, and `template/CHANGELOG.md` is a scaffold placeholder. A quick `ls` during planning would have flagged it. Resolved by updating the README structure block instead.
+- **Author deterministic workflow skills directly; reserve the skill-creator eval loop for skills with subjective or hard-to-predict output.** The full benchmark/eval-viewer loop would have been disproportionate for a fixed ruff+pyrefly workflow that ships in a template.
+- **The wrapper-script approach for the Stop hook was the right call.** Keeping shell logic in `lint-typecheck.sh` (not inline JSON) made the exit-2 path independently testable, and the live test confirmed the docs' claim: exit 2 + stderr feeds errors back to the agent.
+- **Verifying via a local `rsync` scaffold (not `proj-init.sh`) was the key testing insight** — it faithfully reproduces what scaffolded projects receive (including `PACKAGE` substitution and the new `.claude/` files) without `proj-init.sh`'s side effects (license fetch, `stanza init`, `git push origin dev`).
+- **Follow-ups left open** (out of scope, tracked in §Open questions / Review findings): R7/R8 are now documented in the guide; R10 (template ships personal `settings.local.json`) and R11 (template doesn't dogfood its own Stop hook at repo root) remain candidates for a separate cleanup.
 
