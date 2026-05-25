@@ -55,11 +55,21 @@ preset = "strict"
 python-version = "3.11"
 project-includes = ["."]
 project-excludes = ["**/__pycache__", "**/.venv"]
+
+# tests/ stays type-checked (imports, undefined names, type mismatches),
+# but the implicit-Any check is relaxed there so unannotated pytest fixture
+# params (e.g. `def test_x(tmp_path):`) don't force annotations. See §5.
+[[tool.pyrefly.sub-config]]
+matches = "tests/**"
+
+[tool.pyrefly.sub-config.errors]
+implicit-any = false
 ```
 
 - `preset = "strict"` is the headline change — opts new projects into the strictest checking by default.
 - Keep `python-version = "3.11"` (the floor of `requires-python = ">=3.11"`) so pyrefly checks compatibility against the lowest supported interpreter, independent of the `3.14` dev `.python-version`.
 - Add `project-excludes` for `__pycache__`/`.venv` hygiene (v1.0 config key).
+- The `[[tool.pyrefly.sub-config]]` block applies a per-glob override to `tests/**`, disabling the `implicit-any` error kind there (Option C — see §5). Tests stay checked for imports, undefined names, and type mismatches; only the fixture-parameter annotation tax is lifted. Smoke-test the sub-config behaves as expected during implementation (pyrefly sub-configs are relatively new).
 - Note: v1.0 config keys are hyphenated (`python-version`, `project-includes`, `project-excludes`, `preset`). Verify against `pyrefly init` output during implementation since the template hand-maintains this block rather than generating it.
 
 ### 3. Agentic integration
@@ -117,6 +127,7 @@ One combined guide covering both tools, with these sections:
 - **Overview** — ruff (format + lint) and pyrefly (type check) and how they divide responsibility; how they relate to pre-commit (commit-time), CI (push/PR), and the Stop hook (agent task completion).
 - **ruff** — the selected rule sets (`F/E/W/I/UP`), `ruff check`/`ruff format`, `--fix`, and how to extend `select`.
 - **pyrefly v1.0** — the preset model (`off`/`basic`/`legacy`/`default`/`strict`) and why the template uses `strict` (it was previously on `default`); core CLI (`pyrefly check`, `init`, `suppress`, `infer`, and `pyrefly coverage report` for JSON type-coverage — note: the command is `pyrefly coverage report`, not `pyrefly report`); baseline files for incremental adoption (`--baseline=<path>` / `--update-baseline`, or the `baseline = "..."` config key); and the **semver caveat** (any version may add errors — pin and upgrade deliberately).
+- **Typing your tests** — explain that `tests/` is type-checked but `implicit-any` is relaxed there (Option C), so fixture params don't *require* annotations — but annotating them is encouraged and improves the editing experience. Include the fixture-type cheat-sheet: `tmp_path: Path`, `monkeypatch: pytest.MonkeyPatch`, `capsys: pytest.CaptureFixture[str]`, `caplog: pytest.LogCaptureFixture`, `request: pytest.FixtureRequest`, `tmp_path_factory: pytest.TempPathFactory`. Note the future option to tighten to fully-strict tests by removing the `tests/**` sub-config.
 - **Agentic use** — what the Stop hook does and the `CLAUDE.md` directive, linking the [pyrefly agentic-loop post](https://pyrefly.org/blog/pyrefly-agentic-loop/) and the `lint-and-typecheck` skill.
 - **Migrating an existing project** — `pyrefly init` to auto-migrate mypy/pyright config; `pyrefly suppress` + baseline to stage adoption.
 
@@ -126,7 +137,14 @@ Cross-link from the new project's `template/CLAUDE.md` Development section. (Not
 
 - CI already runs `ruff check`, `ruff format --check`, and `pyrefly check` — no structural change needed.
 - Confirm the strict preset doesn't break the template's own placeholder package under CI. The current stub (`PACKAGE/cli.py` `hello() -> None` with no params; `tests/test_PACKAGE.py` `test_placeholder()` with no params) is annotated/parameter-free and should pass `strict` clean — `strict` enables `implicit-any-parameter` (fires on unannotated params) but neither stub function has parameters. Verify in practice.
-- **`tests/` are in scope under strict** — `project-includes = ["."]` pulls `tests/` into checking, and `strict`'s `implicit-any-parameter` will fire on the first pytest fixture parameter a developer adds without an annotation (e.g. `def test_x(tmp_path):`). The current stub test passes, but this is friction every scaffolded project hits early. **Decision to make in implementation:** (a) keep tests strictly checked and document in the guide/`CLAUDE.md` that fixture params must be annotated (models good hygiene), or (b) relax tests via `project-excludes` / a scoped sub-config. Lean (a) for a hygiene-focused template, but call it out explicitly. See review finding R5.
+- **`tests/` under strict — RESOLVED: Option C (relax `implicit-any` in `tests/` via sub-config).** `project-includes = ["."]` pulls `tests/` into checking, and `strict`'s `implicit-any` fires on the first pytest fixture parameter a developer adds without an annotation (e.g. `def test_x(tmp_path):`) — friction every scaffolded project would hit early. The options considered:
+  - **A — keep `tests/` fully strict.** Maximal hygiene, but immediate red CI on the first fixture-using test; recurring annotation tax on `@parametrize` params and untyped third-party fixtures.
+  - **B — exclude `tests/` entirely.** Zero friction, but blunt — loses cheap, valuable checks (imports, undefined names, type mismatches) in the code that exercises the API.
+  - **C — check `tests/` but disable `implicit-any` there** (chosen). Keeps imports/undefined-names/type-mismatch checking; drops only the fixture-parameter annotation tax. A gradient instead of a cliff, at the cost of two extra config stanzas.
+
+  Implemented via the `[[tool.pyrefly.sub-config]]` block in §2. Also annotate the shipped example test (`tests/test_PACKAGE.py`) to model good practice for the cases C doesn't force, and include the pytest fixture-type cheat-sheet (`tmp_path: Path`, `monkeypatch: pytest.MonkeyPatch`, `capsys: pytest.CaptureFixture[str]`, `caplog: pytest.LogCaptureFixture`, `request: pytest.FixtureRequest`, `tmp_path_factory: pytest.TempPathFactory`) in the guide (§4).
+
+  **Future path to A:** if the template later wants to enforce fully typed tests, advance C → A by removing the `tests/**` sub-config block (or flipping `implicit-any = true`). Defer until typed-test friction is clearly worth it (e.g., a recurring test-code type bug, or the project's tests grow substantial). Note this transition in the guide so it's a deliberate, documented step rather than a silent tightening.
 - **Main risk:** `strict` on real scaffolded code surfaces more errors than the previous `default`; that is intended, but the friction (esp. tests) should be documented so it isn't surprising.
 
 ### 6. Verify
@@ -148,7 +166,7 @@ Cross-link from the new project's `template/CLAUDE.md` Development section. (Not
 
 - ~~Exact Claude Code Stop-hook JSON schema~~ — **resolved** (flat array, no matcher/wrapper; exit 2 blocks stop and feeds stderr back). Shell fragility resolved via the wrapper script (§3a).
 - ~~Confirm pyrefly v1.0 TOML key spellings~~ — **resolved**: hyphenated (`preset`, `python-version`, `project-includes`, `project-excludes`); same in `pyproject.toml` and `pyrefly.toml`. Still worth a sanity check against `pyrefly init` output during implementation.
-- `tests/` under `strict` — keep checked (annotate fixtures) vs. exclude (§5, R5). **Open decision.**
+- ~~`tests/` under `strict`~~ — **resolved: Option C** (sub-config disables `implicit-any` in `tests/`; keeps other checks). Future path to A documented (§5).
 - Skill home: ship in `template/.claude/skills/` (travels with projects) vs. user-level (§3c). Leaning template.
 - Whether to also add `AGENTS.md` for non-Claude agents (§3b).
 - pyrefly pin: bare `>=1.0.0` floor vs. capped (`>=1.0,<1.1` / `<2`). Floor is acceptable since `uv.lock` is the real reproducibility guarantee (R8).
