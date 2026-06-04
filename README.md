@@ -51,8 +51,7 @@ docs/
 │   └── lint-and-typecheck.md
 ├── plans/
 .claude/
-├── settings.json              # shared hooks (Stop: lint + type-check gate)
-├── settings.local.json        # personal permissions
+├── settings.json              # shared hooks (Stop: lint + type-check gate) + permissions
 ├── hooks/
 │   └── lint-typecheck.sh
 ├── skills/
