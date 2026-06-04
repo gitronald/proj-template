@@ -1,11 +1,17 @@
 name: Publish
 
+# Disabled by default. Publishing only runs once the repository variable
+# PUBLISH_ENABLED is set to "true":
+#   gh variable set PUBLISH_ENABLED --body true     # enable
+#   gh variable set PUBLISH_ENABLED --body false    # disable (or `gh variable delete`)
+# Until then, tag pushes trigger this workflow but both jobs skip.
 on:
   push:
     tags: ["v*"]
 
 jobs:
   build:
+    if: vars.PUBLISH_ENABLED == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -18,6 +24,7 @@ jobs:
 
   publish:
     needs: build
+    if: vars.PUBLISH_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

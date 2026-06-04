@@ -13,16 +13,30 @@ Separating build and publish ensures the build job has no access to the OIDC tok
 
 ## Setup
 
-Two things need to be configured: a GitHub environment and a PyPI trusted publisher.
+The publish workflow is **disabled by default**: tag pushes trigger it, but both
+jobs skip until you opt in. Three things need to be configured: enabling the
+workflow, a GitHub environment, and a PyPI trusted publisher.
 
-### 1. Create a GitHub environment
+### 1. Enable the workflow
+
+Set the `PUBLISH_ENABLED` repository variable to `true`:
+
+```bash
+gh variable set PUBLISH_ENABLED --body true
+```
+
+To pause publishing again, set it to `false` or delete it
+(`gh variable delete PUBLISH_ENABLED`). You can also manage it under
+**Settings > Secrets and variables > Actions > Variables**.
+
+### 2. Create a GitHub environment
 
 1. Go to your repo's **Settings > Environments**
 2. Click **New environment**
 3. Name it `pypi` (must match the `environment:` value in the workflow)
 4. Optionally add deployment protection rules (e.g., require approval before publish)
 
-### 2. Configure PyPI
+### 3. Configure PyPI
 
 #### For a new package (not yet on PyPI)
 
@@ -43,7 +57,7 @@ The first publish from your workflow will automatically create the project on Py
 2. Under **Add a new publisher**, fill in the same fields as above
 3. Click **Add**
 
-### 3. Publish a release
+### 4. Publish a release
 
 ```bash
 stanza release patch   # bumps version, commits, tags, pushes
@@ -57,7 +71,9 @@ The `v*` tag push triggers the workflow. Check the **Actions** tab in your repo 
 
 **"Publisher not configured"** — The owner, repo, workflow filename, or environment name on PyPI doesn't match your GitHub setup. All four fields must match exactly.
 
-**"Environment not found"** — The `pypi` environment hasn't been created in your repo's settings. See step 1 above.
+**"Environment not found"** — The `pypi` environment hasn't been created in your repo's settings. See step 2 above.
+
+**Workflow ran but nothing published (jobs skipped)** — `PUBLISH_ENABLED` is not set to `true`. See step 1 above.
 
 ## TestPyPI
 
