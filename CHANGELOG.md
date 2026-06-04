@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Disable the template's PyPI publish workflow by default; it now runs only when the `PUBLISH_ENABLED` repository variable is set to `true`.
+- Move the template's `.claude` permission grants from the personal `settings.local.json` into the shared, committed `settings.json`, and stop shipping a `settings.local.json` (including its `.gitignore` negations).
+
 ## [0.4.0] - 2026-05-25
 
 ### Added
