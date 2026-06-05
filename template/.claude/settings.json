@@ -2,9 +2,13 @@
   "hooks": {
     "Stop": [
       {
-        "type": "command",
-        "command": ".claude/hooks/lint-typecheck.sh",
-        "timeout": 120
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/lint-typecheck.sh",
+            "timeout": 120
+          }
+        ]
       }
     ]
   },
