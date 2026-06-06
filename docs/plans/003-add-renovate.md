@@ -1,9 +1,9 @@
 ---
 status: active
-branch: claude/open-plan-recent-changes-vN6eW
+branch: add/renovator
 created: 2026-06-05T18:03:46-07:00
 completed:
-pr: https://github.com/gitronald/proj-template/pull/16
+pr: https://github.com/gitronald/proj-template/pull/17
 ---
 
 # Add security-hardened Renovate dependency automation to the template
@@ -351,3 +351,26 @@ the actionable findings:
 
 Pin/validation checks all pass; no source behavior changed beyond the parser hardening. Remaining
 work is unchanged: the enroll skill/script is still **not yet implemented**.
+
+### 2026-06-06 — Branch move + enrollment skill/script implemented (plan complete)
+
+Moved the work from the auto-named `claude/open-plan-recent-changes-vN6eW` branch onto a clean
+`add/renovator` branch (merged with `--no-ff`, new PR #17 → `dev`); closed the old PR #16 and
+deleted its branch. Then implemented the last remaining deliverable:
+
+- **`scripts/renovate-enroll.sh`** — takes `owner/repo`, reads the App credentials from
+  `${RENOVATE_CONFIG_DIR:-~/.config/renovate}/.env` (`RENOVATE_CLIENT_ID` +
+  `RENOVATE_APP_PRIVATE_KEY`), then (1) pushes the secrets via `gh secret set --env-file`,
+  (2) keeps Dependabot vulnerability alerts on (`PUT /vulnerability-alerts`) while turning its
+  security-update PRs off (`DELETE /automated-security-fixes`) so only Renovate opens PRs —
+  opt-out via `--no-dependabot-toggle` since it needs repo admin — and (3) triggers the first run
+  (`gh workflow run renovate.yml`). `set -euo pipefail`, holds no secrets, never prints them, and
+  fails clearly with a non-zero exit + usage when `gh`/auth/`.env` preconditions are missing.
+- **`.claude/skills/renovate-enroll/SKILL.md`** — project skill that wraps the script; triggers on
+  "enroll a repo in Renovate" / "set up Renovate secrets".
+- **Guide** — flipped the "Coming as a skill" callout to document the shipped script + skill.
+- **CHANGELOG** — added an entry for the enroll tooling.
+
+Validated: `bash -n` clean; `-h`, missing-arg, bad-`owner/repo`, and unknown-flag paths all exit
+non-zero with clear messages. The `templatehub` rename remains the only tracked follow-up and is
+explicitly out of scope for this plan.
