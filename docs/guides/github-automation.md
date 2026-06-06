@@ -41,5 +41,6 @@ for stronger grouping, a release cooldown, `dev`-targeted PRs, and ongoing actio
 with supply-chain hardening as the focus. When it lands, this guide becomes the decision record
 (motivation, options, final choice). See the [add-renovate plan](../plans/003-add-renovate.md).
 
-> **Known gap:** the template's workflows currently pin actions to mutable tags (`@v6`,
-> `@release/v1`); moving them to commit SHAs is part of the Renovate work.
+> Actions in both workflows are pinned to commit SHAs (with a `# vX.Y.Z` comment) so a retagged
+> or repointed release can't change what runs. The planned Renovate migration keeps those pins
+> current via `helpers:pinGitHubActionDigests`.
