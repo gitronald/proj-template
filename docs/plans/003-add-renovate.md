@@ -106,6 +106,29 @@ project. It records the **final** choices and the reasoning behind them:
 Treat it as the canonical reference the payload's `renovate.json` / workflow comments point back
 to. (The original ask said `docs/guide/...`; using the existing plural `docs/guides/`.)
 
+### Follow-up: an enrollment skill + script (parent repo, not the payload)
+
+Per-repo enrollment is the only manual step left once the App exists (the guide's "Reusing one
+App across repos" section). Wrap it in a Claude Code **skill** backed by a small **script** so
+enrolling a freshly scaffolded repo is a single invocation instead of a checklist. This is a
+maintainer tool — it lives in proj-template's **own** repo, not in the `template/` payload, so it
+is not shipped into scaffolded projects.
+
+- **Script** — `scripts/renovate-enroll.sh` (new top-level `scripts/` dir). Takes `OWNER/REPO`,
+  reads credentials from `${RENOVATE_CONFIG_DIR:-$HOME/.config/renovate}/.env`, and:
+  1. sets the repo secrets via `gh secret set --repo OWNER/REPO --env-file "$envfile"`,
+  2. triggers the first run via `gh workflow run renovate.yml --repo OWNER/REPO`.
+  - Holds **no secrets itself** — only orchestration; the `.env` stays on the user's machine.
+  - Preconditions: `gh` authenticated, the App already created + installed on the target repo,
+    and the `.env` present. Fail clearly (non-zero, usage message) when any is missing; never
+    print secret values.
+  - Keep it POSIX-ish `sh`/`bash`, `set -euo pipefail`, and small.
+- **Skill** — `.claude/skills/renovate-enroll/SKILL.md` (project skill). Thin wrapper that
+  invokes the script for a given repo and reports the result; description triggers on "enroll a
+  repo in Renovate" / "set up Renovate secrets". Points back to this guide for setup context.
+- **Docs** — flip the guide's "Coming as a skill" callout to document the shipped skill + script
+  once they land.
+
 ### Open questions
 
 - Hosted app vs. self-hosted workflow (lean self-hosted — confirm).
@@ -171,3 +194,17 @@ WebFetch, so confirmed via WebSearch + the renovate GitHub discussions): `minimu
 `template/.github/renovate.json` and `template/.github/workflows/renovate.yml`; rewrote the
 dependency-updates section of `docs/guides/github-automation.md` into the decision record;
 updated `CHANGELOG.md` and `TODO.md`.
+
+### 2026-06-06 — Follow-ups from review discussion
+
+- Expanded the guide's "Setup in a scaffolded project" into a full github.com UI walkthrough
+  (create App → generate key → install) plus `gh` commands for secrets and the first run, and a
+  fine-grained-PAT alternative.
+- Added a "Reusing one App across repos" section: org secrets for org repos; a cached
+  `~/.config/renovate/.env` fed to `gh secret set --env-file` (one command per repo) for personal
+  accounts, with credential-hygiene caveats.
+- **Scoped a new deliverable** (see "Follow-up: an enrollment skill + script" above): wrap the
+  per-repo enroll step in a project skill (`.claude/skills/renovate-enroll/`) backed by
+  `scripts/renovate-enroll.sh`. Maintainer tooling in the parent repo, not the `template/`
+  payload. The guide currently carries a "Coming as a skill" callout to be flipped once it lands.
+  **Not yet implemented** — tracked as the remaining work for this plan.
