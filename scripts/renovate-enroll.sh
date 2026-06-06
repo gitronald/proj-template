@@ -80,6 +80,16 @@ if [[ ! -f "$ENV_FILE" ]]; then
     exit 1
 fi
 
+# The two keys the renovate.yml workflow consumes must be present, or `gh secret set`
+# would push an incomplete set and the first Renovate run would fail far from here.
+# (Checked by name only — values are never read or printed.)
+for key in RENOVATE_CLIENT_ID RENOVATE_APP_PRIVATE_KEY; do
+    if ! grep -q "^${key}=" "$ENV_FILE"; then
+        echo "Error: ${ENV_FILE} is missing ${key}"
+        exit 1
+    fi
+done
+
 echo "Enrolling ${REPO} in Renovate"
 
 # 1. Push the App secrets verbatim from the .env. gh reads the file directly; values
@@ -105,9 +115,15 @@ else
     echo "- Skipping Dependabot toggle (--no-dependabot-toggle)"
 fi
 
-# 3. Kick the first Renovate run.
+# 3. Kick the first Renovate run. The workflow must exist on the repo's default branch;
+#    scaffolding with --deps renovate pushes dev (the default) with renovate.yml present.
 echo "- Triggering the first Renovate run"
-gh workflow run renovate.yml --repo "$REPO"
+if ! gh workflow run renovate.yml --repo "$REPO"; then
+    echo "Error: could not trigger renovate.yml on ${REPO}." >&2
+    echo "Ensure renovate.yml exists on the repo's default branch (the template ships it on" >&2
+    echo "dev). Secrets/settings are already applied — trigger it manually once it's present." >&2
+    exit 1
+fi
 
 echo ""
 echo "Done. ${REPO} enrolled."

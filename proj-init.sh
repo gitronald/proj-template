@@ -44,9 +44,9 @@ BRANCH="main"
 DEPS=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --license) LICENSE="$2"; shift 2 ;;
-        --branch) BRANCH="$2"; shift 2 ;;
-        --deps) DEPS="$2"; shift 2 ;;
+        --license) [ $# -ge 2 ] || { echo "Error: --license requires a value"; exit 1; }; LICENSE="$2"; shift 2 ;;
+        --branch)  [ $# -ge 2 ] || { echo "Error: --branch requires a value"; exit 1; }; BRANCH="$2"; shift 2 ;;
+        --deps)    [ $# -ge 2 ] || { echo "Error: --deps requires a value"; exit 1; }; DEPS="$2"; shift 2 ;;
         --*) echo "Error: unknown option $1"; show_help; exit 1 ;;
         *) DEST="$1"; shift ;;
     esac
