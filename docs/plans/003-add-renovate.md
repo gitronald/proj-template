@@ -374,3 +374,10 @@ deleted its branch. Then implemented the last remaining deliverable:
 Validated: `bash -n` clean; `-h`, missing-arg, bad-`owner/repo`, and unknown-flag paths all exit
 non-zero with clear messages. The `templatehub` rename remains the only tracked follow-up and is
 explicitly out of scope for this plan.
+
+A pre-merge adversarial review of the script (security/bash/spec lenses) cleared secret handling
+and the `gh api` endpoints, and surfaced two input-hardening fixes that were applied: reject a
+stray/second positional and tighten the `owner/repo` check to `^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$`
+(so it can't silently target the wrong repo via a copy-paste slip or glob), and give the
+admin-required Dependabot toggle an actionable failure message (secrets are already set by then, so
+a re-run — optionally with `--no-dependabot-toggle` — finishes the job; every step is idempotent).

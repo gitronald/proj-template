@@ -43,7 +43,13 @@ while [[ $# -gt 0 ]]; do
         --no-dependabot-toggle) TOGGLE_DEPENDABOT=false; shift ;;
         -h|--help) show_help; exit 0 ;;
         --*) echo "Error: unknown option $1"; show_help; exit 1 ;;
-        *) REPO="$1"; shift ;;
+        *)
+            if [[ -n "$REPO" ]]; then
+                echo "Error: unexpected extra argument '$1'"
+                show_help
+                exit 1
+            fi
+            REPO="$1"; shift ;;
     esac
 done
 
@@ -53,7 +59,7 @@ if [[ -z "$REPO" ]]; then
     exit 1
 fi
 
-if [[ "$REPO" != */* ]]; then
+if [[ ! "$REPO" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then
     echo "Error: repository must be in owner/repo form (got '$REPO')"
     exit 1
 fi
@@ -84,10 +90,17 @@ gh secret set --repo "$REPO" --env-file "$ENV_FILE"
 # 2. Normalize Dependabot so only Renovate opens PRs (needs repo admin, hence the
 #    user's own gh auth rather than the least-privilege App token).
 if [[ "$TOGGLE_DEPENDABOT" == true ]]; then
-    echo "- Keeping Dependabot vulnerability alerts ON"
-    gh api -X PUT "/repos/${REPO}/vulnerability-alerts"
-    echo "- Turning Dependabot security-update PRs OFF (Renovate owns updates)"
-    gh api -X DELETE "/repos/${REPO}/automated-security-fixes"
+    # These need repo admin. If they fail, the secrets from step 1 are already set, so a
+    # re-run (optionally with --no-dependabot-toggle) finishes the job — every step here is
+    # idempotent — hence the actionable hint instead of a raw error.
+    if ! gh api -X PUT "/repos/${REPO}/vulnerability-alerts" \
+        || ! gh api -X DELETE "/repos/${REPO}/automated-security-fixes"; then
+        echo "Error: could not change Dependabot settings on ${REPO} (needs repo admin)." >&2
+        echo "Secrets are already set. Re-run with --no-dependabot-toggle to skip this step" >&2
+        echo "(Renovate still works; Dependabot security PRs just stay on), or grant admin." >&2
+        exit 1
+    fi
+    echo "- Dependabot vulnerability alerts ON, security-update PRs OFF"
 else
     echo "- Skipping Dependabot toggle (--no-dependabot-toggle)"
 fi
