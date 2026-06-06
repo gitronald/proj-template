@@ -156,6 +156,26 @@ the least-privilege App. Caveat: Renovate's alert-driven PRs vary by ecosystem, 
 conservative operator may leave Dependabot security updates on as a fallback and accept the
 occasional duplicate PR — hence the script flag to skip the toggle.
 
+### Note: pending repo rename to `templatehub`
+
+This repo is slated to be renamed `proj-template` → **`templatehub`**. GitHub auto-redirects the
+old URLs, so nothing breaks immediately, but the hardcoded references this plan introduced/touched
+should be updated as part of the rename (ideally in one dedicated rename commit, not piecemeal
+here):
+
+- `template/.github/renovate.json` — the `description` URL
+  (`github.com/gitronald/proj-template/blob/main/docs/guides/github-automation.md`). This ships
+  into every scaffolded repo, so a stale URL propagates widely — highest priority.
+- `proj-init.sh` — `REPO_URL`, the clone path/temp-dir names, and the `proj-template` mention in
+  the renovate next-steps echo.
+- `README.md` — the `raw.githubusercontent.com/gitronald/proj-template/...` install one-liners and
+  the title.
+- The guide already references the repo only by full `gitronald/proj-template` GitHub URL (chosen
+  so child repos don't dangle); those URLs follow the rename too.
+
+The enrollment skill/script (still to be built) should use the new name from the start. Out of
+scope for this plan's Renovate work — tracked here so the rename PR has the checklist.
+
 ### Open questions (resolved)
 
 - ~~Hosted app vs. self-hosted workflow~~ → **self-hosted**, and now **opt-in** per scaffold
@@ -299,3 +319,12 @@ plan:
 
 Remaining work for this plan is unchanged: implement `scripts/renovate-enroll.sh` +
 `.claude/skills/renovate-enroll/` (still **not yet implemented**).
+
+### 2026-06-06 — Noted pending repo rename to `templatehub`
+
+Recorded the upcoming `proj-template` → `templatehub` rename (see "Note: pending repo rename"
+above) and the hardcoded references it will need to sweep — most importantly the
+`gitronald/proj-template` URL in the shipped `template/.github/renovate.json`, which propagates
+into every scaffolded repo. The rename itself is out of scope for this plan; the note is a
+checklist so it isn't missed. The not-yet-built enroll skill/script should adopt the new name from
+the start.
