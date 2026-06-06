@@ -1,9 +1,9 @@
 ---
-status: in-progress
+status: active
 branch: claude/open-plan-recent-changes-vN6eW
 created: 2026-06-05T18:03:46-07:00
 completed:
-pr:
+pr: https://github.com/gitronald/proj-template/pull/16
 ---
 
 # Add security-hardened Renovate dependency automation to the template
@@ -328,3 +328,26 @@ above) and the hardcoded references it will need to sweep — most importantly t
 into every scaffolded repo. The rename itself is out of scope for this plan; the note is a
 checklist so it isn't missed. The not-yet-built enroll skill/script should adopt the new name from
 the start.
+
+### 2026-06-06 — Second review pass fixes
+
+Ran a verification pass over the whole changeset (official `renovate-config-validator`, action SHA
+pins re-resolved against upstream tags, claims cross-checked against the working tree) and applied
+the actionable findings:
+
+- **`baseBranches` → `baseBranchPatterns`** in `template/.github/renovate.json`. The validator
+  reported the config valid but flagged `baseBranches` as deprecated (auto-migrates, value
+  `["dev"]` preserved); renamed it so the shipped config doesn't propagate a deprecated key into
+  every scaffolded repo. Updated the two guide prose mentions to match.
+- **Guide onboarding wording.** Reworded the "first run" paragraph: Renovate works off the
+  repository's **default branch** (which is `dev` here only because `proj-init.sh` pushes `dev`
+  first), instead of unconditionally claiming an onboarding PR "against `dev`".
+- **`proj-init.sh` arg parser.** Added a `--*)` arm so an unknown flag errors instead of being
+  silently swallowed as the destination path (the new `--deps` flag raised the typo risk).
+- **`renovate.yml` comment.** Documented that `configurationFile` loads `renovate.json` as the
+  global config (a robustness backstop) and that the repo-config auto-discovery of the same file is
+  a benign, identical-content merge.
+- **Plan frontmatter.** `status: in-progress` (not a canonical value) → `active`; filled `pr:`.
+
+Pin/validation checks all pass; no source behavior changed beyond the parser hardening. Remaining
+work is unchanged: the enroll skill/script is still **not yet implemented**.
