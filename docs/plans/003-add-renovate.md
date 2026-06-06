@@ -1,8 +1,8 @@
 ---
-status: active
+status: done
 branch: add/renovator
 created: 2026-06-05T18:03:46-07:00
-completed:
+completed: 2026-06-05T23:51:01-07:00
 pr: https://github.com/gitronald/proj-template/pull/17
 ---
 
@@ -381,3 +381,53 @@ stray/second positional and tighten the `owner/repo` check to `^[A-Za-z0-9._-]+/
 (so it can't silently target the wrong repo via a copy-paste slip or glob), and give the
 admin-required Dependabot toggle an actionable failure message (secrets are already set by then, so
 a re-run — optionally with `--no-dependabot-toggle` — finishes the job; every step is idempotent).
+
+### 2026-06-06 — Plan-close review gate
+
+Ran the project's `/code-review` (high effort) over the full PR #17 diff as the plan-close gate;
+review posted to the PR. 10 findings triaged.
+
+**Review follow-up — fixed (3):**
+
+- `proj-init.sh`: value-taking flags (`--deps`/`--license`/`--branch`) read `$2` then `shift 2`,
+  which fails under `set -e` when the flag is the last arg — the script exited silently. Added a
+  value-presence guard per flag (`--deps` is new here, so in scope).
+- `scripts/renovate-enroll.sh`: validate the `.env` actually defines `RENOVATE_CLIENT_ID` +
+  `RENOVATE_APP_PRIVATE_KEY` (by name; values never read) before `gh secret set`, so a typo can't
+  push an incomplete secret set that fails later in the Renovate run.
+- `scripts/renovate-enroll.sh`: wrapped the first-run `gh workflow run` dispatch with an actionable
+  error (the workflow must be on the default branch; secrets/settings are already applied).
+
+**Conscious no-ops (7):** interactive prompt defaulting unrecognized input to dependabot; the
+intended new TTY prompt; prune-by-path (paths verified, future drift is maintainer-caught);
+`baseBranchPatterns: ["dev"]` (deliberate, matches the dev-centric template); the PUT/DELETE
+short-circuit (both need admin, message accurate, idempotent re-run); repo creation/default-branch
+handled by `stanza init` (pre-existing, out of scope).
+
+**Process note:** while validating the enroll script I mistakenly used the help-text example
+`gitronald/gdrive` as a live target; with `gh` authenticated it ran for real, pushing two bogus
+secrets and disabling that repo's Dependabot security-update PRs. Reverted immediately (secrets
+deleted, `automated-security-fixes` re-enabled, alerts left on) — no effect on this plan's
+deliverables.
+
+## Retrospective
+
+- **Direction changed mid-flight, for the better.** The plan began as a Dependabot→Renovate
+  *migration* but landed as an opt-in `--deps` scaffold choice (both updaters ship; one is kept).
+  Keeping Dependabot as the zero-setup default avoided imposing Renovate's one-time App/secrets
+  setup on every scaffolded project.
+- **Security-first defaults drove every config decision** — no auto-merge, 5-day cooldown, `digest`
+  disabled for workflows, least-privilege App token, SHA-pinned actions — grounded in the
+  GitGuardian supply-chain writeup. A good house pattern for any bot that opens PRs.
+- **Validate config with the real tool, not memory.** `renovate-config-validator` caught the
+  `baseBranches`→`baseBranchPatterns` deprecation that doc/review passes missed; for anything
+  shipped into every scaffolded repo, run the official validator.
+- **The enroll step is the residual friction.** Self-hosted Renovate needs a one-time GitHub App +
+  per-repo secrets; `renovate-enroll.sh` + the skill reduce per-repo enrollment to one command, but
+  App creation is still a manual browser step (no `gh app create`).
+- **Scripts that mutate remote state need inert test targets.** A live `owner/repo` example in help
+  text is a foot-gun when the script is exercised against it; use an obviously-nonexistent
+  placeholder and never run the success path against a real repo during validation.
+- **Follow-up still open:** the `proj-template`→`templatehub` rename (the hard-coded URL in the
+  shipped `renovate.json` is the highest-priority sweep), tracked above and deliberately out of
+  scope here.
