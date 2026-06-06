@@ -81,12 +81,59 @@ the defaults below are tuned for security first.
 
 ### Setup in a scaffolded project
 
-1. Create a GitHub App (or org App) with least-privilege repo permissions: Contents (RW), Pull
-   requests (RW), Workflows (RW only if Renovate should touch workflow files), and read access to
-   metadata. Install it on the repo.
-2. Add two repository secrets: `RENOVATE_APP_ID` and `RENOVATE_APP_PRIVATE_KEY` (the App's PEM).
-3. Leave GitHub's Dependabot vulnerability **alerts** enabled (see below). Renovate runs on the
-   weekly cron, or trigger it on demand from the Actions tab.
+The runner needs a GitHub App you own to mint a short-lived, least-privilege token at run time
+(this is what makes Renovate's PRs trigger CI — see above). Creating the App is a one-time
+browser step; the rest is `gh`. The App is reusable across repos under the same account — create
+it once, then for each new repo just do steps 4–5 (install + secrets).
+
+**1. Create the App** *(github.com UI — there is no `gh app create`)*
+
+- Personal: **Settings → Developer settings → GitHub Apps → New GitHub App**
+  (org-owned: **Org → Settings → Developer settings → GitHub Apps → New GitHub App**).
+- **GitHub App name** — anything unique (e.g. `myname-renovate`); **Homepage URL** — the repo URL
+  is fine.
+- **Webhook** — **uncheck "Active"**. Renovate is pulled by the cron; it needs no webhook.
+- **Repository permissions** (least privilege):
+  - **Contents: Read and write**
+  - **Pull requests: Read and write**
+  - **Workflows: Read and write** — *only* if Renovate should update files under
+    `.github/workflows/`; omit otherwise.
+  - **Metadata: Read-only** (auto-selected).
+- **Where can this GitHub App be installed?** — "Only on this account".
+- Click **Create GitHub App**, then note the **App ID** shown at the top of the App's settings
+  page.
+
+**2. Generate a private key** *(UI)*
+
+- On the App's settings page → **Private keys → Generate a private key**. A `.pem` file
+  downloads — keep it secret; treat it like a password.
+
+**3. Install the App** *(UI)*
+
+- App settings → **Install App** → choose the account → **Only select repositories** → pick the
+  scaffolded repo → **Install**.
+
+**4. Store the two secrets** *(`gh`)*
+
+```bash
+gh secret set RENOVATE_APP_ID --repo OWNER/REPO --body "123456"
+gh secret set RENOVATE_APP_PRIVATE_KEY --repo OWNER/REPO < path/to/renovate-app.pem
+```
+
+**5. Run it** *(`gh`, or wait for the Monday cron)*
+
+```bash
+gh workflow run renovate.yml --repo OWNER/REPO
+```
+
+The first run opens a "Configure Renovate" onboarding PR against `dev`; merge it to activate.
+Leave GitHub's Dependabot vulnerability **alerts** enabled alongside this (see below).
+
+> **Simpler alternative — a fine-grained PAT.** Instead of an App you can store a fine-grained
+> personal access token (Contents + Pull requests RW on the repo) as a single `RENOVATE_TOKEN`
+> secret and pass it as `token:` in `renovate.yml`. It is still UI-created but skips the App
+> install dance. The trade-off is a longer-lived credential tied to a user account with a wider
+> blast radius — fine for low-stakes repos, weaker than the App for anything shared.
 
 To reinforce the cooldown at the resolver layer, you can pin `uv`'s `exclude-newer` to a recent
 timestamp so a local `uv add`/`uv lock` can't pull a release younger than your cutoff. It takes a
