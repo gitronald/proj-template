@@ -135,6 +135,58 @@ Leave GitHub's Dependabot vulnerability **alerts** enabled alongside this (see b
 > install dance. The trade-off is a longer-lived credential tied to a user account with a wider
 > blast radius — fine for low-stakes repos, weaker than the App for anything shared.
 
+### Reusing one App across repos
+
+One App (one App ID + one private key) can back **every** repo with this structure — you create
+it once and install it on as many repos as you like. The minted runtime token is still scoped to
+the one repo running the workflow, so a shared key is not a shared blast radius. There are two
+ways to distribute the credentials.
+
+**Org repos — set the secrets once at the org.** No per-repo step; every repo in scope inherits
+them:
+
+```bash
+gh secret set RENOVATE_APP_ID          --org YOUR_ORG --visibility all --body "123456"
+gh secret set RENOVATE_APP_PRIVATE_KEY --org YOUR_ORG --visibility all < path/to/renovate-app.pem
+```
+
+**Personal repos — cache the credentials once, then one command per repo.** Personal accounts
+have no shared-secret mechanism, so stash the two values in a local dotenv file and feed it to
+`gh secret set --env-file`, which sets every `NAME=value` in the file in a single call. Build the
+file once from the downloaded key (the private key must be a double-quoted, real-multi-line value
+so gh's dotenv parser keeps it intact):
+
+```bash
+mkdir -p ~/.config/renovate && chmod 700 ~/.config/renovate
+{
+  echo 'RENOVATE_APP_ID=123456'
+  printf 'RENOVATE_APP_PRIVATE_KEY="%s"\n' "$(cat ~/Downloads/your-app.*.private-key.pem)"
+} > ~/.config/renovate/.env
+chmod 600 ~/.config/renovate/.env
+```
+
+Then enrolling any new repo is one command:
+
+```bash
+gh secret set --repo OWNER/REPO --env-file ~/.config/renovate/.env
+```
+
+Notes:
+
+- The file holds App credentials — `chmod 600` it (and `700` the dir, as above), and keep it out
+  of any tracked dotfiles repo. For stronger hygiene, read the key from a secrets manager (1Password
+  `op read`, `pass`, macOS Keychain) at enroll time instead of leaving it on disk.
+- `--env-file` stores each value **verbatim**, so put the real PEM in the file, not base64 (a
+  base64 value would force a decode step into `renovate.yml`). Keep the file to *only* these two
+  vars — every line becomes a secret.
+- If an older `gh` chokes on the multi-line quoted value, fall back to the two-command form from
+  step 4 (`--body` for the ID, `< app.pem` redirect for the key).
+
+> **Coming as a skill.** The per-repo enroll step (`gh secret set --env-file …`, plus installing
+> the App and kicking the first run) will be wrapped in a Claude Code skill backed by a small
+> script, so enrolling a freshly scaffolded repo is a single invocation rather than a manual
+> checklist. This guide stays the source of truth for what that script does and why.
+
 To reinforce the cooldown at the resolver layer, you can pin `uv`'s `exclude-newer` to a recent
 timestamp so a local `uv add`/`uv lock` can't pull a release younger than your cutoff. It takes a
 fixed date, so it is left **out of the template default** (a frozen timestamp would rot); adopt it
