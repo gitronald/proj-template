@@ -208,3 +208,23 @@ updated `CHANGELOG.md` and `TODO.md`.
   `scripts/renovate-enroll.sh`. Maintainer tooling in the parent repo, not the `template/`
   payload. The guide currently carries a "Coming as a skill" callout to be flipped once it lands.
   **Not yet implemented** — tracked as the remaining work for this plan.
+
+### 2026-06-06 — Direction change: keep Dependabot, make the updater a scaffold-time choice
+
+Superseding the original "migration" framing (remove Dependabot, replace with Renovate): the
+template now **ships both** and `proj-init.sh` picks one at scaffold time, so Renovate's one-time
+App/secrets setup is opt-in rather than imposed on every new project.
+
+- **Restored** `template/.github/dependabot.yml` to the payload (it is no longer removed).
+- **`proj-init.sh`** gains `--deps dependabot|renovate` (default `dependabot`), with an
+  interactive prompt when no flag is given and stdin is a TTY. After copying the payload it keeps
+  only the chosen tool's files and deletes the other (`dependabot.yml` *or*
+  `renovate.json` + `workflows/renovate.yml`), so a scaffolded repo runs exactly one updater.
+  When `renovate` is chosen it prints the one-time App/secrets next-steps.
+- **Guide** reframed: the dependency-updates section now documents the choice, with a Dependabot
+  (default) subsection and the Renovate (opt-in) decision record; both assume native Dependabot
+  alerts stay on.
+- **CHANGELOG** entry reworded from "replacing" to an opt-in `--deps` choice with Dependabot as
+  the default.
+- The enrollment skill/script (above) still applies — it is the opt-in Renovate path's
+  per-repo helper. Still **not yet implemented**.

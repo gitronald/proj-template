@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Self-hosted Renovate dependency automation in the template payload (`renovate.json` + a scheduled `renovate.yml`), replacing the Dependabot *updates* config. Defaults are security-hardened: `dev`-targeted PRs, per-ecosystem grouping, a 5-day release cooldown (`minimumReleaseAge` with `timestamp-required`), no auto-merge, no silent action-digest mutation in workflows, and a least-privilege GitHub App token so update PRs trigger CI.
+- Optional self-hosted Renovate dependency automation as a scaffold-time choice (`proj-init.sh --deps dependabot|renovate`, default `dependabot`). Choosing `renovate` ships `renovate.json` + a scheduled `renovate.yml` instead of `dependabot.yml`, with security-hardened defaults: `dev`-targeted PRs, per-ecosystem grouping, a 5-day release cooldown (`minimumReleaseAge` with `timestamp-required`), no auto-merge, no silent action-digest mutation in workflows, and a least-privilege GitHub App token so update PRs trigger CI. Dependabot remains the zero-setup default.
 
 ### Changed
 

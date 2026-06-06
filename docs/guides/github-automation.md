@@ -9,7 +9,7 @@ point back here.
 |------|---------|--------------|
 | [`workflows/test.yml`](../../template/.github/workflows/test.yml) | Push or PR to `dev` or `main` | Installs deps with `uv`, then runs ruff lint, `ruff format --check`, `pyrefly check`, and `pytest --cov` across Python 3.11–3.14 |
 | [`workflows/publish.yml`](../../template/.github/workflows/publish.yml) | Push of a `v*` tag | Builds the wheel and publishes to PyPI via Trusted Publishing — skipped unless the `PUBLISH_ENABLED` repository variable is `true` |
-| [`renovate.json`](../../template/.github/renovate.json) + [`workflows/renovate.yml`](../../template/.github/workflows/renovate.yml) | Weekly cron + manual | Self-hosted Renovate: grouped, `dev`-targeted dependency-update PRs with a release cooldown and ongoing action SHA-pinning |
+| [`dependabot.yml`](../../template/.github/dependabot.yml) **or** [`renovate.json`](../../template/.github/renovate.json) + [`workflows/renovate.yml`](../../template/.github/workflows/renovate.yml) | Weekly | Dependency-update PRs — **pick one at scaffold time** (`--deps`). Dependabot (default, zero setup) or self-hosted Renovate (opt-in, stronger hardening) |
 
 ## Tests (`test.yml`)
 
@@ -24,11 +24,37 @@ Tag pushes (`v*`) build the wheel and publish to PyPI via Trusted Publishing (OI
 tokens). It is disabled by default until you opt in. See [Trusted Publishers](trusted-publishers.md)
 for the full setup — the PyPI publisher, the `pypi` environment, and the `PUBLISH_ENABLED` switch.
 
-## Dependency updates (`renovate.json` + `renovate.yml`)
+## Dependency updates — Dependabot or Renovate
 
-Scaffolded projects use [Renovate](https://docs.renovatebot.com) for dependency updates, run
-**self-hosted** from a scheduled workflow. This section is the decision record for that choice;
-the shipped [`renovate.json`](../../template/.github/renovate.json) points back here.
+Dependency-update automation is a **choice made when scaffolding** (`proj-init.sh --deps`):
+
+- **`dependabot` (default)** — GitHub-native, zero setup. Ships `.github/dependabot.yml`.
+- **`renovate` (opt-in)** — self-hosted Renovate with stronger supply-chain hardening, but it
+  needs a one-time GitHub App + repo secrets before it runs. Ships `.github/renovate.json` and
+  `.github/workflows/renovate.yml`.
+
+`proj-init.sh` keeps only the chosen tool's files and removes the other, so a scaffolded repo runs
+exactly one updater. Pass `--deps renovate` (or pick it at the interactive prompt) to opt in; omit
+it for the Dependabot default. This section is the decision record for both, and the shipped
+config files point back here.
+
+> Both options assume GitHub's Dependabot vulnerability **alerts** stay enabled (see the end of
+> this section) — alerts are a repo setting independent of which updater opens PRs.
+
+### Dependabot (default)
+
+`dependabot.yml` opens dependency-update PRs weekly, **grouped per ecosystem** — at most one PR
+for `uv` (Python) deps and one for `github-actions`, not one per package. Grouping only takes
+effect once `dependabot.yml` reaches the repository's **default branch** (Dependabot reads its
+config from there), and PRs target that default branch. Zero setup: GitHub runs it natively, no
+token or workflow required. The trade-offs that motivate the Renovate option — no release
+cooldown, can't target `dev` directly, doesn't keep action SHA pins current — are spelled out
+below.
+
+### Renovate (opt-in)
+
+If you scaffold with `--deps renovate`, the project uses [Renovate](https://docs.renovatebot.com)
+run **self-hosted** from a scheduled workflow instead of Dependabot.
 
 ### Why automate at all — and why the hardening is non-optional
 
