@@ -47,6 +47,7 @@ while [[ $# -gt 0 ]]; do
         --license) LICENSE="$2"; shift 2 ;;
         --branch) BRANCH="$2"; shift 2 ;;
         --deps) DEPS="$2"; shift 2 ;;
+        --*) echo "Error: unknown option $1"; show_help; exit 1 ;;
         *) DEST="$1"; shift ;;
     esac
 done
