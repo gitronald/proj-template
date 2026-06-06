@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - Optional self-hosted Renovate dependency automation as a scaffold-time choice (`proj-init.sh --deps dependabot|renovate`, default `dependabot`). Choosing `renovate` ships `renovate.json` + a scheduled `renovate.yml` instead of `dependabot.yml`, with security-hardened defaults: `dev`-targeted PRs, per-ecosystem grouping, a 5-day release cooldown (`minimumReleaseAge` with `timestamp-required`), no auto-merge, no silent action-digest mutation in workflows, and a least-privilege GitHub App token so update PRs trigger CI. Dependabot remains the zero-setup default.
+- Maintainer tooling to enroll a scaffolded repo in self-hosted Renovate in one step: `scripts/renovate-enroll.sh <owner/repo>` (and the `renovate-enroll` skill) pushes the GitHub App secrets from a local `.env`, keeps Dependabot vulnerability alerts on while turning its security-update PRs off so only Renovate opens PRs (`--no-dependabot-toggle` to skip), and triggers the first Renovate run. Not shipped into scaffolded projects.
 
 ### Changed
 

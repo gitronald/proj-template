@@ -219,10 +219,12 @@ Notes:
 - If an older `gh` chokes on the multi-line quoted value, fall back to the two-command form from
   step 4 (`--body` for the ID, `< app.pem` redirect for the key).
 
-> **Coming as a skill.** The per-repo enroll step (`gh secret set --env-file …`, plus installing
-> the App and kicking the first run) will be wrapped in a Claude Code skill backed by a small
-> script, so enrolling a freshly scaffolded repo is a single invocation rather than a manual
-> checklist. This guide stays the source of truth for what that script does and why.
+> **Wrapped in a skill.** The per-repo enroll step is automated by `scripts/renovate-enroll.sh`
+> (and the `renovate-enroll` skill): it pushes the two secrets from your `.env`, keeps Dependabot
+> vulnerability alerts on while turning its security-update PRs off so only Renovate opens PRs
+> (`--no-dependabot-toggle` to skip), and triggers the first run. Enroll a repo with
+> `scripts/renovate-enroll.sh <owner/repo>`. This guide stays the source of truth for what it
+> does and why.
 
 To reinforce the cooldown at the resolver layer, you can pin `uv`'s `exclude-newer` to a recent
 timestamp so a local `uv add`/`uv lock` can't pull a release younger than your cutoff. It takes a
