@@ -1,6 +1,6 @@
 ---
-status: draft
-branch: feature/add-renovate
+status: in-progress
+branch: claude/open-plan-recent-changes-vN6eW
 created: 2026-06-05T18:03:46-07:00
 completed:
 pr:
@@ -117,3 +117,57 @@ to. (The original ask said `docs/guide/...`; using the existing plural `docs/gui
 - GitGuardian — Renovate & Dependabot: The New Malware Delivery System:
   <https://blog.gitguardian.com/renovate-dependabot-the-new-malware-delivery-system/>
 - Renovate docs: <https://docs.renovatebot.com>
+
+## Log
+
+### 2026-06-06 — Review and implementation
+
+Reviewed the plan against the current repo state, resolved the open questions, and implemented.
+
+**State at review time (some groundwork already landed in `eb4465e`):**
+
+- The `template/.github/` payload ships `dependabot.yml` (grouped `uv` + `github-actions`
+  updates) and SHA-pinned `test.yml` / `publish.yml`. No `uv.lock` is committed — Python deps
+  live in `pyproject.toml` `[project.dependencies]` + `[dependency-groups]`.
+- `docs/guides/github-automation.md` already exists and already had a "Planned: migration to
+  Renovate" section, so the guide is *updated into* the decision record rather than created.
+
+**Open questions — resolved:**
+
+- **Hosted vs. self-hosted → self-hosted.** Config travels with the repo and the trust boundary
+  stays in-house, which is what a template wants. Ship `renovate.json` + a scheduled
+  `renovate.yml`.
+- **Automerge → none.** No automerge keys anywhere; every bot PR requires human review. This is
+  the central GitGuardian mitigation (the axios incident auto-merged 95 PRs with no human).
+- **Cooldown → 5 days**, with `minimumReleaseAgeBehaviour: "timestamp-required"`. Verified
+  against current docs: `timestamp-required` is real (added in Renovate `41.150.0`, the default
+  in v42). Its effect is *fail-closed* — updates lacking a release timestamp (some GitHub Action
+  digest updates do) are held in "Pending" on the Dependency Dashboard instead of being raised
+  silently. That is the desired safe behavior, documented in the guide.
+- **uv-lock maturity.** The `pep621` manager covers `pyproject.toml` deps including
+  `[dependency-groups]` (`matchManagers: ["pep621"]`); the separate `uv` lockfile manager is
+  irrelevant here because the template commits no `uv.lock`.
+
+**Config keys verified against current Renovate docs/discussions** (docs.renovatebot.com 403s to
+WebFetch, so confirmed via WebSearch + the renovate GitHub discussions): `minimumReleaseAge`,
+`minimumReleaseAgeBehaviour=timestamp-required`, and the `pep621` manager name.
+
+**Action SHAs** resolved via `git ls-remote` (both lightweight tags):
+`renovatebot/github-action` v46.1.14 → `693b9ef15eec82123529a37c782242f091365961`;
+`actions/create-github-app-token` v3.2.0 → `bcd2ba49218906704ab6c1aa796996da409d3eb1`.
+
+**Two deliberate deviations from the plan text:**
+
+1. **No frozen `uv` `exclude-newer` baked into the template.** `exclude-newer` takes a fixed
+   timestamp, so committing one would silently freeze *all* dependency resolution at a fixed
+   date in every scaffolded project and rot immediately. The cooldown is enforced at the
+   Renovate layer (`minimumReleaseAge`) instead; `exclude-newer` is documented in the guide as
+   an opt-in reinforcement rather than a shipped default.
+2. **The shipped `renovate.json` references the guide by full GitHub URL, not a relative path.**
+   The guide is parent/maintainer-only (not shipped into children), so a relative
+   `docs/guides/...` pointer would dangle in every scaffolded repo.
+
+**Files changed:** removed `template/.github/dependabot.yml`; added
+`template/.github/renovate.json` and `template/.github/workflows/renovate.yml`; rewrote the
+dependency-updates section of `docs/guides/github-automation.md` into the decision record;
+updated `CHANGELOG.md` and `TODO.md`.

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Self-hosted Renovate config. Rationale and setup: https://github.com/gitronald/proj-template/blob/main/docs/guides/github-automation.md",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "baseBranches": ["dev"],
+  "minimumReleaseAge": "5 days",
+  "minimumReleaseAgeBehaviour": "timestamp-required",
+  "dependencyDashboard": true,
+  "packageRules": [
+    {
+      "description": "Group all Python (pyproject.toml) updates into a single PR",
+      "matchManagers": ["pep621"],
+      "groupName": "python"
+    },
+    {
+      "description": "Group all GitHub Actions updates into a single PR",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions"
+    },
+    {
+      "description": "Block silent digest-only mutation of already-pinned actions in workflows; version bumps still flow (and update the visible # vX.Y.Z comment)",
+      "matchFileNames": [".github/workflows/**"],
+      "matchUpdateTypes": ["pinDigest"],
+      "enabled": false
+    }
+  ]
+}

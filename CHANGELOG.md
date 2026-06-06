@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Self-hosted Renovate dependency automation in the template payload (`renovate.json` + a scheduled `renovate.yml`), replacing the Dependabot *updates* config. Defaults are security-hardened: `dev`-targeted PRs, per-ecosystem grouping, a 5-day release cooldown (`minimumReleaseAge` with `timestamp-required`), no auto-merge, no silent action-digest mutation in workflows, and a least-privilege GitHub App token so update PRs trigger CI.
+
 ### Changed
 
 - Disable the template's PyPI publish workflow by default; it now runs only when the `PUBLISH_ENABLED` repository variable is set to `true`.
