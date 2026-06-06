@@ -22,7 +22,7 @@ show_help() {
     echo "  3. Trigger the first Renovate run (renovate.yml)."
     echo ""
     echo "Arguments:"
-    echo "  owner/repo              Target repository (e.g., gitronald/gdrive)"
+    echo "  owner/repo              Target repository (e.g., account/repo)"
     echo ""
     echo "Options:"
     echo "  --no-dependabot-toggle  Skip step 2 (leave Dependabot settings untouched)"
