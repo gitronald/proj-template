@@ -11,10 +11,12 @@ pr:
 ## Plan
 
 Add [Renovate](https://docs.renovatebot.com) as the default dependency-update automation
-for `proj-template`. The repo currently has **no `.github/` directory** — no workflows and
-no `dependabot.yml` — so this is greenfield, not a migration. Because this is the **template**,
-whatever lands here propagates to every project scaffolded from it, so the security posture
-matters more than for a single repo: a weak default is inherited everywhere.
+for `proj-template`. The scaffold payload under `template/` **already ships
+`template/.github/dependabot.yml` plus `test.yml`/`publish.yml` workflows** — that payload is
+what `proj-init.sh` copies into each new project's `.github/`. So this is a **migration** (replace
+the payload's Dependabot *updates* config with Renovate), not greenfield. Because it lives in the
+template, whatever lands here propagates to every project scaffolded from it, so the security
+posture matters more than for a single repo: a weak default is inherited everywhere.
 
 ### Why Renovate over Dependabot
 
@@ -35,11 +37,18 @@ comparison.
 Lean: **self-hosted**, because a template benefits from config that travels with the repo and
 from keeping the trust boundary in-house. Confirm before implementing.
 
-### Files to add
+### Files to change (in the `template/` payload, so scaffolded projects inherit them)
 
-- `.github/renovate.json` — config (baseline below).
-- `.github/workflows/renovate.yml` — scheduled self-hosted run (weekly cron + `workflow_dispatch`),
-  using a scoped GitHub App token from secrets.
+- **Remove** `template/.github/dependabot.yml` — its *updates* role is replaced by Renovate
+  (Dependabot security **alerts** are a repo setting and stay; see below).
+- **Add** `template/.github/renovate.json` — config (baseline below).
+- **Add** `template/.github/workflows/renovate.yml` — scheduled self-hosted run (weekly cron +
+  `workflow_dispatch`), using a scoped GitHub App token from secrets.
+- **Leave** `template/.github/workflows/{test,publish}.yml` as-is — Renovate keeps their `uses:`
+  pins current via `helpers:pinGitHubActionDigests`.
+
+(Paths *inside* the shipped `renovate.json` — `baseBranches: ["dev"]`, `.github/workflows/**` —
+are relative to the scaffolded child project, where `.github/` sits at the repo root.)
 
 ### Baseline config (house conventions)
 
@@ -79,23 +88,23 @@ GitHub's Dependabot vulnerability **alerts** are a repo-setting, independent of 
 update PRs. Renovate handling the updates does not disable them — leave them enabled for the
 native advisory surface.
 
-### Documentation: `docs/guides/github-automation.md`
+### Documentation: `docs/guides/github-automation.md` (parent docs, not the payload)
 
-Write a reference guide (alongside the existing `docs/guides/pre-commit.md` and
-`trusted-publishers.md`) that records the **final** decisions and the reasoning behind them, so
-derived projects inherit the *why*, not just the config. It covers:
+Write a reference guide in proj-template's **own** `docs/guides/` — the parent/maintainer docs,
+alongside `pre-commit.md` and `trusted-publishers.md` — **not** `template/docs/guides/`. It's the
+template's decision record, so it stays in the parent and is not shipped into every scaffolded
+project. It records the **final** choices and the reasoning behind them:
 
 - **Motivation** — why automate dependency updates, and the supply-chain risk that makes the
   hardening non-optional (summarize the GitGuardian findings + link).
 - **Options considered** — Dependabot vs. Renovate; hosted app vs. self-hosted workflow; the
   tradeoffs of each.
-- **Final choice** — what the template ships and why, with the security defaults (cooldown,
+- **Final choice** — what the payload ships and why, with the security defaults (cooldown,
   no auto-merge, no workflow digest mutation, least-privilege token, CI on bot PRs) and their
   justification.
 
-Treat it as the canonical reference that the `renovate.json` / workflow comments point back to.
-(The original ask said `docs/guide/...`; using the existing plural `docs/guides/` to match
-`pre-commit.md` and `trusted-publishers.md`.)
+Treat it as the canonical reference the payload's `renovate.json` / workflow comments point back
+to. (The original ask said `docs/guide/...`; using the existing plural `docs/guides/`.)
 
 ### Open questions
 
