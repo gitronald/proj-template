@@ -115,13 +115,20 @@ maintainer tool — it lives in proj-template's **own** repo, not in the `templa
 is not shipped into scaffolded projects.
 
 - **Script** — `scripts/renovate-enroll.sh` (new top-level `scripts/` dir). Takes `OWNER/REPO`,
-  reads credentials from `${RENOVATE_CONFIG_DIR:-$HOME/.config/renovate}/.env`, and:
+  reads credentials from `${RENOVATE_CONFIG_DIR:-$HOME/.config/renovate}/.env` (keys
+  `RENOVATE_CLIENT_ID` + `RENOVATE_APP_PRIVATE_KEY`), and:
   1. sets the repo secrets via `gh secret set --repo OWNER/REPO --env-file "$envfile"`,
-  2. triggers the first run via `gh workflow run renovate.yml --repo OWNER/REPO`.
+  2. normalizes the repo's native Dependabot state so Renovate is the only bot opening PRs
+     (see "Dependabot coexistence" below) — `gh api -X PUT  /repos/OWNER/REPO/vulnerability-alerts`
+     (keep advisory alerts on) and `gh api -X DELETE /repos/OWNER/REPO/automated-security-fixes`
+     (turn off Dependabot's *security-update PRs*). Make this step opt-out via a flag
+     (e.g. `--no-dependabot-toggle`), since it needs repo **admin** rights the Renovate App
+     deliberately lacks — so it runs under the user's own `gh` auth, not the App token.
+  3. triggers the first run via `gh workflow run renovate.yml --repo OWNER/REPO`.
   - Holds **no secrets itself** — only orchestration; the `.env` stays on the user's machine.
-  - Preconditions: `gh` authenticated, the App already created + installed on the target repo,
-    and the `.env` present. Fail clearly (non-zero, usage message) when any is missing; never
-    print secret values.
+  - Preconditions: `gh` authenticated (with admin on the repo if step 2 is enabled), the App
+    already created + installed on the target repo, and the `.env` present. Fail clearly
+    (non-zero, usage message) when any is missing; never print secret values.
   - Keep it POSIX-ish `sh`/`bash`, `set -euo pipefail`, and small.
 - **Skill** — `.claude/skills/renovate-enroll/SKILL.md` (project skill). Thin wrapper that
   invokes the script for a given repo and reports the result; description triggers on "enroll a
@@ -129,11 +136,33 @@ is not shipped into scaffolded projects.
 - **Docs** — flip the guide's "Coming as a skill" callout to document the shipped skill + script
   once they land.
 
-### Open questions
+### Dependabot coexistence (when the Renovate option is chosen)
 
-- Hosted app vs. self-hosted workflow (lean self-hosted — confirm).
-- Renovate uv-lock support maturity.
-- Automerge policy (lean: none) and exact cooldown window (5 days vs. 3).
+"Dependabot" is three independent features; removing `dependabot.yml` only disables the first:
+
+1. **Version updates** — routine "keep deps current" PRs, driven by `.github/dependabot.yml`.
+   With `--deps renovate`, `proj-init.sh` doesn't ship that file, so these never appear.
+2. **Vulnerability alerts** — advisory notifications in the Security tab (**not** PRs); a
+   repo-level setting (`/repos/{o}/{r}/vulnerability-alerts`). **Keep ON** — Renovate consumes
+   this data to raise prioritized security-fix PRs (and bypasses the cooldown for them).
+3. **Security updates** — auto-fix **PRs** for known vulns; a separate repo-level setting
+   (`/repos/{o}/{r}/automated-security-fixes`). **Turn OFF** when using Renovate, otherwise both
+   bots open PRs for the same CVE. Renovate then owns *all* PRs (routine + security).
+
+Desired end state for a Renovate repo: alerts **on**, Dependabot security-update PRs **off**,
+Renovate opens everything. Both toggles are repo settings reachable via `gh api` (need repo
+**admin**), which is why the enrollment script does them under the user's `gh` auth rather than
+the least-privilege App. Caveat: Renovate's alert-driven PRs vary by ecosystem, so a more
+conservative operator may leave Dependabot security updates on as a fallback and accept the
+occasional duplicate PR — hence the script flag to skip the toggle.
+
+### Open questions (resolved)
+
+- ~~Hosted app vs. self-hosted workflow~~ → **self-hosted**, and now **opt-in** per scaffold
+  (`--deps renovate`); Dependabot stays the default.
+- ~~Renovate uv-lock support maturity~~ → moot; `pep621` manager covers `pyproject.toml`, no
+  `uv.lock` is committed.
+- ~~Automerge policy / cooldown window~~ → **no auto-merge**, **5-day** `minimumReleaseAge`.
 
 ## References
 
@@ -248,3 +277,25 @@ All six review comments were valid; applied:
   is a version-update protection; `digest`/`pinDigest` coverage is limited and not relied on —
   GitHub Actions are guarded by the `digest`-disable rule instead.
 - **`show_help` usage line** now includes `--branch` (was omitted).
+
+### 2026-06-06 — Captured Dependabot-coexistence model + enroll-script scope
+
+From the review discussion, recorded the operational details that were decided but not yet in the
+plan:
+
+- Added a **"Dependabot coexistence"** subsection: Dependabot is three independent features —
+  *version updates* (the `dependabot.yml` file, dropped under `--deps renovate`), *vulnerability
+  alerts* (repo setting, **keep on** — Renovate reads them), and *security-update PRs* (repo
+  setting, **turn off** so the two bots don't both PR the same CVE). Desired Renovate end state:
+  alerts on, Dependabot security PRs off, Renovate owns all PRs.
+- Expanded the **enrollment-script spec** with a step 2 that normalizes that state via
+  `gh api` (`PUT vulnerability-alerts`, `DELETE automated-security-fixes`). Flagged that these
+  need repo **admin** — so they run under the user's own `gh` auth, not the least-privilege App
+  token — and made the step opt-out (`--no-dependabot-toggle`) for operators who prefer to keep
+  Dependabot security updates as a fallback (Renovate's alert-driven PRs vary by ecosystem).
+  Also pinned the `.env` key names to `RENOVATE_CLIENT_ID` + `RENOVATE_APP_PRIVATE_KEY`.
+- Marked the **Open questions** resolved (self-hosted + opt-in; pep621 covers deps; no auto-merge;
+  5-day cooldown).
+
+Remaining work for this plan is unchanged: implement `scripts/renovate-enroll.sh` +
+`.claude/skills/renovate-enroll/` (still **not yet implemented**).
