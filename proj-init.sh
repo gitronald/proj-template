@@ -13,7 +13,7 @@ VERSION_FILE="$SCRIPT_DIR/VERSION"
 REPO_URL="https://github.com/gitronald/proj-template.git"
 
 show_help() {
-    echo "Usage: proj-init.sh [--license <key>] [--deps <tool>] <path>"
+    echo "Usage: proj-init.sh [--license <key>] [--branch <name>] [--deps <tool>] <path>"
     echo ""
     echo "  path     Target directory (e.g., ~/repos/gdrive)"
     echo "           Basename becomes the package name."
@@ -142,7 +142,7 @@ echo "  cd ${DEST}"
 if [ "$DEPS" = "renovate" ]; then
     echo ""
     echo "Renovate selected — one-time setup before it runs:"
-    echo "  - Create/install a GitHub App, then add the RENOVATE_APP_ID and"
+    echo "  - Create/install a GitHub App, then add the RENOVATE_CLIENT_ID and"
     echo "    RENOVATE_APP_PRIVATE_KEY repo secrets."
     echo "  - See the Setup section of docs/guides/github-automation.md in proj-template."
 fi

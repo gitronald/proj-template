@@ -228,3 +228,23 @@ App/secrets setup is opt-in rather than imposed on every new project.
   the default.
 - The enrollment skill/script (above) still applies — it is the opt-in Renovate path's
   per-repo helper. Still **not yet implemented**.
+
+### 2026-06-06 — PR #16 review fixes (Copilot reviewer)
+
+All six review comments were valid; applied:
+
+- **`client-id`, not `app-id`.** Confirmed via the action's `action.yml` at v3.2.0 that `app-id`
+  carries `deprecationMessage: "Use 'client-id' instead."`. Switched `renovate.yml` to
+  `client-id`, renamed the secret `RENOVATE_APP_ID` → `RENOVATE_CLIENT_ID`, and updated the guide
+  (capture the App's **Client ID** from General settings) + the org/env-file recipes +
+  `proj-init.sh` next-steps.
+- **`digest` vs `pinDigest`.** The silent-SHA-mutation threat (re-pointing an already-pinned
+  action under the same tag) is the `digest` update type; `pinDigest` only pins unpinned actions.
+  Changed the workflow rule to disable `digest` (was `pinDigest`) and corrected its description;
+  `helpers:pinGitHubActionDigests` still pins newly added unpinned actions.
+- **`inputs` context on schedule.** `inputs.logLevel` is only populated on `workflow_dispatch`;
+  switched to `github.event.inputs.logLevel || 'info'`, which resolves safely on cron runs.
+- **Overstated cooldown guarantee.** Softened the guide: `minimumReleaseAge`/`timestamp-required`
+  is a version-update protection; `digest`/`pinDigest` coverage is limited and not relied on —
+  GitHub Actions are guarded by the `digest`-disable rule instead.
+- **`show_help` usage line** now includes `--branch` (was omitted).

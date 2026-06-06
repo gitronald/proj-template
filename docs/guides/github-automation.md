@@ -86,14 +86,19 @@ the defaults below are tuned for security first.
 - **Grouping** — one PR for Python (`pep621`) deps, one for `github-actions`.
 - **Release cooldown** — `minimumReleaseAge: "5 days"` with
   `minimumReleaseAgeBehaviour: "timestamp-required"`. The cooldown gives a compromised release
-  time to be caught and yanked before it can land. `timestamp-required` *fails closed*: an update
-  with no verifiable release timestamp is held in **Pending** on the Dependency Dashboard rather
-  than raised silently — so action updates that lack a timestamp wait for a manual nudge.
+  time to be caught and yanked before it can land. `timestamp-required` *fails closed*: a
+  package-version update with no verifiable release timestamp is held in **Pending** on the
+  Dependency Dashboard rather than raised silently. (Note: `minimumReleaseAge` support is geared
+  to version updates from datasources that expose timestamps; coverage for `digest`/`pinDigest`
+  update types is limited and shouldn't be relied on as a guarantee for GitHub Actions — those are
+  handled by the next rule instead.)
 - **No auto-merge** — there are no automerge rules; every bot PR requires human review. This is
   the direct counter to the auto-merge incident above.
-- **No silent digest mutation in workflows** — `pinDigest` updates are disabled for
-  `.github/workflows/**`, so a bump can't silently move an already-pinned action SHA. Visible
-  version bumps (which also update the `# vX.Y.Z` comment) still flow.
+- **No silent digest mutation in workflows** — the `digest` update type is disabled for
+  `.github/workflows/**`, so Renovate won't re-point an already-pinned action to a *new SHA under
+  the same tag* (the silent-mutation vector). Visible version bumps (`major`/`minor`/`patch`,
+  which also update the `# vX.Y.Z` comment) still flow, and `helpers:pinGitHubActionDigests` still
+  pins any newly added unpinned action (`pinDigest`).
 
 `renovate.yml` (the runner):
 
@@ -126,8 +131,10 @@ it once, then for each new repo just do steps 4–5 (install + secrets).
     `.github/workflows/`; omit otherwise.
   - **Metadata: Read-only** (auto-selected).
 - **Where can this GitHub App be installed?** — "Only on this account".
-- Click **Create GitHub App**, then note the **App ID** shown at the top of the App's settings
-  page.
+- Click **Create GitHub App**, then note the **Client ID** shown in the **About** section of the
+  App's General settings page (looks like `Iv23li…`). The workflow uses the Client ID, not the
+  numeric App ID — `actions/create-github-app-token` deprecated the `app-id` input in favor of
+  `client-id`.
 
 **2. Generate a private key** *(UI)*
 
@@ -142,7 +149,7 @@ it once, then for each new repo just do steps 4–5 (install + secrets).
 **4. Store the two secrets** *(`gh`)*
 
 ```bash
-gh secret set RENOVATE_APP_ID --repo OWNER/REPO --body "123456"
+gh secret set RENOVATE_CLIENT_ID --repo OWNER/REPO --body "Iv23liXXXXXXXXXXXXXX"
 gh secret set RENOVATE_APP_PRIVATE_KEY --repo OWNER/REPO < path/to/renovate-app.pem
 ```
 
@@ -172,7 +179,7 @@ ways to distribute the credentials.
 them:
 
 ```bash
-gh secret set RENOVATE_APP_ID          --org YOUR_ORG --visibility all --body "123456"
+gh secret set RENOVATE_CLIENT_ID       --org YOUR_ORG --visibility all --body "Iv23liXXXXXXXXXXXXXX"
 gh secret set RENOVATE_APP_PRIVATE_KEY --org YOUR_ORG --visibility all < path/to/renovate-app.pem
 ```
 
@@ -185,7 +192,7 @@ so gh's dotenv parser keeps it intact):
 ```bash
 mkdir -p ~/.config/renovate && chmod 700 ~/.config/renovate
 {
-  echo 'RENOVATE_APP_ID=123456'
+  echo 'RENOVATE_CLIENT_ID=Iv23liXXXXXXXXXXXXXX'
   printf 'RENOVATE_APP_PRIVATE_KEY="%s"\n' "$(cat ~/Downloads/your-app.*.private-key.pem)"
 } > ~/.config/renovate/.env
 chmod 600 ~/.config/renovate/.env
