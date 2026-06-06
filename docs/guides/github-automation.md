@@ -71,7 +71,7 @@ the defaults below are tuned for security first.
 
 - **Dependabot vs. Renovate.** Dependabot grouping needs the config on the default branch and
   can't target `dev` directly, has no release cooldown, and won't keep action SHA pins current.
-  Renovate does all three (`baseBranches`, `minimumReleaseAge`, `helpers:pinGitHubActionDigests`),
+  Renovate does all three (`baseBranchPatterns`, `minimumReleaseAge`, `helpers:pinGitHubActionDigests`),
   with stronger per-ecosystem grouping. → **Renovate.**
 - **Hosted Mend app vs. self-hosted workflow.** The hosted app is zero-setup but grants a
   third-party app write access to every derived repo. A self-hosted `renovate.yml` +
@@ -82,7 +82,7 @@ the defaults below are tuned for security first.
 
 `renovate.json` (`extends: config:recommended` + `helpers:pinGitHubActionDigests`):
 
-- **`baseBranches: ["dev"]`** — PRs open against the active branch directly, no retarget dance.
+- **`baseBranchPatterns: ["dev"]`** — PRs open against the active branch directly, no retarget dance.
 - **Grouping** — one PR for Python (`pep621`) deps, one for `github-actions`.
 - **Release cooldown** — `minimumReleaseAge: "5 days"` with
   `minimumReleaseAgeBehaviour: "timestamp-required"`. The cooldown gives a compromised release
@@ -159,8 +159,12 @@ gh secret set RENOVATE_APP_PRIVATE_KEY --repo OWNER/REPO < path/to/renovate-app.
 gh workflow run renovate.yml --repo OWNER/REPO
 ```
 
-The first run opens a "Configure Renovate" onboarding PR against `dev`; merge it to activate.
-Leave GitHub's Dependabot vulnerability **alerts** enabled alongside this (see below).
+Renovate reads its config from, and bases its work on, the repository's **default branch**.
+Scaffolded repos push `dev` first, so `dev` is the remote default and Renovate finds the shipped
+`renovate.json` there — the first run starts opening update PRs against `dev` (and an onboarding PR
+only if no config is detected). If you later switch the default branch to `main`, make sure
+`renovate.json` exists there too, or Renovate won't find its config. Leave GitHub's Dependabot
+vulnerability **alerts** enabled alongside this (see below).
 
 > **Simpler alternative — a fine-grained PAT.** Instead of an App you can store a fine-grained
 > personal access token (Contents + Pull requests RW on the repo) as a single `RENOVATE_TOKEN`
