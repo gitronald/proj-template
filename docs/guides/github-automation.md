@@ -127,6 +127,12 @@ it once, then for each new repo just do steps 3–4 (install + secrets).
 - **Repository permissions** (least privilege):
   - **Contents: Read and write**
   - **Pull requests: Read and write**
+  - **Dependabot alerts: Read-only** — lets Renovate read the repo's vulnerability alerts so it
+    can raise prioritized **security-fix PRs** (and bypass the cooldown for them). Omitting it is
+    not fatal — routine updates still work — but Renovate logs `WARN: Cannot access vulnerability
+    alerts` on the Dependency Dashboard and never opens alert-driven security PRs. (Adding this to
+    an App that's *already* installed requires re-approving the updated permission on the
+    installation before it takes effect — GitHub prompts you via banner/email.)
   - **Workflows: Read and write** — *only* if Renovate should update files under
     `.github/workflows/`; omit otherwise.
   - **Metadata: Read-only** (auto-selected).
