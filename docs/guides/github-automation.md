@@ -115,7 +115,7 @@ the defaults below are tuned for security first.
 The runner needs a GitHub App you own to mint a short-lived, least-privilege token at run time
 (this is what makes Renovate's PRs trigger CI — see above). Creating the App is a one-time
 browser step; the rest is `gh`. The App is reusable across repos under the same account — create
-it once, then for each new repo just do steps 4–5 (install + secrets).
+it once, then for each new repo just do steps 3–4 (install + secrets).
 
 **1. Create the App** *(github.com UI — there is no `gh app create`)*
 
@@ -143,14 +143,39 @@ it once, then for each new repo just do steps 4–5 (install + secrets).
 
 **3. Install the App** *(UI)*
 
-- App settings → **Install App** → choose the account → **Only select repositories** → pick the
-  scaffolded repo → **Install**.
+This is separate from *creating* the App — a brand-new App exists but is installed on **zero**
+repos until you do this.
+
+- Go to **<https://github.com/settings/apps>** (Settings → Developer settings → GitHub Apps) and
+  click the App.
+- Click **Install App** in the left sidebar, then the **Install** button next to your account.
+  *(If the App is already installed there, that button instead reads **Installed** / is greyed
+  out — a quick way to check the current state. To change which repos it covers, use **Configure**
+  instead, below.)*
+- A **first-time** install opens a **"Choose an account to install ⟨App⟩ on"** screen — pick your
+  account (**@you**).
+- On the **Repository access** screen you **must** choose one:
+  - **All repositories** — the App can act on every repo under the account, including future ones.
+  - **Only select repositories** — add the target repo explicitly. This is the least-privilege
+    choice; repeat it per repo as you enroll more.
+
+  Then click **Install** (the button may read **Install & Authorize**).
+
+For a repo added **later**, the App is already on the account, so there is no account screen —
+open the App → **Install App** → **Configure** (or **Settings → Applications → ⟨App⟩ →
+Configure**) and under **Repository access** add the new repo.
+
+> **Symptom if this step is skipped:** the Renovate workflow fails fast at the **Generate … App
+> token** step with `404 … /repos/OWNER/REPO/installation`. The credentials are valid (a bad
+> Client ID / key would be `401`), but the App is not installed on that repo — add the repo to the
+> installation and re-run.
 
 **4. Store the two secrets** *(`gh`)*
 
 ```bash
-gh secret set RENOVATE_CLIENT_ID --repo OWNER/REPO --body "Iv23liXXXXXXXXXXXXXX"
-gh secret set RENOVATE_APP_PRIVATE_KEY --repo OWNER/REPO < path/to/renovate-app.pem
+source ~/.config/renovate/.env   # loads RENOVATE_CLIENT_ID
+gh secret set RENOVATE_CLIENT_ID --repo OWNER/REPO --body "$RENOVATE_CLIENT_ID"
+gh secret set RENOVATE_APP_PRIVATE_KEY --repo OWNER/REPO < ~/.config/renovate/renovate-app.pem
 ```
 
 **5. Run it** *(`gh`, or wait for the Monday cron)*
