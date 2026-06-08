@@ -213,6 +213,36 @@ vulnerability **alerts** enabled alongside this (see below).
 > install dance. The trade-off is a longer-lived credential tied to a user account with a wider
 > blast radius — fine for low-stakes repos, weaker than the App for anything shared.
 
+### Troubleshooting the first run
+
+The runner fails in three independent stages — mint the App token, init the repo, then create
+PRs — and each maps to a distinct setup gap:
+
+- **`404 … /repos/OWNER/REPO/installation` at "Generate … App token".** Credentials are valid
+  (a bad Client ID/key is `401`), but the App is not installed on that repo. Add the repo to the
+  installation (step 3) and re-run. (Same as the callout under step 3.)
+
+- **`platform-unknown-error` at repo init, GraphQL `FORBIDDEN` on
+  `["repository","defaultBranchRef"]`.** The App is missing **Contents**. Reading a branch ref
+  needs `Contents`, and Renovate can't initialize without the default branch. This shows up on
+  **private** repos specifically: a GitHub App can read a *public* repo's refs with no `Contents`
+  permission, so the same under-permissioned App inits fine on a public repo and hard-fails on a
+  private one. Add **Contents: Read and write** and re-approve (below). Re-run with
+  `-f logLevel=debug` (the `workflow_dispatch` input) to see the GraphQL error path if the
+  info-level log only shows `platform-unknown-error`.
+
+- **Green run, but only a Dependency Dashboard issue and no update PRs.** The App can read and
+  maintain the dashboard (`Issues` RW) but can't push branches or open PRs — it's missing
+  **Contents** and/or **Pull requests** *write*. The run still exits 0, so this is an easy false
+  positive: a public repo with a read-only App stays green forever while never opening a single
+  update PR. Grant **Contents: Read and write** and **Pull requests: Read and write** for real PRs.
+
+> **Re-approve after changing permissions.** A permission added to an already-installed App stays
+> *pending* until you accept it — the App keeps running on the *old* set, so the symptoms above
+> persist even after you tick the new box in the App's settings. This applies to **any** added
+> permission, not just Dependabot alerts. Re-approve via the banner/email GitHub sends, or
+> App → **Install App** → **Configure**.
+
 ### Reusing one App across repos
 
 One App (one App ID + one private key) can back **every** repo with this structure — you create
@@ -267,11 +297,9 @@ Notes:
 > (and the `renovatabot-enroll` skill): it pushes the secrets from your `.env`, keeps Dependabot
 > vulnerability alerts on while turning its security-update PRs off so only Renovate opens PRs
 > (`--no-dependabot-toggle` to skip), and triggers the first run. Enroll a repo with
-> `scripts/renovatabot-enroll.sh <owner/repo>`. This guide stays the source of truth for what it
-> does and why. **Caveat:** the script currently pushes secrets with `gh secret set --env-file`,
-> which assumes an *inline-PEM* `.env` — it does not match the `RENOVATE_APP_PRIVATE_KEY_PATH`
-> (key-as-path) layout above. With that layout, run the two `gh secret set` commands by hand, or
-> update the script to stream the key file.
+> `scripts/renovatabot-enroll.sh <owner/repo>`. It reads this same `.env` (client ID + key path)
+> and streams the key file into the secret, so the key-as-path layout above works as-is. This
+> guide stays the source of truth for what it does and why.
 
 To reinforce the cooldown at the resolver layer, you can pin `uv`'s `exclude-newer` to a recent
 timestamp so a local `uv add`/`uv lock` can't pull a release younger than your cutoff. It takes a

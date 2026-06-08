@@ -19,7 +19,7 @@ finish Renovate setup after scaffolding a project with `proj-init.sh --deps reno
 
 - `gh` authenticated, with **admin** on the target repo (unless `--no-dependabot-toggle`).
 - The GitHub App already created and installed on the repo (one-time, browser step).
-- `~/.config/renovatabot/.env` present with `RENOVATE_CLIENT_ID` and `RENOVATE_APP_PRIVATE_KEY`.
+- `~/.config/renovatabot/.env` present with `RENOVATE_CLIENT_ID` and `RENOVATE_APP_PRIVATE_KEY_PATH`.
 
 If a precondition is missing, the script exits non-zero with a clear message — relay it and
 point the user at the guide rather than guessing.
