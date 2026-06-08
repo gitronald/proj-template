@@ -127,6 +127,11 @@ it once, then for each new repo just do steps 3–4 (install + secrets).
 - **Repository permissions** (least privilege):
   - **Contents: Read and write**
   - **Pull requests: Read and write**
+  - **Issues: Read and write** — required because the shipped `renovate.json` sets
+    `dependencyDashboard: true`, and the Dependency Dashboard *is* a GitHub issue. Without it
+    Renovate fails with `WARN: Could not ensure issue` / `integration-unauthorized` and never
+    creates or updates the dashboard. (Renovate also uses issues to surface config-error and
+    onboarding notices.)
   - **Dependabot alerts: Read-only** — lets Renovate read the repo's vulnerability alerts so it
     can raise prioritized **security-fix PRs** (and bypass the cooldown for them). Omitting it is
     not fatal — routine updates still work — but Renovate logs `WARN: Cannot access vulnerability
