@@ -105,6 +105,12 @@ KEY_PATH="$(read_env_value RENOVATE_APP_PRIVATE_KEY_PATH)"
 [[ -n "$KEY_PATH" ]]  || error "$ENV_FILE is missing/empty RENOVATE_APP_PRIVATE_KEY_PATH"
 [[ -r "$KEY_PATH" ]]  || error "private key file not found or unreadable: $KEY_PATH"
 
+# Repo visibility — Renovate's least-privilege App can read a *public* repo's refs without the
+# Contents permission, but a *private* repo's refs require it; without Contents the run dies at
+# init with a GraphQL FORBIDDEN on the default branch. We warn but don't block. Best-effort so a
+# dry run (which needs no gh auth) still works: an unauthenticated or failed query just yields "".
+VISIBILITY="$(gh repo view "$REPO" --json visibility --jq '.visibility' 2>/dev/null || true)"
+
 # Plan — shown before any change (and as the whole output of a dry run). No secret
 # values here: the client id is captured but never printed; the key is a file path.
 echo "Renovate enrollment plan for ${REPO}:"
@@ -117,6 +123,18 @@ else
     echo "  - Dependabot: leave untouched (--no-dependabot-toggle)"
 fi
 echo "  - Trigger the first Renovate run (renovate.yml)"
+if [[ -n "$VISIBILITY" ]]; then
+    echo "  - Repo visibility: ${VISIBILITY}"
+fi
+
+if [[ "$VISIBILITY" == "PRIVATE" ]]; then
+    echo ""
+    echo "WARNING: ${REPO} is private. This setup runs Renovate through a least-privilege GitHub" >&2
+    echo "App with no Contents permission, and a private repo's refs require it — so the run will" >&2
+    echo "fail at init (GitHub returns FORBIDDEN reading the default branch). It will not work" >&2
+    echo "until the repo is public, or until you grant the App Contents (Read and write) and" >&2
+    echo "re-approve the installation. Proceeding anyway." >&2
+fi
 
 if $DRY_RUN; then
     echo ""
