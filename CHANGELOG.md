@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-06-08
+
+### Changed
+
+- Restrict the scaffolded project's sdist to the package and core files via `[tool.hatch.build.targets.sdist]` `only-include` (`/PACKAGE`, `/README.md`, `/CHANGELOG.md`, `/LICENSE`), keeping internal plan files (`.planners/`), guides (`docs/`), the `.claude/` directory, tests, and tooling out of the published sdist.
+
 ## [0.5.2] - 2026-06-08
 
 ### Added
