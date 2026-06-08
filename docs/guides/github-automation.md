@@ -115,7 +115,7 @@ the defaults below are tuned for security first.
 The runner needs a GitHub App you own to mint a short-lived, least-privilege token at run time
 (this is what makes Renovate's PRs trigger CI — see above). Creating the App is a one-time
 browser step; the rest is `gh`. The App is reusable across repos under the same account — create
-it once, then for each new repo just do steps 4–5 (install + secrets).
+it once, then for each new repo just do steps 3–4 (install + secrets).
 
 **1. Create the App** *(github.com UI — there is no `gh app create`)*
 
@@ -127,6 +127,17 @@ it once, then for each new repo just do steps 4–5 (install + secrets).
 - **Repository permissions** (least privilege):
   - **Contents: Read and write**
   - **Pull requests: Read and write**
+  - **Issues: Read and write** — required because the shipped `renovate.json` sets
+    `dependencyDashboard: true`, and the Dependency Dashboard *is* a GitHub issue. Without it
+    Renovate fails with `WARN: Could not ensure issue` / `integration-unauthorized` and never
+    creates or updates the dashboard. (Renovate also uses issues to surface config-error and
+    onboarding notices.)
+  - **Dependabot alerts: Read-only** — lets Renovate read the repo's vulnerability alerts so it
+    can raise prioritized **security-fix PRs** (and bypass the cooldown for them). Omitting it is
+    not fatal — routine updates still work — but Renovate logs `WARN: Cannot access vulnerability
+    alerts` on the Dependency Dashboard and never opens alert-driven security PRs. (Adding this to
+    an App that's *already* installed requires re-approving the updated permission on the
+    installation before it takes effect — GitHub prompts you via banner/email.)
   - **Workflows: Read and write** — *only* if Renovate should update files under
     `.github/workflows/`; omit otherwise.
   - **Metadata: Read-only** (auto-selected).
@@ -143,14 +154,44 @@ it once, then for each new repo just do steps 4–5 (install + secrets).
 
 **3. Install the App** *(UI)*
 
-- App settings → **Install App** → choose the account → **Only select repositories** → pick the
-  scaffolded repo → **Install**.
+This is separate from *creating* the App — a brand-new App exists but is installed on **zero**
+repos until you do this.
+
+- Go to **<https://github.com/settings/apps>** (Settings → Developer settings → GitHub Apps) and
+  click the App.
+- Click **Install App** in the left sidebar, then the **Install** button next to your account.
+  *(If the App is already installed there, that button instead reads **Installed** / is greyed
+  out — a quick way to check the current state. To change which repos it covers, use **Configure**
+  instead, below.)*
+- A **first-time** install opens a **"Choose an account to install ⟨App⟩ on"** screen — pick your
+  account (**@you**).
+- On the **Repository access** screen you **must** choose one:
+  - **All repositories** — the App can act on every repo under the account, including future ones.
+  - **Only select repositories** — add the target repo explicitly. This is the least-privilege
+    choice; repeat it per repo as you enroll more.
+
+  Then click **Install** (the button may read **Install & Authorize**).
+
+For a repo added **later**, the App is already on the account, so there is no account screen —
+open the App → **Install App** → **Configure** (or **Settings → Applications → ⟨App⟩ →
+Configure**) and under **Repository access** add the new repo.
+
+> **Symptom if this step is skipped:** the Renovate workflow fails fast at the **Generate … App
+> token** step with `404 … /repos/OWNER/REPO/installation`. The credentials are valid (a bad
+> Client ID / key would be `401`), but the App is not installed on that repo — add the repo to the
+> installation and re-run.
 
 **4. Store the two secrets** *(`gh`)*
 
+The `.env` holds the **Client ID** (a value) and `RENOVATE_APP_PRIVATE_KEY_PATH`, the **path** to
+the downloaded `.pem` — not the key text. So it takes two `gh secret set` calls: `--body` for the
+ID, and a `<` redirect to stream the key *file's contents* in (the secret must be the PEM itself,
+which is why a single `--env-file` push can't carry it):
+
 ```bash
-gh secret set RENOVATE_CLIENT_ID --repo OWNER/REPO --body "Iv23liXXXXXXXXXXXXXX"
-gh secret set RENOVATE_APP_PRIVATE_KEY --repo OWNER/REPO < path/to/renovate-app.pem
+source ~/.config/renovatabot/.env   # loads RENOVATE_CLIENT_ID + RENOVATE_APP_PRIVATE_KEY_PATH
+gh secret set RENOVATE_CLIENT_ID       --repo OWNER/REPO --body "$RENOVATE_CLIENT_ID"
+gh secret set RENOVATE_APP_PRIVATE_KEY --repo OWNER/REPO < "$RENOVATE_APP_PRIVATE_KEY_PATH"
 ```
 
 **5. Run it** *(`gh`, or wait for the Monday cron)*
@@ -184,47 +225,53 @@ them:
 
 ```bash
 gh secret set RENOVATE_CLIENT_ID       --org YOUR_ORG --visibility all --body "Iv23liXXXXXXXXXXXXXX"
-gh secret set RENOVATE_APP_PRIVATE_KEY --org YOUR_ORG --visibility all < path/to/renovate-app.pem
+gh secret set RENOVATE_APP_PRIVATE_KEY --org YOUR_ORG --visibility all < path/to/renovatabot-app.pem
 ```
 
-**Personal repos — cache the credentials once, then one command per repo.** Personal accounts
-have no shared-secret mechanism, so stash the two values in a local dotenv file and feed it to
-`gh secret set --env-file`, which sets every `NAME=value` in the file in a single call. Build the
-file once from the downloaded key (the private key must be a double-quoted, real-multi-line value
-so gh's dotenv parser keeps it intact):
+**Personal repos — cache the credentials once, then two commands per repo.** Personal accounts
+have no shared-secret mechanism, so keep the downloaded `.pem` on disk and stash two things in a
+local dotenv: the **Client ID** and the **path to that `.pem`** (not the key text — a multi-line
+PEM inlined into a dotenv is fragile, and the secret has to be the file's contents anyway). Build
+the file once:
 
 ```bash
-mkdir -p ~/.config/renovate && chmod 700 ~/.config/renovate
+mkdir -p ~/.config/renovatabot && chmod 700 ~/.config/renovatabot
+mv ~/Downloads/your-app.*.private-key.pem ~/.config/renovatabot/renovatabot-app.pem
+chmod 600 ~/.config/renovatabot/renovatabot-app.pem
 {
   echo 'RENOVATE_CLIENT_ID=Iv23liXXXXXXXXXXXXXX'
-  printf 'RENOVATE_APP_PRIVATE_KEY="%s"\n' "$(cat ~/Downloads/your-app.*.private-key.pem)"
-} > ~/.config/renovate/.env
-chmod 600 ~/.config/renovate/.env
+  printf 'RENOVATE_APP_PRIVATE_KEY_PATH=%s/.config/renovatabot/renovatabot-app.pem\n' "$HOME"
+} > ~/.config/renovatabot/.env
+chmod 600 ~/.config/renovatabot/.env
 ```
 
-Then enrolling any new repo is one command:
+Then enrolling any new repo is the two-command form from step 4 — one for the ID, one piping the
+key file (the key can't ride `--env-file`, which would push the *path* as the secret, not the PEM):
 
 ```bash
-gh secret set --repo OWNER/REPO --env-file ~/.config/renovate/.env
+source ~/.config/renovatabot/.env
+gh secret set RENOVATE_CLIENT_ID       --repo OWNER/REPO --body "$RENOVATE_CLIENT_ID"
+gh secret set RENOVATE_APP_PRIVATE_KEY --repo OWNER/REPO < "$RENOVATE_APP_PRIVATE_KEY_PATH"
 ```
 
 Notes:
 
-- The file holds App credentials — `chmod 600` it (and `700` the dir, as above), and keep it out
-  of any tracked dotfiles repo. For stronger hygiene, read the key from a secrets manager (1Password
-  `op read`, `pass`, macOS Keychain) at enroll time instead of leaving it on disk.
-- `--env-file` stores each value **verbatim**, so put the real PEM in the file, not base64 (a
-  base64 value would force a decode step into `renovate.yml`). Keep the file to *only* these two
-  vars — every line becomes a secret.
-- If an older `gh` chokes on the multi-line quoted value, fall back to the two-command form from
-  step 4 (`--body` for the ID, `< app.pem` redirect for the key).
+- The `.env` and the `.pem` hold App credentials — `chmod 600` both (and `700` the dir, as above),
+  and keep them out of any tracked dotfiles repo. For stronger hygiene, read the key from a secrets
+  manager (1Password `op read`, `pass`, macOS Keychain) at enroll time instead of leaving it on disk.
+- Keep the `.env` to *only* these two vars, and store an **absolute** path in
+  `RENOVATE_APP_PRIVATE_KEY_PATH` (the `$HOME` expansion above) so `source` resolves it from any
+  working directory.
 
-> **Wrapped in a skill.** The per-repo enroll step is automated by `scripts/renovate-enroll.sh`
-> (and the `renovate-enroll` skill): it pushes the two secrets from your `.env`, keeps Dependabot
+> **Wrapped in a skill.** The per-repo enroll step is automated by `scripts/renovatabot-enroll.sh`
+> (and the `renovatabot-enroll` skill): it pushes the secrets from your `.env`, keeps Dependabot
 > vulnerability alerts on while turning its security-update PRs off so only Renovate opens PRs
 > (`--no-dependabot-toggle` to skip), and triggers the first run. Enroll a repo with
-> `scripts/renovate-enroll.sh <owner/repo>`. This guide stays the source of truth for what it
-> does and why.
+> `scripts/renovatabot-enroll.sh <owner/repo>`. This guide stays the source of truth for what it
+> does and why. **Caveat:** the script currently pushes secrets with `gh secret set --env-file`,
+> which assumes an *inline-PEM* `.env` — it does not match the `RENOVATE_APP_PRIVATE_KEY_PATH`
+> (key-as-path) layout above. With that layout, run the two `gh secret set` commands by hand, or
+> update the script to stream the key file.
 
 To reinforce the cooldown at the resolver layer, you can pin `uv`'s `exclude-newer` to a recent
 timestamp so a local `uv add`/`uv lock` can't pull a release younger than your cutoff. It takes a
