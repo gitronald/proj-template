@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-06-08
+
+### Added
+
+- `renovatabot-enroll.sh` detects repository visibility and warns before enrolling a **private** repo, where the least-privilege App (no Contents permission) cannot read refs and the first Renovate run fails at init. Added a "Troubleshooting the first run" section to the GitHub automation guide mapping each failure stage to its setup gap.
+
+### Fixed
+
+- Align the enroll guide and skill with the script: drop the stale `--env-file` caveat (the script streams the key file) and correct the `.env` precondition to `RENOVATE_APP_PRIVATE_KEY_PATH`.
+
+## [0.5.1] - 2026-06-08
+
+### Changed
+
+- Rename the self-hosted Renovate enrollment tooling to **renovatabot** to match the GitHub App — `scripts/renovatabot-enroll.sh`, the `renovatabot-enroll` skill, and the credentials directory `~/.config/renovatabot`. The enroll script now stores the App key as a path (`RENOVATE_APP_PRIVATE_KEY_PATH`) and streams the file into the secret, and gains `--dry-run` and `--yes` flags with a pre-change confirmation prompt.
+- Expand the GitHub automation guide with the GitHub App install walkthrough and the exact App permissions Renovate needs: Dependabot-alerts read for security PRs, and Issues read-write for the dependency dashboard.
+
 ## [0.5.0] - 2026-06-06
 
 ### Added
