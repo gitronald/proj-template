@@ -267,11 +267,9 @@ Notes:
 > (and the `renovatabot-enroll` skill): it pushes the secrets from your `.env`, keeps Dependabot
 > vulnerability alerts on while turning its security-update PRs off so only Renovate opens PRs
 > (`--no-dependabot-toggle` to skip), and triggers the first run. Enroll a repo with
-> `scripts/renovatabot-enroll.sh <owner/repo>`. This guide stays the source of truth for what it
-> does and why. **Caveat:** the script currently pushes secrets with `gh secret set --env-file`,
-> which assumes an *inline-PEM* `.env` — it does not match the `RENOVATE_APP_PRIVATE_KEY_PATH`
-> (key-as-path) layout above. With that layout, run the two `gh secret set` commands by hand, or
-> update the script to stream the key file.
+> `scripts/renovatabot-enroll.sh <owner/repo>`. It reads this same `.env` (client ID + key path)
+> and streams the key file into the secret, so the key-as-path layout above works as-is. This
+> guide stays the source of truth for what it does and why.
 
 To reinforce the cooldown at the resolver layer, you can pin `uv`'s `exclude-newer` to a recent
 timestamp so a local `uv add`/`uv lock` can't pull a release younger than your cutoff. It takes a
