@@ -1,8 +1,10 @@
 ---
+id: 1
+slug: missing-template-infrastructure
 status: done
 branch: claude/missing-template-infrastructure-MKZP2
 created: 2026-04-10T16:01:30-07:00
-completed: 2026-04-10T16:09:43-07:00
+concluded: 2026-04-10T16:09:43-07:00
 pr: https://github.com/gitronald/proj-template/pull/6
 ---
 
