@@ -7,13 +7,13 @@ Python project template with uv, ruff, pyrefly, pytest, pre-commit, GitHub Actio
 Download and run the scaffold script to create a new project:
 
 ```bash
-curl -s https://raw.githubusercontent.com/gitronald/proj-template/main/proj-init.sh | bash -s <path>
+curl -s https://raw.githubusercontent.com/gitronald/proj-template/main/scripts/proj-init.sh | bash -s <path>
 ```
 
 Or add an alias to your `.bashrc` or `.zshrc`:
 
 ```bash
-alias proj-init='curl -s https://raw.githubusercontent.com/gitronald/proj-template/main/proj-init.sh | bash -s'
+alias proj-init='curl -s https://raw.githubusercontent.com/gitronald/proj-template/main/scripts/proj-init.sh | bash -s'
 ```
 
 Then create a new project:
