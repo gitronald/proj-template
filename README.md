@@ -49,12 +49,12 @@ tests/
 ├── README.md                  # generated plans index (planners CLI)
 ├── plans/
 .claude/
+├── CLAUDE.md
 ├── settings.json              # shared hooks (Stop: lint + type-check gate) + permissions
 ├── hooks/
 │   └── lint-typecheck.sh
 .github/
 ├── workflows/test.yml
-CLAUDE.md
 README.md
 pyproject.toml
 .gitignore
