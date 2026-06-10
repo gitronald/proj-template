@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-10
+
+### Added
+
+- `install-template` skill: scaffold a new repo from the template, or upgrade an existing repo to the latest standard via a per-file sync matrix that adapts to repo type (publishable package vs app/site), requiring green ruff/pyrefly/pre-commit checks before the Claude Stop hook lands.
+
+### Changed
+
+- Migrate this repo's plan tracking to the `.planners/` layout: plans moved to `.planners/plans/<NNN>-<slug>/plan.md` with a generated `.planners/README.md` index, `TODO.md` retired, and a `planners-validate` pre-commit hook.
+- Template scaffold now stamps the `.planners/` layout instead of `docs/` + `TODO.md`: empty plans index, `plans/.gitkeep`, and the `planners-validate` hook block in the generated `.pre-commit-config.yaml`.
+- Move `template/CLAUDE.md` into `template/.claude/`, and ignore `.claude/` in the template `.gitignore` so generated repos receive the Claude payload on disk but never track it; expand the template ignore entries (`.worktrees/`, `build/`, `dist/`, coverage files).
+- Fold the per-repo `lint-and-typecheck` skill and guide into the machine-global skill — the template no longer ships `docs/guides/lint-and-typecheck.md` or `.claude/skills/lint-and-typecheck/`.
+- Move `proj-init.sh` into `scripts/` — the raw-URL alias changes to `scripts/proj-init.sh`.
+- Ship workflow actions pinned to specific version tags (e.g. `actions/checkout@v6.0.3`) instead of commit SHAs so Dependabot, the default updater, keeps them current; Renovate enrollment re-pins to SHA digests via `helpers:pinGitHubActionDigests`.
+- Rename the `renovatabot-enroll` skill to `install-renovatabot` (script name unchanged) and document the SHA-pinning handoff in the skill and the GitHub automation guide.
+
 ## [0.5.3] - 2026-06-08
 
 ### Changed
