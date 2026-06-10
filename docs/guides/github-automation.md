@@ -90,7 +90,7 @@ Renovate run, `helpers:pinGitHubActionDigests` opens a PR converting them to com
 ### Renovate setup
 
 Setup is a one-time **GitHub App** you create in the browser (there is no `gh app create`), then
-per-repo enrollment. Enrollment is automated by the **`renovatabot-enroll` skill** (backed by
+per-repo enrollment. Enrollment is automated by the **`install-renovatabot` skill** (backed by
 `scripts/renovatabot-enroll.sh`) — that is the source of truth for the per-repo steps. This section
 covers the manual UI parts the skill can't do, plus the one-time credential cache it reads. The App
 is reusable: create it once, then enroll each repo.
@@ -151,7 +151,7 @@ on disk. **Org repos** can skip the cache entirely and set the secrets once at t
 `gh secret set RENOVATE_APP_PRIVATE_KEY --org YOUR_ORG --visibility all < path/to/renovatabot-app.pem`
 — inherited by every repo in scope.
 
-**5. Enroll each repo** *(skill)* — run the `renovatabot-enroll` skill, or the script directly:
+**5. Enroll each repo** *(skill)* — run the `install-renovatabot` skill, or the script directly:
 
 ```bash
 scripts/renovatabot-enroll.sh <owner/repo>

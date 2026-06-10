@@ -28,7 +28,7 @@ scripts/proj-init.sh [--license <key>] [--deps dependabot|renovate] <path>
 The basename of `<path>` becomes the package name. The script is interactive
 about `--deps` when run on a TTY — pass `--deps dependabot` explicitly when
 running it from a tool. If the user chose renovate, finish with the
-`/renovatabot-enroll` skill after the repo exists on GitHub.
+`/install-renovatabot` skill after the repo exists on GitHub.
 
 ## Mode 2 — Upgrade an existing repo
 
@@ -86,7 +86,7 @@ Notes:
   tags (e.g. `actions/checkout@v6.0.3`) because Dependabot — the default
   updater — doesn't keep SHA pins current. Don't "harden" them to SHA digests
   during an upgrade; that conversion belongs to Renovate enrollment
-  (`/renovatabot-enroll`), whose `helpers:pinGitHubActionDigests` preset PRs it
+  (`/install-renovatabot`), whose `helpers:pinGitHubActionDigests` preset PRs it
   automatically.
 
 ### Verify, then enable the hook gate
