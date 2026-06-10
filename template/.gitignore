@@ -1,11 +1,24 @@
 .archive/
+.claude/*
+!.claude/CLAUDE.md
+!.claude/settings.json
+!.claude/hooks/
+.hypothesis/
 .pytest_cache/
 .ruff_cache/
 .venv/
+.vscode/
 .worktrees/
+
 __pycache__/
+build/
+dist/
+*.egg-info/
 
 .DS_Store
+
+.coverage
+.coverage.*
 
 .env
 .env.*
