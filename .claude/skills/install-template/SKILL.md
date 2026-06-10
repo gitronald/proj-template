@@ -1,0 +1,110 @@
+---
+name: install-template
+description: Scaffold a new repo from proj-template or upgrade an existing repo to the latest template standard (uv, ruff, pyrefly, pre-commit, Claude hooks, GitHub Actions, planners, stanza). Use whenever the user wants to create a new project from the template, "install the template", bring a repo "up to standard", sync a repo with proj-template, or retrofit the template's tooling onto an existing package, app, or site — even if they only name one piece of it (e.g. "add the lint hooks from the template").
+---
+
+# Install template
+
+Two modes. Pick by whether the target path already exists as a repo:
+
+- **New repo** — target doesn't exist: run the scaffold script.
+- **Upgrade** — target is an existing repo: sync it to the template standard
+  file by file, adapting to what the repo is.
+
+The template source of truth is the `template/` directory of this repo
+(proj-template). Always read the current contents of `template/` rather than
+relying on this document for exact file contents — the template evolves and
+this skill describes the *process*, not frozen payloads.
+
+## Mode 1 — New repo
+
+Run the scaffold script (it clones the template, replaces `PACKAGE`
+placeholders, fetches a license, sets up git/uv/pre-commit/stanza):
+
+```bash
+scripts/proj-init.sh [--license <key>] [--deps dependabot|renovate] <path>
+```
+
+The basename of `<path>` becomes the package name. The script is interactive
+about `--deps` when run on a TTY — pass `--deps dependabot` explicitly when
+running it from a tool. If the user chose renovate, finish with the
+`/renovatabot-enroll` skill after the repo exists on GitHub.
+
+## Mode 2 — Upgrade an existing repo
+
+### Preflight
+
+1. Require a clean working tree in the target repo; stop and report if dirty.
+2. Classify the repo — this drives the sync matrix below:
+   - **package**: built and published (has `[build-system]`, a `project.scripts`
+     entry, or an importable package dir destined for PyPI).
+   - **app/site**: run in place, never published (Pelican/Flask sites, analysis
+     repos, dashboards). Marker: no build backend, or files like
+     `pelicanconf.py`, `app.py`, `tasks.py`.
+3. Create a branch off `dev` (or the repo's default working branch):
+   `feature/template-upgrade`.
+
+### Sync matrix
+
+Work through every file in `template/`, applying the action for the repo type.
+"Merge" means bring the template's entries/sections in without removing
+repo-specific content; "never" means leave the repo's file alone.
+
+| Template path | package | app/site |
+|---|---|---|
+| `pyproject.toml` `[tool.ruff*]`, `[tool.pyrefly*]` sections | merge | merge |
+| `pyproject.toml` dev group (`ruff`, `pyrefly`, `pre-commit`) | merge | merge |
+| `pyproject.toml` dev group (`pytest`, `pytest-cov`), `[tool.pytest.ini_options]` | merge | only if `tests/` exists |
+| `pyproject.toml` `[build-system]`, sdist `only-include`, `[project.urls]`, `[project.scripts]` | merge | skip |
+| `.pre-commit-config.yaml` | sync hooks (keep extra local hooks) | sync hooks (keep extra local hooks) |
+| `.python-version` | sync | sync unless repo pins older deliberately |
+| `.gitignore` | merge entries | merge entries |
+| `.claude/settings.json`, `.claude/hooks/lint-typecheck.sh` | copy (merge if settings exist) | copy (merge if settings exist) |
+| `.claude/CLAUDE.md` | never overwrite an existing one | never overwrite an existing one |
+| `.github/workflows/test.yml` | sync (full Python matrix) | adapt: single Python from `.python-version`; drop pytest step if no tests |
+| `.github/workflows/publish.yml` | sync | skip |
+| `.github/dependabot.yml` (or renovate pair) | ensure one automation exists; merge ecosystems | same |
+| `.planners/` scaffold | create if missing | create if missing |
+| `PACKAGE/`, `tests/`, `README.md`, `CHANGELOG.md` | never | never |
+
+Notes:
+
+- **`.claude/` is on-disk, untracked.** The template standard ignores
+  `.claude/` in the target's `.gitignore`, so the payload lands on disk but is
+  never committed in the target repo. If the target currently tracks `.claude/`
+  files, ask before untracking them.
+- **`.gitignore` merge**: add any template entries the repo lacks (notably
+  `.claude/`, `.worktrees/`, `.env` block with `!.env.example`); keep all
+  repo-specific entries (build output dirs, caches, data).
+- **pyrefly on legacy code**: keep the template's `strict` preset. If existing
+  code fails, fix the cheap errors, then scope the rest out with
+  `project-excludes` or `[[tool.pyrefly.sub-config]]` relaxations on the legacy
+  paths (e.g. vendored themes, generated config) rather than weakening the
+  global preset — new code stays strict.
+- **Existing CI workflows** (deploy, docs, etc.) are repo features — leave them.
+
+### Verify, then enable the hook gate
+
+Install and run everything; the upgrade isn't done until all of these pass in
+the target repo:
+
+```bash
+uv sync --all-groups
+uv run ruff check . && uv run ruff format --check .
+uv run pyrefly check
+uv run pre-commit install && uv run pre-commit run --all-files
+uv run pytest   # only if the repo has tests
+```
+
+Fix failures at the source (autofix with `ruff --fix` / `ruff format`,
+annotate or exclude for pyrefly) — do not commit with red checks. The
+`.claude/settings.json` Stop hook runs ruff + pyrefly on every Claude session
+stop, so a repo with failing checks would gate every future session; that is
+why green checks are a hard requirement before this lands.
+
+### Commit and report
+
+Commit in logical chunks (e.g. tooling config, CI, gitignore), following the
+repo's commit conventions. Then report what was synced, what was adapted for
+the repo type, and what was deliberately skipped — and note that `.claude/`
+changes are on-disk only.
