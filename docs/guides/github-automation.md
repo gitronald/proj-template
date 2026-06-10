@@ -47,7 +47,10 @@ back here.
 Python deps, one for `github-actions`). Grouping and PR targeting both follow the repository's
 **default branch**, where Dependabot reads its config. Zero setup — GitHub runs it natively, no
 token or workflow. Its limits are what motivate the Renovate option: no release cooldown, can't
-target `dev` directly, and it doesn't keep action SHA pins current.
+target `dev` directly, and it doesn't keep action SHA pins current. Because Dependabot is the
+default, the template ships workflow actions pinned to **specific version tags** (e.g.
+`actions/checkout@v6.0.3`) that Dependabot does keep current; the shift to SHA digest pins is
+left to the Renovate pipeline (next section).
 
 ### Renovate (opt-in)
 
@@ -80,8 +83,9 @@ trust boundary in-house and travels with the repo; run with an App token, its PR
 `renovate.yml` (the runner): `GITHUB_TOKEN` is `contents: read`; Renovate authenticates with a
 scoped **GitHub App** token (not a broad PAT), which also makes its PRs trigger `test.yml` so
 updates land behind green CI. It runs on a weekly cron plus `workflow_dispatch`, never
-`pull_request_target`. Actions are pinned to commit SHAs (with a `# vX.Y.Z` comment) so a retagged
-or repointed release can't change what runs.
+`pull_request_target`. The template ships actions pinned to specific version tags; on the first
+Renovate run, `helpers:pinGitHubActionDigests` opens a PR converting them to commit-SHA digests
+(with a `# vX.Y.Z` comment) so a retagged or repointed release can't change what runs.
 
 ### Renovate setup
 
