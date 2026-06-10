@@ -45,9 +45,8 @@ PACKAGE/
 tests/
 ├── __init__.py
 ├── test_PACKAGE.py
-docs/
-├── README.md
-├── guides/
+.planners/
+├── README.md                  # generated plans index (planners CLI)
 ├── plans/
 .claude/
 ├── settings.json              # shared hooks (Stop: lint + type-check gate) + permissions
@@ -57,7 +56,6 @@ docs/
 ├── workflows/test.yml
 CLAUDE.md
 README.md
-TODO.md
 pyproject.toml
 .gitignore
 .pre-commit-config.yaml
