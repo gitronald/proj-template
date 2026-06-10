@@ -1,11 +1,11 @@
 ---
 id: 5
 slug: template-planners-scaffold
-status: active
+status: done
 branch: feature/template-planners-scaffold
 created: 2026-06-10T09:36:40-07:00
-concluded:
-pr:
+concluded: 2026-06-10T11:04:35-07:00
+pr: https://github.com/gitronald/proj-template/pull/23
 ---
 
 # Update template scaffold to the planners layout
@@ -54,3 +54,35 @@ Changes, all in `template/` unless noted:
 `proj-init.sh` needs no changes: `rsync -a` already copies dotdirs, the
 empty index contains no `PACKAGE` placeholder, and `git add -A` commits
 `.planners/` in the initial commit.
+
+## Log
+
+**2026-06-10 — implementation.**
+
+- `62d2a06` replace template docs layout with planners — deleted
+  `template/docs/` and `template/TODO.md`; added `template/.planners/`
+  (empty index + `plans/.gitkeep`); appended the global-mode
+  `planners-validate` hook block to `template/.pre-commit-config.yaml`;
+  updated the root README tree.
+- Verified by simulating the `proj-init.sh` pipeline (rsync + `PACKAGE`
+  rename/replace) in a temp dir: `.planners/` survives intact, the stamped
+  index is byte-identical to a fresh `planners index .` render, the hook
+  YAML parses, and no stale `docs/`/`TODO.md` references remain.
+- **Review follow-up:** review posted to the PR — one minor finding:
+  the template `.gitignore` did not ignore `.worktrees/`, so every
+  scaffolded repo would get a lazy-append noise commit on its first
+  `/planners implement`. Actioned in `be15d66`. Check gate: no root test
+  suite (non-uv root); `planners validate` ok (6 plans).
+
+## Retrospective
+
+- The global-mode decision did the heavy lifting: pre-PyPI, a per-repo
+  dev dependency was impractical, and global mode reduced the scaffold to
+  two static files plus a hook block — no holder, rule, or dependency to
+  stamp.
+- Stamping the generated empty index byte-identical to the CLI's render
+  keeps `planners index .` a no-op on fresh repos; worth re-checking if
+  the index format ever changes upstream.
+- Simulating the scaffold pipeline in a temp dir was cheap and caught the
+  questions that mattered (dotdir rsync, placeholder substitution) without
+  needing a network clone.
