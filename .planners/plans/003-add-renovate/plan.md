@@ -1,8 +1,10 @@
 ---
+id: 3
+slug: add-renovate
 status: done
 branch: add/renovator
 created: 2026-06-05T18:03:46-07:00
-completed: 2026-06-05T23:51:01-07:00
+concluded: 2026-06-05T23:51:01-07:00
 pr: https://github.com/gitronald/proj-template/pull/17
 ---
 
