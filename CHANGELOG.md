@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-06-10
+
+### Changed
+
+- The `install-template` skill's upgrade mode now runs through the planners lifecycle: scaffold/activate a plan in the target repo, work in a worktree at `.claude/worktrees/template-upgrade`, open a PR into `dev`, and close the plan on merge (index regen, worktree removal, pre-commit hook re-install check).
+
+### Fixed
+
+- Template `test.yml` matrix was false green: bare `uv run` re-resolves to the `.python-version` pin (3.14), so every matrix cell ran the same interpreter regardless of `uv sync --python`. A job-level `UV_PYTHON: ${{ matrix.python-version }}` now outranks the pin, so each cell tests its own Python.
+
 ## [0.6.0] - 2026-06-10
 
 ### Added
