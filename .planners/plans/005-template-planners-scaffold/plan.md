@@ -5,7 +5,7 @@ status: active
 branch: feature/template-planners-scaffold
 created: 2026-06-10T09:36:40-07:00
 concluded:
-pr:
+pr: https://github.com/gitronald/proj-template/pull/23
 ---
 
 # Update template scaffold to the planners layout
