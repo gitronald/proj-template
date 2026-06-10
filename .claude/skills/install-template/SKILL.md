@@ -41,8 +41,21 @@ running it from a tool. If the user chose renovate, finish with the
    - **app/site**: run in place, never published (Pelican/Flask sites, analysis
      repos, dashboards). Marker: no build backend, or files like
      `pelicanconf.py`, `app.py`, `tasks.py`.
-3. Create a branch off `dev` (or the repo's default working branch):
-   `feature/template-upgrade`.
+3. Plan the upgrade in the target repo's own plan system, the same way
+   `/planners add` + `/planners implement` would:
+   - If `.planners/` is missing, scaffold it first — it's part of the upgrade
+     anyway (see the sync matrix).
+   - Create the plan (`planners add template-upgrade`, next free `NNN`) and
+     write the spec into it: the repo classification, the sync decisions per
+     matrix row, and what will be deliberately skipped. Keep it free of
+     machine-specific paths.
+   - Open a worktree instead of switching the main checkout: branch
+     `feature/template-upgrade` off `dev` (or the repo's default working
+     branch) at `.claude/worktrees/template-upgrade`. Check the target's
+     `.gitignore` first and add `.claude/worktrees/` if it isn't ignored.
+     Do all upgrade work inside the worktree.
+   - Set the plan `status: active` and fill `branch`, and commit the plan on
+     the feature branch so it rides in the PR.
 
 ### Sync matrix
 
@@ -123,9 +136,21 @@ The
 stop, so a repo with failing checks would gate every future session; that is
 why green checks are a hard requirement before this lands.
 
-### Commit and report
+### Commit, PR, and close the plan
 
-Commit in logical chunks (e.g. tooling config, CI, gitignore), following the
-repo's commit conventions. Then report what was synced, what was adapted for
-the repo type, and what was deliberately skipped — and note that `.claude/`
-changes are on-disk only.
+Commit in logical chunks (e.g. tooling config, CI, gitignore, code fixes),
+following the repo's commit conventions, and append Log entries to the plan as
+decisions land (what was adapted, what was excluded and why). Then:
+
+1. Push the branch (`git push -u origin feature/template-upgrade`) and open a
+   PR into `dev` summarizing synced/adapted/skipped per the sync matrix.
+2. Close the plan the way `/planners close` does: on merge, set
+   `status: done`, fill `concluded` from the merge commit timestamp and `pr`
+   with the full PR URL, regenerate the index (`planners index .`), and remove
+   the worktree (after removing, check `.git/hooks/pre-commit` for an embedded
+   worktree venv path and re-install hooks from the main checkout if found).
+   If the user wants to review before merging, stop after opening the PR and
+   leave the plan `active`.
+
+Report what was synced, what was adapted for the repo type, and what was
+deliberately skipped — and note when `.claude/` changes are on-disk only.
