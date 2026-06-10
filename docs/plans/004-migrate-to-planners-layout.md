@@ -1,8 +1,8 @@
 ---
 id: 4
 slug: migrate-to-planners-layout
-status: draft
-branch:
+status: active
+branch: feature/migrate-to-planners-layout
 created: 2026-06-10T09:35:21-07:00
 concluded:
 pr:
