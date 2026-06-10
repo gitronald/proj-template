@@ -94,6 +94,10 @@ TEMPLATE_DIR="$TMPDIR/proj-template/template"
 mkdir "$DEST"
 rsync -a --exclude='__pycache__' "$TEMPLATE_DIR/" "$DEST/"
 
+# The gitignore ships undotted so its rules (e.g. ignoring .claude/) never
+# apply to template/ inside proj-template itself; dot it in the new project.
+mv "$DEST/gitignore" "$DEST/.gitignore"
+
 # Keep only the chosen dependency-update automation; drop the other.
 if [ "$DEPS" = "renovate" ]; then
     rm -f "$DEST/.github/dependabot.yml"

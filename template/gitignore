@@ -1,8 +1,5 @@
 .archive/
-.claude/*
-!.claude/CLAUDE.md
-!.claude/settings.json
-!.claude/hooks/
+.claude/
 .hypothesis/
 .pytest_cache/
 .ruff_cache/
