@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Template `test.yml` matrix was false green: bare `uv run` re-resolves to the `.python-version` pin (3.14), so every matrix cell ran the same interpreter regardless of `uv sync --python`. A job-level `UV_PYTHON: ${{ matrix.python-version }}` now outranks the pin, so each cell tests its own Python.
+
 ## [0.6.0] - 2026-06-10
 
 ### Added
