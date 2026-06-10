@@ -82,6 +82,12 @@ Notes:
   paths (e.g. vendored themes, generated config) rather than weakening the
   global preset — new code stays strict.
 - **Existing CI workflows** (deploy, docs, etc.) are repo features — leave them.
+- **Action pinning**: workflows ship with actions pinned to specific version
+  tags (e.g. `actions/checkout@v6.0.3`) because Dependabot — the default
+  updater — doesn't keep SHA pins current. Don't "harden" them to SHA digests
+  during an upgrade; that conversion belongs to Renovate enrollment
+  (`/renovatabot-enroll`), whose `helpers:pinGitHubActionDigests` preset PRs it
+  automatically.
 
 ### Verify, then enable the hook gate
 

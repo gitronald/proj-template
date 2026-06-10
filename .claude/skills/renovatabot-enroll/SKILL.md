@@ -36,3 +36,11 @@ The script: (1) pushes the two secrets from the `.env`, (2) keeps Dependabot vul
 alerts on while turning its security-update PRs off so only Renovate opens PRs, and (3)
 triggers the first Renovate run. Pass `--no-dependabot-toggle` to skip step 2 (the only step
 that needs repo admin). Report the result and the `gh run list …` watch command it prints.
+
+## SHA digest pinning
+
+The template ships workflow actions pinned to specific version tags (Dependabot-friendly).
+Enrollment is where the shift to SHA digests happens: the first Renovate run's
+`helpers:pinGitHubActionDigests` preset opens a PR re-pinning every action to a commit SHA
+with a `# vX.Y.Z` comment. Expect that PR after step 3 and tell the user to merge it — no
+manual re-pinning step is needed.
