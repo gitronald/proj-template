@@ -1,8 +1,10 @@
 ---
+id: 2
+slug: upgrade-lint-typecheck-pyrefly-v1
 status: done
 branch: feature/upgrade-lint-typecheck
 created: 2026-05-25T13:10:08-07:00
-completed: 2026-05-25T14:30:43-07:00
+concluded: 2026-05-25T14:30:43-07:00
 pr: https://github.com/gitronald/proj-template/pull/10
 ---
 

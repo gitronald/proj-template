@@ -17,7 +17,6 @@ PACKAGE/
 - Linting: pre-commit hooks run ruff format + lint on commit
 - Type checking: pre-commit hooks run pyrefly on commit (strict preset)
 - CI: GitHub Actions runs lint + type check + test matrix (Python 3.11–3.14) on push/PR to dev/main
-- See `docs/guides/lint-and-typecheck.md` for the full ruff + pyrefly workflow
 
 ## Before finishing a task
 

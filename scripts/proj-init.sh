@@ -9,7 +9,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-VERSION_FILE="$SCRIPT_DIR/VERSION"
+VERSION_FILE="$SCRIPT_DIR/../VERSION"
 REPO_URL="https://github.com/gitronald/proj-template.git"
 
 show_help() {

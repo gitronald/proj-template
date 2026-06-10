@@ -1,8 +1,10 @@
 ---
+id: 0
+slug: add-type-checker
 status: done
 branch: feature/add-type-checker
 created: 2026-04-01T06:41:37-07:00
-completed: 2026-04-09T13:57:50-07:00
+concluded: 2026-04-09T13:57:50-07:00
 pr: https://github.com/gitronald/proj-template/pull/4
 ---
 

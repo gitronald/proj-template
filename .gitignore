@@ -1,5 +1,5 @@
 .archive/
-.claude/
+# .claude/
 .hypothesis/
 .pytest_cache/
 .ruff_cache/

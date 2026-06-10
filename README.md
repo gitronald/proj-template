@@ -7,13 +7,13 @@ Python project template with uv, ruff, pyrefly, pytest, pre-commit, GitHub Actio
 Download and run the scaffold script to create a new project:
 
 ```bash
-curl -s https://raw.githubusercontent.com/gitronald/proj-template/main/proj-init.sh | bash -s <path>
+curl -s https://raw.githubusercontent.com/gitronald/proj-template/main/scripts/proj-init.sh | bash -s <path>
 ```
 
 Or add an alias to your `.bashrc` or `.zshrc`:
 
 ```bash
-alias proj-init='curl -s https://raw.githubusercontent.com/gitronald/proj-template/main/proj-init.sh | bash -s'
+alias proj-init='curl -s https://raw.githubusercontent.com/gitronald/proj-template/main/scripts/proj-init.sh | bash -s'
 ```
 
 Then create a new project:
@@ -45,22 +45,17 @@ PACKAGE/
 tests/
 ├── __init__.py
 ├── test_PACKAGE.py
-docs/
-├── README.md
-├── guides/
-│   └── lint-and-typecheck.md
+.planners/
+├── README.md                  # generated plans index (planners CLI)
 ├── plans/
 .claude/
+├── CLAUDE.md
 ├── settings.json              # shared hooks (Stop: lint + type-check gate) + permissions
 ├── hooks/
 │   └── lint-typecheck.sh
-├── skills/
-│   └── lint-and-typecheck/SKILL.md
 .github/
 ├── workflows/test.yml
-CLAUDE.md
 README.md
-TODO.md
 pyproject.toml
 .gitignore
 .pre-commit-config.yaml
