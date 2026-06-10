@@ -71,16 +71,22 @@ Notes:
 
 - **`.claude/` is on-disk, untracked.** The template standard ignores
   `.claude/` in the target's `.gitignore`, so the payload lands on disk but is
-  never committed in the target repo. If the target currently tracks `.claude/`
-  files, ask before untracking them.
+  never committed in the target repo. Exception: if the target already tracks
+  `.claude/` files (e.g. its own skills), keep tracking and commit the new
+  payload as tracked files too — don't untrack the repo's existing skills.
 - **`.gitignore` merge**: add any template entries the repo lacks (notably
   `.claude/`, `.worktrees/`, `.env` block with `!.env.example`); keep all
   repo-specific entries (build output dirs, caches, data).
-- **pyrefly on legacy code**: keep the template's `strict` preset. If existing
-  code fails, fix the cheap errors, then scope the rest out with
-  `project-excludes` or `[[tool.pyrefly.sub-config]]` relaxations on the legacy
-  paths (e.g. vendored themes, generated config) rather than weakening the
-  global preset — new code stays strict.
+- **pyrefly on legacy code**: keep the template's `strict` preset. Before
+  fixing anything, summarize errors per file and per rule — the shape decides
+  the strategy. A file with `missing-import` errors whose imports aren't
+  project deps (e.g. a legacy `tasks.py` using `invoke`) can't be meaningfully
+  checked: add it to `project-excludes` immediately, don't annotate it. For the
+  rest, fix the cheap errors (most are mechanical parameter annotations), then
+  scope what remains out with `project-excludes` or
+  `[[tool.pyrefly.sub-config]]` relaxations on the legacy paths (e.g. vendored
+  themes, generated config) rather than weakening the global preset — new code
+  stays strict.
 - **Existing CI workflows** (deploy, docs, etc.) are repo features — leave them.
 - **Action pinning**: workflows ship with actions pinned to specific version
   tags (e.g. `actions/checkout@v6.0.3`) because Dependabot — the default
@@ -102,8 +108,17 @@ uv run pre-commit install && uv run pre-commit run --all-files
 uv run pytest   # only if the repo has tests
 ```
 
-Fix failures at the source (autofix with `ruff --fix` / `ruff format`,
-annotate or exclude for pyrefly) — do not commit with red checks. The
+Run the autofixers before reading lint output: `uv run ruff format .` then
+`uv run ruff check --fix .` clear most errors on their own, so only study what
+survives them (typically long string literals and idioms needing a targeted
+`# noqa`). Fix the rest at the source (annotate or exclude for pyrefly) — do
+not commit with red checks. If the lint/format/annotation fixes touch a script
+that generates output (site pages, reports, build artifacts), prove the
+behavior is unchanged: copy the pre-upgrade version from git to a sibling path
+in the *same directory* (so its `__file__`-relative paths still resolve — a
+copy in `/tmp` silently reads the wrong inputs), run old and new against the
+same explicit inputs into temp outputs, and diff for byte-identical results.
+The
 `.claude/settings.json` Stop hook runs ruff + pyrefly on every Claude session
 stop, so a repo with failing checks would gate every future session; that is
 why green checks are a hard requirement before this lands.
