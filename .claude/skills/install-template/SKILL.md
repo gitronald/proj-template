@@ -51,8 +51,8 @@ running it from a tool. If the user chose renovate, finish with the
      machine-specific paths.
    - Open a worktree instead of switching the main checkout: branch
      `feature/template-upgrade` off `dev` (or the repo's default working
-     branch) at `.claude/worktrees/template-upgrade`. Check the target's
-     `.gitignore` first and add `.claude/worktrees/` if it isn't ignored.
+     branch) at `.worktrees/template-upgrade`. Check the target's
+     `.gitignore` first and add `.worktrees/` if it isn't ignored.
      Do all upgrade work inside the worktree.
    - Set the plan `status: active` and fill `branch`, and commit the plan on
      the feature branch so it rides in the PR.
@@ -73,7 +73,7 @@ repo-specific content; "never" means leave the repo's file alone.
 | `.python-version` | sync | sync unless repo pins older deliberately |
 | `.gitignore` | merge entries | merge entries |
 | `.claude/settings.json`, `.claude/hooks/lint-typecheck.sh` | copy (merge if settings exist) | copy (merge if settings exist) |
-| `.claude/CLAUDE.md` | never overwrite an existing one | never overwrite an existing one |
+| `.claude/CLAUDE.md` | relocate if in an old spot; never overwrite its content | relocate if in an old spot; never overwrite its content |
 | `.github/workflows/test.yml` | sync (full Python matrix) | adapt: single Python from `.python-version`; drop pytest step if no tests |
 | `.github/workflows/publish.yml` | sync | skip |
 | `.github/dependabot.yml` (or renovate pair) | ensure one automation exists; merge ecosystems | same |
@@ -82,11 +82,25 @@ repo-specific content; "never" means leave the repo's file alone.
 
 Notes:
 
-- **`.claude/` is on-disk, untracked.** The template standard ignores
+- **Relocate misplaced files; never duplicate.** The template moves files
+  between versions, so before applying a row check whether the target already
+  has that file in an *old/wrong* location (e.g. `CLAUDE.md` at the repo root
+  when the standard now keeps it at `.claude/CLAUDE.md`). When it does — and it
+  is genuinely the file this row manages, not a coincidental same-named file
+  (confirm by content and role, not just basename) — `git mv` it to the
+  canonical path first, then apply the row's normal action there. Moving beats
+  leaving a stray copy or creating a second one. That is what "never overwrite"
+  on the `.claude/CLAUDE.md` row means: preserve the existing content, but still
+  move it into place when it is sitting in the old spot.
+- **Tracking `.claude/` is a per-repo decision.** The template default ignores
   `.claude/` in the target's `.gitignore`, so the payload lands on disk but is
-  never committed in the target repo. Exception: if the target already tracks
-  `.claude/` files (e.g. its own skills), keep tracking and commit the new
-  payload as tracked files too — don't untrack the repo's existing skills.
+  never committed. A repo may instead choose to track part of it (commonly
+  `.claude/CLAUDE.md`, or its own skills). To keep one file tracked while
+  ignoring the rest, ignore the *contents* and re-include the file — `.claude/*`
+  then `!.claude/CLAUDE.md` — because a `!`-negation cannot re-include a file
+  inside a wholly-ignored directory (`.claude/`). Whichever way a repo already
+  leans, follow it: don't untrack files it commits, and don't start committing
+  machine-local ones (e.g. `settings.local.json`).
 - **`.gitignore` merge**: add any template entries the repo lacks (notably
   `.claude/`, `.worktrees/`, `.env` block with `!.env.example`); keep all
   repo-specific entries (build output dirs, caches, data).
