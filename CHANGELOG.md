@@ -7,9 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-06-21
+
+### Changed
+
+- `install-template`: the upgrade sync matrix now reconciles each managed file's *inner* config against `template/`, not just its presence. The `test.yml` row calls out the job-level `UV_PYTHON` env pin (without it a multi-version matrix silently tests one interpreter), and the `dependabot.yml` row reconciles each ecosystem's `groups` and `cooldown` blocks.
+- `install-template`: document the intentional Dependabot repo-settings policy — alerts on, security updates (`automated-security-fixes`) off — so scheduled version-update PRs plus the release-time advisory audit stay the update path, with alerts kept on purely as a warning layer.
+
+## [0.6.2] - 2026-06-21
+
 ### Added
 
 - `install-template` upgrade mode now relocates misplaced config files: when a template-managed file (e.g. a root-level `CLAUDE.md`) is genuinely the right file but in an old spot, it is `git mv`'d to the canonical path before syncing, instead of being left or duplicated. Documents that tracking `.claude/` is a per-repo decision and the `.claude/*` + `!.claude/CLAUDE.md` pattern for keeping one file tracked.
+- Template `dependabot.yml` now sets a release `cooldown` (`default-days: 5`, `semver-major-days: 14`) on both the `github-actions` and `uv` ecosystems, so dependency-update PRs wait for a release to season before opening.
 
 ### Fixed
 
