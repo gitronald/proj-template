@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `install-template` upgrade mode now relocates misplaced config files: when a template-managed file (e.g. a root-level `CLAUDE.md`) is genuinely the right file but in an old spot, it is `git mv`'d to the canonical path before syncing, instead of being left or duplicated. Documents that tracking `.claude/` is a per-repo decision and the `.claude/*` + `!.claude/CLAUDE.md` pattern for keeping one file tracked.
+
+### Fixed
+
+- `install-template` upgrade mode now uses the conventional `.worktrees/template-upgrade` path (and `.worktrees/` gitignore entry) instead of `.claude/worktrees/`.
+
 ## [0.6.1] - 2026-06-10
 
 ### Changed
