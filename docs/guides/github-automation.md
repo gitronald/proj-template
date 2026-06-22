@@ -118,6 +118,12 @@ is reusable: create it once, then enroll each repo.
     GitHub gates workflow-file edits behind this scope *on top of* `Contents`. Without it an
     Actions-update branch pushes but the commit to the workflow file is rejected. Omit only if you
     scope Renovate off workflow files entirely.
+  - **Administration: Read-only** *(optional)* — lets Renovate read the base branch's protection
+    (`GET …/branches/{base}/protection`) to learn required status checks, which matters only for
+    **automerge**. With automerge off (the default here), skip it: the call returns `403`, Renovate
+    logs `Do not have permissions to detect branch-protection` and proceeds on defaults. It's a
+    broad repo-admin scope, so don't grant it just to silence that one benign log line — revisit only
+    if you enable automerge with required checks.
   - **Metadata: Read-only** (auto-selected).
 - **Where can this App be installed?** — "Only on this account".
 - Create it, then copy the **Client ID** from the App's **General** settings (`Iv23li…`). The
