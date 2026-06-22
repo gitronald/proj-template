@@ -74,9 +74,9 @@ repo-specific content; "never" means leave the repo's file alone.
 | `.gitignore` | merge entries | merge entries |
 | `.claude/settings.json`, `.claude/hooks/lint-typecheck.sh` | copy (merge if settings exist) | copy (merge if settings exist) |
 | `.claude/CLAUDE.md` | relocate if in an old spot; never overwrite its content | relocate if in an old spot; never overwrite its content |
-| `.github/workflows/test.yml` | sync (full Python matrix) | adapt: single Python from `.python-version`; drop pytest step if no tests |
+| `.github/workflows/test.yml` | sync (full Python matrix + `UV_PYTHON` env pin) | adapt: single Python from `.python-version`; drop pytest step if no tests |
 | `.github/workflows/publish.yml` | sync | skip |
-| `.github/dependabot.yml` (or renovate pair) | ensure one automation exists; merge ecosystems | same |
+| `.github/dependabot.yml` (or renovate pair) | ensure one automation exists; reconcile each ecosystem (groups, cooldown); set repo alert toggles (see note) | same |
 | `.planners/` scaffold | create if missing | create if missing |
 | `PACKAGE/`, `tests/`, `README.md`, `CHANGELOG.md` | never | never |
 
@@ -121,6 +121,30 @@ Notes:
   during an upgrade; that conversion belongs to Renovate enrollment
   (`/install-renovatabot`), whose `helpers:pinGitHubActionDigests` preset PRs it
   automatically.
+- **Dependabot repo settings — alerts on, security updates off.** Separate from
+  `dependabot.yml` (which schedules *version* updates), set the GitHub repo's two
+  security toggles deliberately: turn Dependabot **alerts** on
+  (`gh api -X PUT repos/<owner>/<repo>/vulnerability-alerts`) and leave Dependabot
+  **security updates** off (never enable `automated-security-fixes`). The
+  scheduled grouped version-update PRs (with `cooldown`) plus the release-time
+  vulnerability audit are the chosen update path, so security-update PRs would
+  only duplicate them. Alerts stay on purely as a warning layer: they open no
+  PRs, fire immediately on a new advisory (not gated by the schedule or
+  `cooldown`), and auto-clear when the fix reaches the default branch. This
+  mirrors the Renovate path, where `/install-renovatabot` already keeps alerts on
+  and security-update PRs off. Verify with
+  `gh api repos/<owner>/<repo>/vulnerability-alerts` (204 on / 404 off) and
+  `gh api repos/<owner>/<repo>/automated-security-fixes` (`{"enabled":false}`).
+- **Reconcile inner config, not just file presence.** A "sync"/"merge" row is
+  satisfied only when the file's *contents* match the current `template/`, not
+  when the file merely exists with the right top-level shape. Two traps seen in
+  practice: a `test.yml` whose multi-version `python-version` matrix lacks the
+  job-level `env: UV_PYTHON: ${{ matrix.python-version }}` — without it every
+  cell silently re-resolves to `.python-version` and tests the *same*
+  interpreter, so the matrix is a no-op; and a `dependabot.yml` that already
+  lists both ecosystems but is missing the current `groups`/`cooldown` blocks.
+  Diff each managed file against `template/` and carry stale inner config
+  forward, don't stop at "the file is there."
 
 ### Verify, then enable the hook gate
 
