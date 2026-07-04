@@ -81,6 +81,10 @@ case "$DEPS" in
 esac
 
 NAME="$(basename "$DEST")"
+# Distribution name (repo, PyPI, CLI command) may be hyphenated; the Python
+# import path cannot be, so derive a separate underscored identifier for the
+# package directory, test file, and import references.
+IMPORT_NAME="$(echo "$NAME" | tr '-' '_')"
 
 echo "Scaffolding ${NAME} at ${DEST}"
 
@@ -102,13 +106,21 @@ else
 fi
 
 # Rename all PACKAGE-named paths (deepest first to avoid moving parents before children)
+# Uses IMPORT_NAME: these paths are the package directory and its test file,
+# which must be valid Python import names, not the hyphenated display name.
 find "$DEST" -name '*PACKAGE*' -depth | while read -r f; do
-    mv "$f" "${f/PACKAGE/${NAME}}"
+    mv "$f" "${f/PACKAGE/${IMPORT_NAME}}"
 done
 
-# Replace PACKAGE placeholder in file contents
+# Replace PACKAGE placeholder in file contents. Order matters: resolve the
+# import-path forms first (dotted module reference, root-anchored sdist
+# only-include entry) with IMPORT_NAME, then catch everything else — project
+# name, repo URL, CLI command, display text — with the hyphenated NAME.
 grep -rl "PACKAGE" "$DEST" | while read -r f; do
-    sed "s/PACKAGE/${NAME}/g" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+    sed -e "s/\"\/PACKAGE\"/\"\/${IMPORT_NAME}\"/g" \
+        -e "s/PACKAGE\.cli/${IMPORT_NAME}.cli/g" \
+        -e "s/PACKAGE/${NAME}/g" \
+        "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 done
 
 # Fetch license from GitHub API
