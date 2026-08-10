@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `test-proj-init` repo skill: end-to-end verification of `proj-init.sh` — scaffold a dash-named project (exercising the `PROJECT`/`MODULE` placeholder split), verify placeholders, build, CLI, tests, and GitHub repo state, with a local-only mode that creates no repo.
+
 ### Fixed
 
 - `proj-init.sh`: dashed project names (e.g. `my-tool`) no longer break the scaffold. The template now uses two placeholders — `PROJECT` for the project/repo name and `MODULE` for the Python module name — and the script derives the module name by mapping dashes to underscores, validating it before scaffolding. Previously a dashed name produced an invalid module directory and `uv sync` failed hatchling's wheel file-selection heuristic mid-scaffold.
