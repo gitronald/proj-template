@@ -126,6 +126,14 @@ cd "$DEST"
 git init
 
 uv sync --all-groups
+
+# planners is a global uv tool, not a project dependency — the scaffolded
+# pre-commit hook shells out to `planners` on PATH. Install it if missing.
+if ! command -v planners > /dev/null 2>&1; then
+    echo "Installing planners (global uv tool)"
+    uv tool install planners
+fi
+
 uv run pre-commit install
 
 git add -A
