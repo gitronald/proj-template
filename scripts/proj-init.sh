@@ -2,7 +2,7 @@
 # Scaffold a new Python project from proj-template.
 #
 # Copies the template, replaces PROJECT placeholders with the given name and
-# PACKAGE placeholders with its module form (dashes become underscores),
+# MODULE placeholders with its module form (dashes become underscores),
 # initializes git, installs dependencies, and makes the initial commit.
 #
 # Usage: proj-init.sh <path>
@@ -83,9 +83,9 @@ case "$DEPS" in
 esac
 
 NAME="$(basename "$DEST")"
-MODULE="${NAME//-/_}"
-if ! [[ "$MODULE" =~ ^[a-z_][a-z0-9_]*$ ]]; then
-    echo "Error: '${NAME}' does not map to a valid Python module name (got '${MODULE}')"
+MOD_NAME="${NAME//-/_}"
+if ! [[ "$MOD_NAME" =~ ^[a-z_][a-z0-9_]*$ ]]; then
+    echo "Error: '${NAME}' does not map to a valid Python module name (got '${MOD_NAME}')"
     echo "Use lowercase letters, digits, underscores, and dashes."
     exit 1
 fi
@@ -109,14 +109,14 @@ else
     rm -f "$DEST/.github/renovate.json" "$DEST/.github/workflows/renovate.yml"
 fi
 
-# Rename all PACKAGE-named paths (deepest first to avoid moving parents before children)
-find "$DEST" -name '*PACKAGE*' -depth | while read -r f; do
-    mv "$f" "${f/PACKAGE/${MODULE}}"
+# Rename all MODULE-named paths (deepest first to avoid moving parents before children)
+find "$DEST" -name '*MODULE*' -depth | while read -r f; do
+    mv "$f" "${f/MODULE/${MOD_NAME}}"
 done
 
-# Replace placeholders in file contents: PACKAGE = module name, PROJECT = project name
-grep -rlE "PACKAGE|PROJECT" "$DEST" | while read -r f; do
-    sed "s/PACKAGE/${MODULE}/g; s/PROJECT/${NAME}/g" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+# Replace placeholders in file contents: MODULE = module name, PROJECT = project name
+grep -rlE "MODULE|PROJECT" "$DEST" | while read -r f; do
+    sed "s/MODULE/${MOD_NAME}/g; s/PROJECT/${NAME}/g" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 done
 
 # Fetch license from GitHub API
