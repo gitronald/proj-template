@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - `test-proj-init` repo skill: end-to-end verification of `proj-init.sh` — scaffold a dash-named project (exercising the `PROJECT`/`MODULE` placeholder split), verify placeholders, build, CLI, tests, and GitHub repo state, with a local-only mode that creates no repo.
 
+### Changed
+
+- `proj-init.sh` now installs `planners` as a global uv tool when it is missing — the scaffolded pre-commit hook shells out to `planners` on PATH, so a fresh machine no longer fails its first commit.
+- Template pinned versions bumped: `actions/checkout` v7.0.1, `astral-sh/setup-uv` v9.0.0, `pypa/gh-action-pypi-publish` v1.14.2, `renovatebot/github-action` v46.2.1, and the ruff pre-commit hook v0.16.1.
+
 ### Fixed
 
 - `proj-init.sh`: dashed project names (e.g. `my-tool`) no longer break the scaffold. The template now uses two placeholders — `PROJECT` for the project/repo name and `MODULE` for the Python module name — and the script derives the module name by mapping dashes to underscores, validating it before scaffolding. Previously a dashed name produced an invalid module directory and `uv sync` failed hatchling's wheel file-selection heuristic mid-scaffold.
