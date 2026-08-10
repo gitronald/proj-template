@@ -1,11 +1,11 @@
-"""PACKAGE CLI."""
+"""PROJECT CLI."""
 
 import typer
 
-app = typer.Typer(help="PACKAGE")
+app = typer.Typer(help="PROJECT")
 
 
 @app.command()
 def hello() -> None:
     """Say hello."""
-    print("Hello from PACKAGE!")
+    print("Hello from PROJECT!")

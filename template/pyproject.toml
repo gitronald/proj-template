@@ -1,5 +1,5 @@
 [project]
-name = "PACKAGE"
+name = "PROJECT"
 version = "0.1.0a0"
 description = ""
 authors = [
@@ -12,10 +12,10 @@ dependencies = [
 readme = "README.md"
 
 [project.urls]
-repository = "https://github.com/gitronald/PACKAGE"
+repository = "https://github.com/gitronald/PROJECT"
 
 [project.scripts]
-PACKAGE = "PACKAGE.cli:app"
+PROJECT = "PACKAGE.cli:app"
 
 [build-system]
 requires = ["hatchling"]

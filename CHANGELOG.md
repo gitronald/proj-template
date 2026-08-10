@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- `proj-init.sh`: dashed project names (e.g. `my-tool`) no longer break the scaffold. The template now uses two placeholders — `PROJECT` for the distribution/repo/display name and `PACKAGE` for the Python module name — and the script derives the module name by mapping dashes to underscores, validating it before scaffolding. Previously a dashed name produced an invalid module directory and `uv sync` failed hatchling's wheel file-selection heuristic mid-scaffold.
+
 - Template `dependabot.yml`: drop `semver-major-days` from the `github-actions` cooldown. The granular `semver-*-days` cooldown subkeys are invalid for the `github-actions` ecosystem — GitHub rejects the entire config on one, silently disabling Dependabot (no PRs). `default-days` stays on `github-actions`; `uv` keeps both. (The 0.6.2 entry below set it on both ecosystems; only `uv` is valid.)
 
 ## [0.6.3] - 2026-06-21
