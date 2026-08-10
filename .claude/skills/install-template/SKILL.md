@@ -18,14 +18,15 @@ this skill describes the *process*, not frozen payloads.
 
 ## Mode 1 — New repo
 
-Run the scaffold script (it clones the template, replaces `PACKAGE`
-placeholders, fetches a license, sets up git/uv/pre-commit/stanza):
+Run the scaffold script (it clones the template, replaces the `PROJECT` and
+`MODULE` placeholders, fetches a license, sets up git/uv/pre-commit/stanza):
 
 ```bash
 scripts/proj-init.sh [--license <key>] [--deps dependabot|renovate] <path>
 ```
 
-The basename of `<path>` becomes the package name. The script is interactive
+The basename of `<path>` becomes the project name (dashes map to underscores
+in the Python module name). The script is interactive
 about `--deps` when run on a TTY — pass `--deps dependabot` explicitly when
 running it from a tool. If the user chose renovate, finish with the
 `/install-renovatabot` skill after the repo exists on GitHub.
@@ -78,7 +79,7 @@ repo-specific content; "never" means leave the repo's file alone.
 | `.github/workflows/publish.yml` | sync | skip |
 | `.github/dependabot.yml` (or renovate pair) | ensure one automation exists; reconcile each ecosystem (groups, cooldown); set repo alert toggles (see note) | same |
 | `.planners/` scaffold | create if missing | create if missing |
-| `PACKAGE/`, `tests/`, `README.md`, `CHANGELOG.md` | never | never |
+| `MODULE/`, `tests/`, `README.md`, `CHANGELOG.md` | never | never |
 
 Notes:
 

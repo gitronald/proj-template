@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - `proj-init.sh` now installs `planners` as a global uv tool when it is missing — the scaffolded pre-commit hook shells out to `planners` on PATH, so a fresh machine no longer fails its first commit.
 - Template pinned versions bumped: `actions/checkout` v7.0.1, `astral-sh/setup-uv` v9.0.0, `pypa/gh-action-pypi-publish` v1.14.2, `renovatebot/github-action` v46.2.1, and the ruff pre-commit hook v0.16.1.
+- GitHub automation guide: document the **Commit statuses** permission Renovate needs to record the `minimumReleaseAge` cooldown status, the optional **Administration: read** scope (automerge-only — skip it by default), and rework first-run troubleshooting as a cascade of permission gaps rather than three independent stages.
 
 ### Fixed
 
