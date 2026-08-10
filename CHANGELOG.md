@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-09
+
 ### Added
 
 - `test-proj-init` repo skill: end-to-end verification of `proj-init.sh` — scaffold a dash-named project (exercising the `PROJECT`/`MODULE` placeholder split), verify placeholders, build, CLI, tests, and GitHub repo state, with a local-only mode that creates no repo.
