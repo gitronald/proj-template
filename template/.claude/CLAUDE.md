@@ -5,7 +5,7 @@ This file provides guidance to [Claude Code](claude.ai/code).
 ## Package Structure
 
 ```
-PACKAGE/
+MODULE/
 ├── cli.py              # Typer CLI entry point
 └── __init__.py
 ```

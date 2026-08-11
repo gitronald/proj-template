@@ -105,11 +105,25 @@ is reusable: create it once, then enroll each repo.
   - **Issues: Read and write** — the shipped `renovate.json` sets `dependencyDashboard: true`, and
     the dashboard *is* a GitHub issue; without it Renovate logs `Could not ensure issue` and never
     builds the dashboard (it also uses issues for config-error and onboarding notices).
+  - **Commit statuses: Read and write** — the shipped `renovate.json` sets `minimumReleaseAge`, so
+    Renovate records the cooldown as a `renovate/stability-days` commit status. Without it
+    `setStability` throws `integration-unauthorized` and the branch aborts *before* the PR opens —
+    you get a pushed `renovate/*` branch and no PR. Required whenever the cooldown is set (it is, by
+    default).
   - **Dependabot alerts: Read-only** — lets Renovate read alerts to raise prioritized security-fix
     PRs (and bypass the cooldown for them). Omitting it isn't fatal (routine updates still work) but
     no alert-driven PRs are opened.
-  - **Workflows: Read and write** — *only* if Renovate should update files under
-    `.github/workflows/`; omit otherwise.
+  - **Workflows: Read and write** — required for the shipped setup: Renovate manages the action pins
+    in `.github/workflows/**` (`helpers:pinGitHubActionDigests` + the `github-actions` group), and
+    GitHub gates workflow-file edits behind this scope *on top of* `Contents`. Without it an
+    Actions-update branch pushes but the commit to the workflow file is rejected. Omit only if you
+    scope Renovate off workflow files entirely.
+  - **Administration: Read-only** *(optional)* — lets Renovate read the base branch's protection
+    (`GET …/branches/{base}/protection`) to learn required status checks, which matters only for
+    **automerge**. With automerge off (the default here), skip it: the call returns `403`, Renovate
+    logs `Do not have permissions to detect branch-protection` and proceeds on defaults. It's a
+    broad repo-admin scope, so don't grant it just to silence that one benign log line — revisit only
+    if you enable automerge with required checks.
   - **Metadata: Read-only** (auto-selected).
 - **Where can this App be installed?** — "Only on this account".
 - Create it, then copy the **Client ID** from the App's **General** settings (`Iv23li…`). The
@@ -205,8 +219,11 @@ step 5 (and the skill) runs them under your own `gh` auth, not the least-privile
 
 ### Troubleshooting the first run
 
-The runner fails in three independent stages — mint the App token, init the repo, then create PRs —
-each mapping to a distinct setup gap:
+The runner fails in stages — mint the App token, init the repo, push the branch, set the stability
+status, then open the PR — each mapping to a distinct permission gap. They **cascade**: fixing one
+just surfaces the next, and every run still exits `0`, so grant the whole permission set up front
+rather than chasing them across runs. Run with `-f logLevel=debug` (the `workflow_dispatch` input)
+to see the per-branch decision behind an otherwise-green run.
 
 - **`404 … /repos/OWNER/REPO/installation`** at "Generate … App token" — credentials are valid (a
   bad Client ID/key is `401`), but the App isn't installed on that repo (step 3).
@@ -216,9 +233,17 @@ each mapping to a distinct setup gap:
   App inits fine on a public repo and hard-fails on a private one. Add **Contents: Read and write**,
   re-approve, and re-run with `-f logLevel=debug` (the `workflow_dispatch` input) to surface the
   GraphQL path.
-- **Green run, dashboard issue but no update PRs** — the App can maintain the dashboard (`Issues`
-  RW) but can't push branches or open PRs; it's missing **Contents** and/or **Pull requests**
-  *write*. The run still exits 0, so this is an easy false positive. Grant both as **Read and write**.
+- **Green run, dashboard issue but no update branch** — the App can maintain the dashboard (`Issues`
+  RW) but can't push the update branch. It's missing **Contents** *write* (to push at all) or, since
+  the template's updates edit `.github/workflows/**`, **Workflows** *write* (the commit to a workflow
+  file is rejected even with `Contents`). Grant both as **Read and write**.
+- **Green run, `renovate/*` branch pushed but no PR; debug shows `POST …/statuses/<sha>` → `403`
+  with `x-accepted-github-permissions: statuses=write`** — the branch pushes, but Renovate can't set
+  the `renovate/stability-days` status the `minimumReleaseAge` cooldown requires, so it aborts at
+  `setStability` (`integration-unauthorized`) before opening the PR. Add **Commit statuses: Read and
+  write**. This surfaces only *after* Contents/Workflows are fixed — the classic cascade.
+- **Green run, branch and status fine but still no PR** — the App can push and set status but can't
+  raise the PR; it's missing **Pull requests** *write*. Grant it as **Read and write**.
 
 > **Re-approve after changing permissions.** A permission added to an already-installed App stays
 > *pending* until you accept it — the App keeps running on the old set, so the symptoms above

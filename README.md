@@ -25,7 +25,7 @@ proj-init --license apache-2.0 ~/repos/myproject
 
 ## What it does
 
-1. Clones the template repo and replaces `PACKAGE` placeholders with your project name
+1. Clones the template repo and replaces placeholders: `PROJECT` becomes your project name, and `MODULE` becomes its Python module name (dashes become underscores)
 2. Fetches a LICENSE file from GitHub's API (default: MIT)
 3. Initializes a git repo on a `dev` branch
 4. Installs dependencies with `uv sync`
@@ -39,12 +39,12 @@ proj-init --license apache-2.0 ~/repos/myproject
 ## Template structure
 
 ```
-PACKAGE/
+MODULE/
 ├── __init__.py
 ├── cli.py
 tests/
 ├── __init__.py
-├── test_PACKAGE.py
+├── test_MODULE.py
 .planners/
 ├── README.md                  # generated plans index (planners CLI)
 ├── plans/

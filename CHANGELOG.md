@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-09
+
+### Added
+
+- `test-proj-init` repo skill: end-to-end verification of `proj-init.sh` — scaffold a dash-named project (exercising the `PROJECT`/`MODULE` placeholder split), verify placeholders, build, CLI, tests, and GitHub repo state, with a local-only mode that creates no repo.
+
+### Changed
+
+- `proj-init.sh` now installs `planners` as a global uv tool when it is missing — the scaffolded pre-commit hook shells out to `planners` on PATH, so a fresh machine no longer fails its first commit.
+- Template pinned versions bumped: `actions/checkout` v7.0.1, `astral-sh/setup-uv` v9.0.0, `pypa/gh-action-pypi-publish` v1.14.2, `renovatebot/github-action` v46.2.1, and the ruff pre-commit hook v0.16.1.
+- GitHub automation guide: document the **Commit statuses** permission Renovate needs to record the `minimumReleaseAge` cooldown status, the optional **Administration: read** scope (automerge-only — skip it by default), and rework first-run troubleshooting as a cascade of permission gaps rather than three independent stages.
+
+### Fixed
+
+- `proj-init.sh`: dashed project names (e.g. `my-tool`) no longer break the scaffold. The template now uses two placeholders — `PROJECT` for the project/repo name and `MODULE` for the Python module name — and the script derives the module name by mapping dashes to underscores, validating it before scaffolding. Previously a dashed name produced an invalid module directory and `uv sync` failed hatchling's wheel file-selection heuristic mid-scaffold.
+
+- Template `dependabot.yml`: drop `semver-major-days` from the `github-actions` cooldown. The granular `semver-*-days` cooldown subkeys are invalid for the `github-actions` ecosystem — GitHub rejects the entire config on one, silently disabling Dependabot (no PRs). `default-days` stays on `github-actions`; `uv` keeps both. (The 0.6.2 entry below set it on both ecosystems; only `uv` is valid.)
+
 ## [0.6.3] - 2026-06-21
 
 ### Changed

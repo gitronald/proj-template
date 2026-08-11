@@ -1,11 +1,12 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Scaffold a new Python project from proj-template.
 #
-# Copies the template, replaces PACKAGE placeholders with the given name,
+# Copies the template, replaces PROJECT placeholders with the given name and
+# MODULE placeholders with its module form (dashes become underscores),
 # initializes git, installs dependencies, and makes the initial commit.
 #
 # Usage: proj-init.sh <path>
-#   path  Target directory (e.g., ~/repos/gdrive). Basename becomes the package name.
+#   path  Target directory (e.g., ~/repos/gdrive). Basename becomes the project name.
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -16,7 +17,8 @@ show_help() {
     echo "Usage: proj-init.sh [--license <key>] [--branch <name>] [--deps <tool>] <path>"
     echo ""
     echo "  path     Target directory (e.g., ~/repos/gdrive)"
-    echo "           Basename becomes the package name."
+    echo "           Basename becomes the project name; dashes become"
+    echo "           underscores in the Python module name."
     echo "  --license  License key (default: mit)"
     echo "             Run 'gh api licenses --jq .[].key' for options."
     echo "  --branch   Template branch to clone (default: main)"
@@ -81,10 +83,12 @@ case "$DEPS" in
 esac
 
 NAME="$(basename "$DEST")"
-# Distribution name (repo, PyPI, CLI command) may be hyphenated; the Python
-# import path cannot be, so derive a separate underscored identifier for the
-# package directory, test file, and import references.
-IMPORT_NAME="$(echo "$NAME" | tr '-' '_')"
+MOD_NAME="${NAME//-/_}"
+if ! [[ "$MOD_NAME" =~ ^[a-z_][a-z0-9_]*$ ]]; then
+    echo "Error: '${NAME}' does not map to a valid Python module name (got '${MOD_NAME}')"
+    echo "Use lowercase letters, digits, underscores, and dashes."
+    exit 1
+fi
 
 echo "Scaffolding ${NAME} at ${DEST}"
 
@@ -105,22 +109,14 @@ else
     rm -f "$DEST/.github/renovate.json" "$DEST/.github/workflows/renovate.yml"
 fi
 
-# Rename all PACKAGE-named paths (deepest first to avoid moving parents before children)
-# Uses IMPORT_NAME: these paths are the package directory and its test file,
-# which must be valid Python import names, not the hyphenated display name.
-find "$DEST" -name '*PACKAGE*' -depth | while read -r f; do
-    mv "$f" "${f/PACKAGE/${IMPORT_NAME}}"
+# Rename all MODULE-named paths (deepest first to avoid moving parents before children)
+find "$DEST" -name '*MODULE*' -depth | while read -r f; do
+    mv "$f" "${f/MODULE/${MOD_NAME}}"
 done
 
-# Replace PACKAGE placeholder in file contents. Order matters: resolve the
-# import-path forms first (dotted module reference, root-anchored sdist
-# only-include entry) with IMPORT_NAME, then catch everything else — project
-# name, repo URL, CLI command, display text — with the hyphenated NAME.
-grep -rl "PACKAGE" "$DEST" | while read -r f; do
-    sed -e "s/\"\/PACKAGE\"/\"\/${IMPORT_NAME}\"/g" \
-        -e "s/PACKAGE\.cli/${IMPORT_NAME}.cli/g" \
-        -e "s/PACKAGE/${NAME}/g" \
-        "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+# Replace placeholders in file contents: MODULE = module name, PROJECT = project name
+grep -rlE "MODULE|PROJECT" "$DEST" | while read -r f; do
+    sed "s/MODULE/${MOD_NAME}/g; s/PROJECT/${NAME}/g" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 done
 
 # Fetch license from GitHub API
@@ -138,6 +134,14 @@ cd "$DEST"
 git init
 
 uv sync --all-groups
+
+# planners is a global uv tool, not a project dependency — the scaffolded
+# pre-commit hook shells out to `planners` on PATH. Install it if missing.
+if ! command -v planners > /dev/null 2>&1; then
+    echo "Installing planners (global uv tool)"
+    uv tool install planners
+fi
+
 uv run pre-commit install
 
 git add -A

@@ -1,4 +1,4 @@
-"""Tests for PACKAGE."""
+"""Tests for PROJECT."""
 
 
 def test_placeholder() -> None:
