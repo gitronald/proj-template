@@ -54,7 +54,12 @@ running it from a tool. If the user chose renovate, finish with the
      `feature/template-upgrade` off `dev` (or the repo's default working
      branch) at `.worktrees/template-upgrade`. Check the target's
      `.gitignore` first and add `.worktrees/` if it isn't ignored.
-     Do all upgrade work inside the worktree.
+     Do all tracked upgrade work inside the worktree. The exception is
+     gitignored payload: when the target ignores `.claude/`, the worktree
+     has no copy of `.claude/CLAUDE.md`, `settings.json`, or `hooks/`, and
+     anything written there vanishes when the worktree is removed. Apply
+     the `.claude/*` rows in the main checkout instead, and note in the
+     PR that those files changed on disk outside the branch.
    - Set the plan `status: active` and fill `branch`, and commit the plan on
      the feature branch so it rides in the PR.
 
@@ -68,7 +73,7 @@ repo-specific content; "never" means leave the repo's file alone.
 |---|---|---|
 | `pyproject.toml` `[tool.ruff*]`, `[tool.pyrefly*]` sections | merge | merge |
 | `pyproject.toml` dev group (`ruff`, `pyrefly`, `pre-commit`) | merge | merge |
-| `pyproject.toml` dev group (`pytest`, `pytest-cov`), `[tool.pytest.ini_options]`, `[tool.coverage.*]` (set `run.source` to the repo's package) | merge | only if `tests/` exists |
+| `pyproject.toml` dev group (`pytest`, `pytest-cov`), `[tool.pytest.ini_options]` (`addopts` uses bare `--cov`; drop a repo's `--cov=<pkg>` since `run.source` names it), `[tool.coverage.*]` (set `run.source` to the repo's package) | merge | only if `tests/` exists |
 | `pyproject.toml` `[build-system]`, sdist `only-include`, `[project.urls]`, `[project.scripts]` | merge | skip |
 | `.pre-commit-config.yaml` | sync hooks (keep extra local hooks) | sync hooks (keep extra local hooks) |
 | `.python-version` | sync | sync unless repo pins older deliberately |
