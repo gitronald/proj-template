@@ -68,7 +68,7 @@ repo-specific content; "never" means leave the repo's file alone.
 |---|---|---|
 | `pyproject.toml` `[tool.ruff*]`, `[tool.pyrefly*]` sections | merge | merge |
 | `pyproject.toml` dev group (`ruff`, `pyrefly`, `pre-commit`) | merge | merge |
-| `pyproject.toml` dev group (`pytest`, `pytest-cov`), `[tool.pytest.ini_options]` | merge | only if `tests/` exists |
+| `pyproject.toml` dev group (`pytest`, `pytest-cov`), `[tool.pytest.ini_options]`, `[tool.coverage.*]` (set `run.source` to the repo's package) | merge | only if `tests/` exists |
 | `pyproject.toml` `[build-system]`, sdist `only-include`, `[project.urls]`, `[project.scripts]` | merge | skip |
 | `.pre-commit-config.yaml` | sync hooks (keep extra local hooks) | sync hooks (keep extra local hooks) |
 | `.python-version` | sync | sync unless repo pins older deliberately |

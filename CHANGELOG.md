@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Coverage configuration in the template `pyproject.toml`: `pytest` now runs with `--cov` by default via `addopts`, and a `[tool.coverage]` section sets the package as `source`, enables branch coverage, excludes common boilerplate lines, and enforces a `fail_under = 50` floor that projects can raise. The test workflow runs plain `uv run pytest` and inherits the same settings. The scaffolded placeholder test now invokes the CLI through `typer.testing.CliRunner` so a fresh project starts above the floor. The `install-template` sync matrix merges `[tool.coverage.*]` into upgraded repos.
+
 ## [0.7.0] - 2026-08-09
 
 ### Added

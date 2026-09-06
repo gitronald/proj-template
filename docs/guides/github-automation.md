@@ -7,7 +7,7 @@ point back here.
 
 | File | Trigger | What it does |
 |------|---------|--------------|
-| [`workflows/test.yml`](../../template/.github/workflows/test.yml) | Push or PR to `dev` or `main` | Installs deps with `uv`, then runs ruff lint, `ruff format --check`, `pyrefly check`, and `pytest --cov` across Python 3.11–3.14 |
+| [`workflows/test.yml`](../../template/.github/workflows/test.yml) | Push or PR to `dev` or `main` | Installs deps with `uv`, then runs ruff lint, `ruff format --check`, `pyrefly check`, and `pytest` (with coverage via `addopts`) across Python 3.11–3.14 |
 | [`workflows/publish.yml`](../../template/.github/workflows/publish.yml) | Push of a `v*` tag | Builds the wheel and publishes to PyPI via Trusted Publishing — skipped unless the `PUBLISH_ENABLED` repository variable is `true` |
 | [`dependabot.yml`](../../template/.github/dependabot.yml) **or** [`renovate.json`](../../template/.github/renovate.json) + [`workflows/renovate.yml`](../../template/.github/workflows/renovate.yml) | Weekly | Dependency-update PRs — **pick one at scaffold time** (`--deps`). Dependabot (default, zero setup) or self-hosted Renovate (opt-in, stronger hardening) |
 
@@ -15,7 +15,7 @@ point back here.
 
 CI runs on every push and pull request targeting `dev` or `main`. It installs the project
 with `uv` and runs the full quality gate — ruff lint, `ruff format --check`, `pyrefly check`,
-and `pytest --cov` — across the Python 3.11–3.14 matrix. The same format and lint checks run
+and `pytest` with coverage — across the Python 3.11–3.14 matrix. The same format and lint checks run
 locally on each commit via [pre-commit](pre-commit.md).
 
 ## Publish (`publish.yml`)
