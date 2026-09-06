@@ -78,8 +78,8 @@ repo-specific content; "never" means leave the repo's file alone.
 | `.pre-commit-config.yaml` | sync hooks (keep extra local hooks) | sync hooks (keep extra local hooks) |
 | `.python-version` | sync | sync unless repo pins older deliberately |
 | `.gitignore` | merge entries | merge entries |
-| `.claude/settings.json`, `.claude/hooks/lint-typecheck.sh` | copy (merge if settings exist) | copy (merge if settings exist) |
-| `.claude/CLAUDE.md` | relocate if in an old spot; never overwrite its content, except the `
+| `.claude/settings.json`, `.claude/hooks/lint-typecheck.sh` | copy (merge if settings exist); apply in the main checkout when `.claude/` is gitignored (see preflight) | same |
+| `.claude/CLAUDE.md` | relocate if in an old spot; never overwrite its content, except the `## Development` tooling bullets (see note) | same |
 | `.github/workflows/test.yml` | sync (full Python matrix + `UV_PYTHON` env pin) | adapt: single Python from `.python-version`; drop pytest step if no tests |
 | `.github/workflows/publish.yml` | sync | skip |
 | `.github/dependabot.yml` (or renovate pair) | ensure one automation exists; reconcile each ecosystem (groups, cooldown); set repo alert toggles (see note) | same |
