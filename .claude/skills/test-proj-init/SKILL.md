@@ -75,7 +75,8 @@ In the scaffolded project (both modes):
   `/template_test`.
 - Module dir is `template_test/` and the test file is `tests/test_template_test.py`.
 - `uv run template-test` prints `Hello from template-test!` (single-command Typer app —
-  no subcommand); `uv run pytest -q` passes.
+  no subcommand); `uv run pytest -q` passes, its coverage table lists `template_test/cli.py`
+  (not `MODULE`), and it reports `Required test coverage of 50.0% reached`.
 
 Full mode additionally:
 

@@ -157,8 +157,16 @@ uv sync --all-groups
 uv run ruff check . && uv run ruff format --check .
 uv run pyrefly check
 uv run pre-commit install && uv run pre-commit run --all-files
-uv run pytest   # only if the repo has tests
+uv run pytest   # only if the repo has tests; runs with coverage via addopts
 ```
+
+Coverage floor on an existing repo: merging `[tool.coverage.*]` brings in
+`fail_under = 50`, which can fail `pytest` in a repo whose tests never reached
+that. Do not drop the section or the `addopts` flag. Set `fail_under` to the
+repo's current total (round down to a whole number) so the gate holds the line
+from here, and say so in the report so the owner can raise it later. Set
+`run.source` to the actual package directory; for an app or site with no
+package, point it at the directory that holds the tested modules.
 
 Run the autofixers before reading lint output: `uv run ruff format .` then
 `uv run ruff check --fix .` clear most errors on their own, so only study what
