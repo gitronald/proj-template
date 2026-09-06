@@ -79,7 +79,7 @@ repo-specific content; "never" means leave the repo's file alone.
 | `.python-version` | sync | sync unless repo pins older deliberately |
 | `.gitignore` | merge entries | merge entries |
 | `.claude/settings.json`, `.claude/hooks/lint-typecheck.sh` | copy (merge if settings exist) | copy (merge if settings exist) |
-| `.claude/CLAUDE.md` | relocate if in an old spot; never overwrite its content | relocate if in an old spot; never overwrite its content |
+| `.claude/CLAUDE.md` | relocate if in an old spot; never overwrite its content, except the `
 | `.github/workflows/test.yml` | sync (full Python matrix + `UV_PYTHON` env pin) | adapt: single Python from `.python-version`; drop pytest step if no tests |
 | `.github/workflows/publish.yml` | sync | skip |
 | `.github/dependabot.yml` (or renovate pair) | ensure one automation exists; reconcile each ecosystem (groups, cooldown); set repo alert toggles (see note) | same |
@@ -98,6 +98,13 @@ Notes:
   leaving a stray copy or creating a second one. That is what "never overwrite"
   on the `.claude/CLAUDE.md` row means: preserve the existing content, but still
   move it into place when it is sitting in the old spot.
+  The one content exception is the `## Development` section: its Install,
+  Tests, Linting, Type checking, and CI bullets describe template-owned
+  tooling, so refresh each of those bullets to the template's current wording
+  when the repo's copy is stale (e.g. a bare `uv run pytest` line that does
+  not mention the coverage gate). Match bullets by their leading label, keep
+  any repo-specific bullets and text outside that section untouched, and skip
+  a bullet the repo has clearly customized (a different command, extra flags).
 - **Tracking `.claude/` is a per-repo decision.** The template default ignores
   `.claude/` in the target's `.gitignore`, so the payload lands on disk but is
   never committed. A repo may instead choose to track part of it (commonly
