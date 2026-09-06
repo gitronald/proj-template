@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - Coverage configuration in the template `pyproject.toml`: `pytest` now runs with `--cov` by default via `addopts`, and a `[tool.coverage]` section sets the package as `source`, enables branch coverage, excludes common boilerplate lines, and enforces a `fail_under = 50` floor that projects can raise. The test workflow runs plain `uv run pytest` and inherits the same settings. The scaffolded placeholder test now invokes the CLI through `typer.testing.CliRunner` so a fresh project starts above the floor. The `install-template` sync matrix merges `[tool.coverage.*]` into upgraded repos.
+- Plan 006 (parked): options for publishing coverage to Codecov, Coveralls, or a workflow artifact.
+
+### Changed
+
+- `install-template` skill: apply the gitignored `.claude/*` payload in the main checkout rather than the upgrade worktree, where it would vanish on removal; pin `fail_under` to an existing repo's current total; prefer bare `--cov` over `--cov=<pkg>`; and refresh the template-owned `## Development` bullets in an existing `.claude/CLAUDE.md` instead of never touching its content.
+- `test-proj-init` skill: assert the scaffold's coverage table lists the renamed module and reports the floor as reached.
 
 ## [0.7.0] - 2026-08-09
 
