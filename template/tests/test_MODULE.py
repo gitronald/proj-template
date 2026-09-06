@@ -1,5 +1,13 @@
 """Tests for PROJECT."""
 
+from typer.testing import CliRunner
 
-def test_placeholder() -> None:
-    assert True
+from MODULE.cli import app
+
+runner = CliRunner()
+
+
+def test_hello() -> None:
+    result = runner.invoke(app)
+    assert result.exit_code == 0
+    assert "Hello from PROJECT!" in result.output

@@ -71,3 +71,18 @@ implicit-any = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--cov --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["MODULE"]
+branch = true
+
+[tool.coverage.report]
+skip_empty = true
+fail_under = 50
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]

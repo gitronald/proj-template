@@ -54,7 +54,12 @@ running it from a tool. If the user chose renovate, finish with the
      `feature/template-upgrade` off `dev` (or the repo's default working
      branch) at `.worktrees/template-upgrade`. Check the target's
      `.gitignore` first and add `.worktrees/` if it isn't ignored.
-     Do all upgrade work inside the worktree.
+     Do all tracked upgrade work inside the worktree. The exception is
+     gitignored payload: when the target ignores `.claude/`, the worktree
+     has no copy of `.claude/CLAUDE.md`, `settings.json`, or `hooks/`, and
+     anything written there vanishes when the worktree is removed. Apply
+     the `.claude/*` rows in the main checkout instead, and note in the
+     PR that those files changed on disk outside the branch.
    - Set the plan `status: active` and fill `branch`, and commit the plan on
      the feature branch so it rides in the PR.
 
@@ -68,13 +73,13 @@ repo-specific content; "never" means leave the repo's file alone.
 |---|---|---|
 | `pyproject.toml` `[tool.ruff*]`, `[tool.pyrefly*]` sections | merge | merge |
 | `pyproject.toml` dev group (`ruff`, `pyrefly`, `pre-commit`) | merge | merge |
-| `pyproject.toml` dev group (`pytest`, `pytest-cov`), `[tool.pytest.ini_options]` | merge | only if `tests/` exists |
+| `pyproject.toml` dev group (`pytest`, `pytest-cov`), `[tool.pytest.ini_options]` (`addopts` uses bare `--cov`; drop a repo's `--cov=<pkg>` since `run.source` names it), `[tool.coverage.*]` (set `run.source` to the repo's package) | merge | only if `tests/` exists |
 | `pyproject.toml` `[build-system]`, sdist `only-include`, `[project.urls]`, `[project.scripts]` | merge | skip |
 | `.pre-commit-config.yaml` | sync hooks (keep extra local hooks) | sync hooks (keep extra local hooks) |
 | `.python-version` | sync | sync unless repo pins older deliberately |
 | `.gitignore` | merge entries | merge entries |
-| `.claude/settings.json`, `.claude/hooks/lint-typecheck.sh` | copy (merge if settings exist) | copy (merge if settings exist) |
-| `.claude/CLAUDE.md` | relocate if in an old spot; never overwrite its content | relocate if in an old spot; never overwrite its content |
+| `.claude/settings.json`, `.claude/hooks/lint-typecheck.sh` | copy (merge if settings exist); apply in the main checkout when `.claude/` is gitignored (see preflight) | same |
+| `.claude/CLAUDE.md` | relocate if in an old spot; never overwrite its content, except the `## Development` tooling bullets (see note) | same |
 | `.github/workflows/test.yml` | sync (full Python matrix + `UV_PYTHON` env pin) | adapt: single Python from `.python-version`; drop pytest step if no tests |
 | `.github/workflows/publish.yml` | sync | skip |
 | `.github/dependabot.yml` (or renovate pair) | ensure one automation exists; reconcile each ecosystem (groups, cooldown); set repo alert toggles (see note) | same |
@@ -93,6 +98,13 @@ Notes:
   leaving a stray copy or creating a second one. That is what "never overwrite"
   on the `.claude/CLAUDE.md` row means: preserve the existing content, but still
   move it into place when it is sitting in the old spot.
+  The one content exception is the `## Development` section: its Install,
+  Tests, Linting, Type checking, and CI bullets describe template-owned
+  tooling, so refresh each of those bullets to the template's current wording
+  when the repo's copy is stale (e.g. a bare `uv run pytest` line that does
+  not mention the coverage gate). Match bullets by their leading label, keep
+  any repo-specific bullets and text outside that section untouched, and skip
+  a bullet the repo has clearly customized (a different command, extra flags).
 - **Tracking `.claude/` is a per-repo decision.** The template default ignores
   `.claude/` in the target's `.gitignore`, so the payload lands on disk but is
   never committed. A repo may instead choose to track part of it (commonly
@@ -157,8 +169,16 @@ uv sync --all-groups
 uv run ruff check . && uv run ruff format --check .
 uv run pyrefly check
 uv run pre-commit install && uv run pre-commit run --all-files
-uv run pytest   # only if the repo has tests
+uv run pytest   # only if the repo has tests; runs with coverage via addopts
 ```
+
+Coverage floor on an existing repo: merging `[tool.coverage.*]` brings in
+`fail_under = 50`, which can fail `pytest` in a repo whose tests never reached
+that. Do not drop the section or the `addopts` flag. Set `fail_under` to the
+repo's current total (round down to a whole number) so the gate holds the line
+from here, and say so in the report so the owner can raise it later. Set
+`run.source` to the actual package directory; for an app or site with no
+package, point it at the directory that holds the tested modules.
 
 Run the autofixers before reading lint output: `uv run ruff format .` then
 `uv run ruff check --fix .` clear most errors on their own, so only study what

@@ -13,7 +13,7 @@ MODULE/
 ## Development
 
 - Install: `uv sync --all-groups`
-- Tests: `uv run pytest`
+- Tests: `uv run pytest` (coverage runs by default; CI fails below the `fail_under` floor in `pyproject.toml`)
 - Linting: pre-commit hooks run ruff format + lint on commit
 - Type checking: pre-commit hooks run pyrefly on commit (strict preset)
 - CI: GitHub Actions runs lint + type check + test matrix (Python 3.11–3.14) on push/PR to dev/main
