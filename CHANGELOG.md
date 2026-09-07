@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-09-06
+
+### Changed
+
+- Template workflows (`test.yml`, `publish.yml`, `renovate.yml`) now ship actions pinned to commit SHAs with a `# vX.Y.Z` comment (e.g. `actions/checkout@3d3c42e…  # v7.0.1`) instead of bare version tags. This reverses the 0.6.0 switch to tags, which assumed Dependabot would not keep SHA pins current; in practice Dependabot bumps the SHA and the comment together, as observed in a downstream repo that had re-pinned to SHAs. The `install-template` skill now syncs pins to the template's SHAs and converts bare tags on upgrade, and the `install-renovatabot` skill and the GitHub automation guide describe `helpers:pinGitHubActionDigests` as a backstop for newly added actions rather than the step that introduces SHA pins; the TestPyPI snippet in the trusted-publishers guide uses the same pinned form.
+- GitHub automation guide: drop the stale claim that Dependabot has no release cooldown (the template has configured one since 0.6.2).
+
 ## [0.8.0] - 2026-09-05
 
 ### Added

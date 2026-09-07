@@ -39,8 +39,8 @@ that needs repo admin). Report the result and the `gh run list …` watch comman
 
 ## SHA digest pinning
 
-The template ships workflow actions pinned to specific version tags (Dependabot-friendly).
-Enrollment is where the shift to SHA digests happens: the first Renovate run's
-`helpers:pinGitHubActionDigests` preset opens a PR re-pinning every action to a commit SHA
-with a `# vX.Y.Z` comment. Expect that PR after step 3 and tell the user to merge it — no
-manual re-pinning step is needed.
+The template ships workflow actions already pinned to commit SHAs with a `# vX.Y.Z` comment,
+so the first Renovate run normally has nothing to re-pin. The `helpers:pinGitHubActionDigests`
+preset stays in `renovate.json` as a backstop: it pins any action a later edit adds by bare
+tag. If the repo predates SHA pins (bare version tags in its workflows), expect a re-pinning
+PR after step 3 and tell the user to merge it — no manual re-pinning step is needed.

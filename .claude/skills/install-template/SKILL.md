@@ -80,7 +80,7 @@ repo-specific content; "never" means leave the repo's file alone.
 | `.gitignore` | merge entries | merge entries |
 | `.claude/settings.json`, `.claude/hooks/lint-typecheck.sh` | copy (merge if settings exist); apply in the main checkout when `.claude/` is gitignored (see preflight) | same |
 | `.claude/CLAUDE.md` | relocate if in an old spot; never overwrite its content, except the `## Development` tooling bullets (see note) | same |
-| `.github/workflows/test.yml` | sync (full Python matrix + `UV_PYTHON` env pin) | adapt: single Python from `.python-version`; drop pytest step if no tests |
+| `.github/workflows/test.yml` | sync (full Python matrix, `UV_PYTHON` env pin, SHA-pinned actions) | adapt: single Python from `.python-version`; drop pytest step if no tests; SHA-pinned actions |
 | `.github/workflows/publish.yml` | sync | skip |
 | `.github/dependabot.yml` (or renovate pair) | ensure one automation exists; reconcile each ecosystem (groups, cooldown); set repo alert toggles (see note) | same |
 | `.planners/` scaffold | create if missing | create if missing |
@@ -128,12 +128,17 @@ Notes:
   themes, generated config) rather than weakening the global preset — new code
   stays strict.
 - **Existing CI workflows** (deploy, docs, etc.) are repo features — leave them.
-- **Action pinning**: workflows ship with actions pinned to specific version
-  tags (e.g. `actions/checkout@v6.0.3`) because Dependabot — the default
-  updater — doesn't keep SHA pins current. Don't "harden" them to SHA digests
-  during an upgrade; that conversion belongs to Renovate enrollment
-  (`/install-renovatabot`), whose `helpers:pinGitHubActionDigests` preset PRs it
-  automatically.
+- **Action pinning**: workflows ship with actions pinned to commit SHAs with a
+  `# vX.Y.Z` comment (e.g. `actions/checkout@3d3c42e…  # v7.0.1`), so a
+  retagged or repointed release can't change what runs. Dependabot keeps these
+  current under the default setup — it bumps the SHA and the version comment
+  together — so SHA pins are safe with either updater. On upgrade, sync each
+  pin to the template's SHA and comment. If a repo still has bare version tags,
+  convert them: resolve each tag with
+  `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` (an annotated tag returns
+  `object.type: tag`; dereference it via `git/tags/<sha>` to reach the commit)
+  and keep the `# vX.Y.Z` comment — it is what makes the pin readable and what
+  Dependabot updates alongside the SHA.
 - **Dependabot repo settings — alerts on, security updates off.** Separate from
   `dependabot.yml` (which schedules *version* updates), set the GitHub repo's two
   security toggles deliberately: turn Dependabot **alerts** on
