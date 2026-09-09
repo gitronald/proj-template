@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # Lint + type-check gate for the Claude Code Stop hook.
-# Runs ruff (lint only, no formatting/mutation) and pyrefly; exits 2 with
-# stderr output if either fails, so the agent sees the errors and continues.
+# Runs ruff (lint + format check, non-mutating) and pyrefly; exits 2 with
+# stderr output if any fail, so the agent sees the errors and continues.
 #
-# No `set -e`: both checks must run so the agent sees all the errors at once,
+# The format check mirrors CI (test.yml runs `ruff format --check .`): the
+# linter does not police layout -- quote style, wrapping, trailing-comma
+# expansion -- so without it the gate stays green on code CI will reject.
+#
+# No `set -e`: every check must run so the agent sees all the errors at once,
 # not just the first.
 set -u
 
@@ -24,5 +28,6 @@ cd "$root" || {
 
 fail=0
 uv run ruff check . >&2 || fail=1
+uv run ruff format --check . >&2 || fail=1
 uv run pyrefly check >&2 || fail=1
 [ "$fail" -eq 0 ] || exit 2
