@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The template's `test.yml` now passes `--python ${{ matrix.python-version }}` to `uv sync` as well
+  as setting the job-level `UV_PYTHON`. The flag is redundant — `UV_PYTHON` already governs that
+  step and every bare `uv run` after it — but the sync step is the one whose interpreter choice the
+  rest of the job inherits, so restating it there means a copied-out sync line, or an edit that
+  drops the `env` block, keeps testing the intended interpreter instead of silently falling back to
+  `.python-version` and running the same Python in every matrix cell. A comment records that the
+  restatement is deliberate, so a later reader does not "clean it up".
+
 ## [0.8.4] - 2026-09-09
 
 ### Fixed

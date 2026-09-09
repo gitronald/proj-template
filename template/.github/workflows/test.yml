@@ -25,7 +25,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9  # v9.0.0
       - run: uv python install ${{ matrix.python-version }}
-      - run: uv sync --all-groups
+      # --python restates UV_PYTHON above, which already covers this step. It is
+      # spelled out anyway because this is the one step whose interpreter choice
+      # is load-bearing for the rest: a copied-out sync line, or an edit that
+      # drops the env block, silently falls back to .python-version and every
+      # matrix cell tests the same Python again.
+      - run: uv sync --all-groups --python ${{ matrix.python-version }}
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pyrefly check
