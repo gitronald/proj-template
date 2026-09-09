@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The template's `Stop` hook now runs `ruff format --check .` alongside `ruff check` and `pyrefly`, mirroring the checks the test workflow enforces. The linter does not police layout — quote style, wrapping, trailing-comma expansion — so the gate previously stayed green on code CI would reject.
 - The template's `Stop` hook now resolves paths independently of the agent's working directory. `.claude/settings.json` invokes the hook through `${CLAUDE_PROJECT_DIR:-.}` rather than a relative path, which previously failed whenever the agent's directory was not the project root, and `lint-typecheck.sh` walks up from the working directory to the nearest `pyproject.toml` before running `ruff` and `pyrefly` — so work inside a git worktree under `.worktrees/` is checked against that worktree's own tree and `.venv`, not the main checkout — falling back to `CLAUDE_PROJECT_DIR` when the directory sits outside any project.
 
 ## [0.8.1] - 2026-09-06
