@@ -44,12 +44,26 @@ back here.
 ### Dependabot (default)
 
 `dependabot.yml` opens dependency-update PRs weekly, **grouped per ecosystem** (one PR for `uv`
-Python deps, one for `github-actions`). Grouping and PR targeting both follow the repository's
-**default branch**, where Dependabot reads its config. Zero setup — GitHub runs it natively, no
-token or workflow. Its remaining limit is what motivates the Renovate option: it can't
-target `dev` directly. It does keep action pins current, so the template ships workflow
-actions pinned to **commit SHAs** with a `# vX.Y.Z` comment (e.g.
-`actions/checkout@3d3c42e…  # v7.0.1`); Dependabot bumps the SHA and the comment together.
+Python deps, one for `github-actions`). Zero setup — GitHub runs it natively, no token or workflow.
+It does keep action pins current, so the template ships workflow actions pinned to **commit SHAs**
+with a `# vX.Y.Z` comment (e.g. `actions/checkout@3d3c42e…  # v7.0.1`); Dependabot bumps the SHA
+and the comment together.
+
+The shipped config sets **`target-branch: dev`**, so PRs open against the active branch rather than
+the default one. Per GitHub's [options
+reference](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference#target-branch-),
+when `target-branch` is defined *"only manifest files on the target branch are checked for version
+updates"* and *"all pull requests for version updates are opened targeting the specified branch"* —
+so updates also resolve against the tree they will merge into, not against `main`.
+
+What Dependabot genuinely cannot do is read its **config** from a non-default branch: the file
+[must live](https://docs.github.com/en/code-security/concepts/supply-chain-security/about-the-dependabot-yml-file)
+in `.github/` on the default branch. So `target-branch` changes where PRs land, but any edit to
+`dependabot.yml` is inert until it reaches `main` — including the grouping and cooldown keys. The
+one tradeoff: with `target-branch` set, that ecosystem's options stop applying to **security
+updates**, which always use the default branch — moot here, since this template keeps Dependabot
+security-update PRs off and uses alerts instead (see [Dependabot
+coexistence](#dependabot-coexistence)).
 
 ### Renovate (opt-in)
 
@@ -66,7 +80,9 @@ trust boundary in-house and travels with the repo; run with an App token, its PR
 
 `renovate.json` (`extends: config:recommended` + `helpers:pinGitHubActionDigests`):
 
-- **`baseBranchPatterns: ["dev"]`** — PRs open against the active branch, no retarget dance.
+- **`baseBranchPatterns: ["dev"]`** — PRs open against the active branch; the Renovate equivalent
+  of Dependabot's `target-branch: dev`. Both tools still read their *config* from the default
+  branch (see [Renovate setup](#renovate-setup)).
 - **Per-ecosystem grouping** — one PR for Python (`pep621`) deps, one for `github-actions`.
 - **Release cooldown** — `minimumReleaseAge: "5 days"` with
   `minimumReleaseAgeBehaviour: "timestamp-required"`, giving a compromised release time to be caught

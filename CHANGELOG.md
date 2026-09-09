@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- The template's `dependabot.yml` now sets `target-branch: dev` for both ecosystems, so
+  dependency-update PRs open against the active branch instead of the default one. Previously they
+  targeted `main`, so every batch had to be retargeted by hand before it could merge into `dev`, and
+  Dependabot resolved manifests against `main` rather than the tree the updates would merge into.
+  The `github-automation` guide claimed this was a Dependabot limitation ("it can't target `dev`
+  directly") and used it to motivate the Renovate option; that was incorrect — `target-branch` is a
+  supported option and GitHub documents this exact use case. The guide now states the real
+  constraint instead: `dependabot.yml` is read from the default branch, so edits to it stay inert
+  until they reach `main`. Renovate's other advantages (no silent digest mutation, fail-closed
+  cooldown, no auto-merge) are unaffected.
+
 ## [0.8.3] - 2026-09-08
 
 ### Changed
