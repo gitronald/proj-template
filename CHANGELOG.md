@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-09-09
+
 ### Changed
 
 - `docs/guides/github-automation.md` now states why the config files link back to it as absolute
