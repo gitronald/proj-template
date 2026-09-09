@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- The template's Claude permissions moved out of `.claude/settings.json` into a new
+  `.claude/settings.local.json`, leaving `settings.json` to carry only the shared `Stop` hook.
+  `settings.local.json` is the file Claude Code writes machine-local permission grants to, so
+  scaffolded repos now accumulate their own grants in the same file the template seeds — and it
+  stays untracked in every target (`.claude/` is gitignored there) while proj-template tracks its
+  copy as the payload upgrades ship from. `git push` also moved from `ask` to `allow`.
 - The template's `test.yml` now passes `--python ${{ matrix.python-version }}` to `uv sync` as well
   as setting the job-level `UV_PYTHON`. The flag is redundant — `UV_PYTHON` already governs that
   step and every bare `uv run` after it — but the sync step is the one whose interpreter choice the

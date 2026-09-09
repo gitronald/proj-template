@@ -56,7 +56,8 @@ running it from a tool. If the user chose renovate, finish with the
      `.gitignore` first and add `.worktrees/` if it isn't ignored.
      Do all tracked upgrade work inside the worktree. The exception is
      gitignored payload: when the target ignores `.claude/`, the worktree
-     has no copy of `.claude/CLAUDE.md`, `settings.json`, or `hooks/`, and
+     has no copy of `.claude/CLAUDE.md`, `settings.json`, `settings.local.json`,
+     or `hooks/`, and
      anything written there vanishes when the worktree is removed. Apply
      the `.claude/*` rows in the main checkout instead, and note in the
      PR that those files changed on disk outside the branch.
@@ -81,7 +82,7 @@ overwrite" below.
 | `.pre-commit-config.yaml` | sync hooks (keep extra local hooks) | sync hooks (keep extra local hooks) |
 | `.python-version` | sync | sync unless repo pins older deliberately |
 | `.gitignore` | merge entries | merge entries |
-| `.claude/settings.json`, `.claude/hooks/lint-typecheck.sh` | copy (merge if settings exist — diff the hook `command`, `timeout`, and permission lists, don't assume presence means current); apply in the main checkout when `.claude/` is gitignored (see preflight) | same |
+| `.claude/settings.json`, `.claude/settings.local.json`, `.claude/hooks/lint-typecheck.sh` | copy (merge if settings exist — diff the hook `command`/`timeout` in `settings.json` and the permission lists in `settings.local.json`, don't assume presence means current); apply in the main checkout when `.claude/` is gitignored (see preflight) | same |
 | `.claude/CLAUDE.md` | relocate if in an old spot; never overwrite its content, except the `## Development` tooling bullets (see note) | same |
 | `.github/workflows/test.yml` | sync (full Python matrix, `UV_PYTHON` env pin **and** `--python` on `uv sync` — see note, SHA-pinned actions) | adapt: single Python from `.python-version`; drop pytest step if no tests; SHA-pinned actions |
 | `.github/workflows/publish.yml` | sync | skip |
@@ -140,7 +141,11 @@ Notes:
   then `!.claude/CLAUDE.md` — because a `!`-negation cannot re-include a file
   inside a wholly-ignored directory (`.claude/`). Whichever way a repo already
   leans, follow it: don't untrack files it commits, and don't start committing
-  machine-local ones (e.g. `settings.local.json`).
+  machine-local ones. `.claude/settings.local.json` is machine-local in *every*
+  target repo — it carries the permission allow/deny/ask lists, so it stays
+  untracked there no matter what else the repo commits. proj-template itself is
+  the one exception: it tracks its copy, since that is the payload targets are
+  upgraded from.
 - **`.gitignore` merge**: add any template entries the repo lacks (notably
   `.claude/`, `.worktrees/`, `.env` block with `!.env.example`); keep all
   repo-specific entries (build output dirs, caches, data).

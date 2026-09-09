@@ -50,7 +50,8 @@ tests/
 ├── plans/
 .claude/
 ├── CLAUDE.md
-├── settings.json              # shared hooks (Stop: lint + type-check gate) + permissions
+├── settings.json              # shared hooks (Stop: lint + type-check gate)
+├── settings.local.json        # permission allow/deny/ask lists (machine-local)
 ├── hooks/
 │   └── lint-typecheck.sh
 .github/
