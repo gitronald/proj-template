@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-09-09
+
 ### Fixed
 
 - The template's `dependabot.yml` now sets `target-branch: dev` for both ecosystems, so
