@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- `docs/guides/github-automation.md` now states why the config files link back to it as absolute
+  GitHub URLs rather than relative paths — `docs/` sits outside `template/`, so a scaffolded repo
+  gets the configs but never the guide — along with the editing rule that follows from it (thin
+  comments in the configs, rationale in the guide) and what to grep if the guide is ever moved.
+  `template/.github/workflows/renovate.yml` was the one back-link still written as a bare
+  `docs/guides/github-automation.md` path, unresolvable in the repos that receive it; it now
+  carries the same absolute URL as `dependabot.yml` and `renovate.json`.
 - `template/.github/dependabot.yml` lost its `target-branch` rationale comment, which restated the
   guide's Dependabot section (the options-reference quote, the manifest-scan scoping, the
   security-updates caveat) in full. The header keeps the guide link — absolute, since a scaffolded
