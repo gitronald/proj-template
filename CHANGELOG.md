@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-09-09
+
+### Changed
+
+- `docs/guides/github-automation.md` now states why the config files link back to it as absolute
+  GitHub URLs rather than relative paths — `docs/` sits outside `template/`, so a scaffolded repo
+  gets the configs but never the guide — along with the editing rule that follows from it (thin
+  comments in the configs, rationale in the guide) and what to grep if the guide is ever moved.
+  `template/.github/workflows/renovate.yml` was the one back-link still written as a bare
+  `docs/guides/github-automation.md` path, unresolvable in the repos that receive it; it now
+  carries the same absolute URL as `dependabot.yml` and `renovate.json`.
+- `template/.github/dependabot.yml` lost its `target-branch` rationale comment, which restated the
+  guide's Dependabot section (the options-reference quote, the manifest-scan scoping, the
+  security-updates caveat) in full. The header keeps the guide link — absolute, since a scaffolded
+  repo has no local `docs/` copy — plus a two-line note that Dependabot reads the file from the
+  default branch only, the one fact that makes an edit to this file silently do nothing and so
+  worth having where the edit happens.
+- The template's Claude permissions moved out of `.claude/settings.json` into a new
+  `.claude/settings.local.json`, leaving `settings.json` to carry only the shared `Stop` hook.
+  `settings.local.json` is the file Claude Code writes machine-local permission grants to, so
+  scaffolded repos now accumulate their own grants in the same file the template seeds — and it
+  stays untracked in every target (`.claude/` is gitignored there) while proj-template tracks its
+  copy as the payload upgrades ship from. `git push` also moved from `ask` to `allow`.
+- `install-template` skill: the `.claude/settings*.json` row is now ask-first and exempt from the
+  "stale template content replaces silently" path. A target's `settings.local.json` diverges by
+  design — Claude Code appends every grant the user accepts there — so an upgrade must show what
+  adopting the template's copy would change (entries added, entries removed, and entries that move
+  between `allow`/`ask`/`deny`, each with its direction) rather than overwriting grants the user
+  chose. Moves need their own approval; hook `command`/`timeout` changes in `settings.json` stay
+  silent-replace, since those are template-owned plumbing.
+- The template's `test.yml` now passes `--python ${{ matrix.python-version }}` to `uv sync` as well
+  as setting the job-level `UV_PYTHON`. The flag is redundant — `UV_PYTHON` already governs that
+  step and every bare `uv run` after it — but the sync step is the one whose interpreter choice the
+  rest of the job inherits, so restating it there means a copied-out sync line, or an edit that
+  drops the `env` block, keeps testing the intended interpreter instead of silently falling back to
+  `.python-version` and running the same Python in every matrix cell. A comment records that the
+  restatement is deliberate, so a later reader does not "clean it up".
+- `install-template` skill: the `test.yml` sync row and reconcile notes now cover the `--python`
+  flag on `uv sync` alongside the `UV_PYTHON` env pin, with an explicit "don't simplify this away"
+  note. Without it the flag reads as redundant on inspection — which it is — and an upgrade that
+  tidied it out would leave the repo one `env`-block edit away from the silently-no-op matrix the
+  neighbouring note already warns about.
+- Template pinned version bumped: `astral-sh/setup-uv` v9.0.0 -> v10.0.1, in both `test.yml` and
+  `publish.yml`. v10's breaking change disables `enable-cache: auto` for the `pull_request_target`,
+  `workflow_run`, and `release` events; neither template workflow uses those triggers (`test.yml`
+  runs on `push`/`pull_request`, `publish.yml` on `push: tags`), so nothing changes for a scaffolded
+  repo beyond picking up v10's checksum-verification and manifest-timeout fixes.
+
 ## [0.8.4] - 2026-09-09
 
 ### Fixed

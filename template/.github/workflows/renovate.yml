@@ -3,9 +3,11 @@ name: Renovate
 # Self-hosted Renovate dependency updates. Config: .github/renovate.json
 #
 # Runs on a weekly schedule and on demand. Requires two repository secrets for a
-# least-privilege GitHub App (see docs/guides/github-automation.md in the template repo):
+# least-privilege GitHub App:
 #   RENOVATE_CLIENT_ID       - the GitHub App's Client ID
 #   RENOVATE_APP_PRIVATE_KEY - the App's private key (PEM)
+# Creating the App and pushing the secrets is a one-time setup, documented at
+# https://github.com/gitronald/proj-template/blob/main/docs/guides/github-automation.md
 # Renovate runs with the App token (not GITHUB_TOKEN) so its update PRs trigger CI.
 
 on:

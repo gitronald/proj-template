@@ -56,7 +56,8 @@ running it from a tool. If the user chose renovate, finish with the
      `.gitignore` first and add `.worktrees/` if it isn't ignored.
      Do all tracked upgrade work inside the worktree. The exception is
      gitignored payload: when the target ignores `.claude/`, the worktree
-     has no copy of `.claude/CLAUDE.md`, `settings.json`, or `hooks/`, and
+     has no copy of `.claude/CLAUDE.md`, `settings.json`, `settings.local.json`,
+     or `hooks/`, and
      anything written there vanishes when the worktree is removed. Apply
      the `.claude/*` rows in the main checkout instead, and note in the
      PR that those files changed on disk outside the branch.
@@ -81,9 +82,9 @@ overwrite" below.
 | `.pre-commit-config.yaml` | sync hooks (keep extra local hooks) | sync hooks (keep extra local hooks) |
 | `.python-version` | sync | sync unless repo pins older deliberately |
 | `.gitignore` | merge entries | merge entries |
-| `.claude/settings.json`, `.claude/hooks/lint-typecheck.sh` | copy (merge if settings exist — diff the hook `command`, `timeout`, and permission lists, don't assume presence means current); apply in the main checkout when `.claude/` is gitignored (see preflight) | same |
+| `.claude/settings.json`, `.claude/settings.local.json`, `.claude/hooks/lint-typecheck.sh` | copy when absent; when either settings file exists, **ask** — never copy over it (see note); apply in the main checkout when `.claude/` is gitignored (see preflight) | same |
 | `.claude/CLAUDE.md` | relocate if in an old spot; never overwrite its content, except the `## Development` tooling bullets (see note) | same |
-| `.github/workflows/test.yml` | sync (full Python matrix, `UV_PYTHON` env pin, SHA-pinned actions) | adapt: single Python from `.python-version`; drop pytest step if no tests; SHA-pinned actions |
+| `.github/workflows/test.yml` | sync (full Python matrix, `UV_PYTHON` env pin **and** `--python` on `uv sync` — see note, SHA-pinned actions) | adapt: single Python from `.python-version`; drop pytest step if no tests; SHA-pinned actions |
 | `.github/workflows/publish.yml` | sync | skip |
 | `.github/dependabot.yml` (or renovate pair) | ensure one automation exists; reconcile each ecosystem (groups, cooldown, `target-branch` — see note); set repo alert toggles (see note) | same |
 | `.planners/` scaffold | create if missing | create if missing |
@@ -115,6 +116,37 @@ Notes:
   **keep** the repo's file as-is. Show the specific conflicting lines in the
   question so the choice is informed, and record each answer in the plan's Log
   with the reason, so the next upgrade doesn't re-litigate it.
+- **Claude settings are always a question, never a silent copy.** The
+  `.claude/settings.json` / `.claude/settings.local.json` row is exempt from the
+  "diverges but holds nothing the template lacks — replace silently" path above.
+  `settings.local.json` is where Claude Code records the permission grants a user
+  accepts in that repo, so a target's copy is *expected* to diverge and to grow
+  with use; replacing it silently revokes grants the user chose, and the loss is
+  invisible until a familiar command starts prompting again. Whenever either file
+  differs from the template, put it in the ask-first class and fold it into the
+  same batched round as everything else.
+
+  State what adopting the template's version *would* change, per file, as three
+  explicit lists — the question is uninformative without them:
+  - **added** — entries the template has and the repo lacks. This is the actual
+    upgrade; it is the part that is normally safe to take.
+  - **removed** — entries the repo has and the template lacks. These are the
+    repo's own accumulated or deliberate grants, so default to keeping them and
+    say so; only a straight replace drops them.
+  - **moved between lists** — an entry present in both files but under a
+    different key. Name each one with its direction, because either direction
+    changes what runs without a prompt: `ask`/`deny` -> `allow` broadens (the
+    template allows `Bash(git push:*)`, which a repo may have deliberately kept
+    on `ask`), and `allow` -> `ask`/`deny` tightens, which can stall a workflow
+    the repo depends on. A move never rides along with the additions — it needs
+    its own yes.
+
+  Offer **merge** (take the additions, keep the repo's extras, apply only the
+  moves the user accepts) as the default, with **replace** and **keep** as the
+  alternatives. Hook definitions in `settings.json` are not part of this: a
+  changed `command` or `timeout` there is template-owned plumbing and still
+  replaces silently under the general rule — only a hook the repo added or
+  edited itself is a question.
 - **Relocate misplaced files; never duplicate.** The template moves files
   between versions, so before applying a row check whether the target already
   has that file in an *old/wrong* location (e.g. `CLAUDE.md` at the repo root
@@ -140,7 +172,11 @@ Notes:
   then `!.claude/CLAUDE.md` — because a `!`-negation cannot re-include a file
   inside a wholly-ignored directory (`.claude/`). Whichever way a repo already
   leans, follow it: don't untrack files it commits, and don't start committing
-  machine-local ones (e.g. `settings.local.json`).
+  machine-local ones. `.claude/settings.local.json` is machine-local in *every*
+  target repo — it carries the permission allow/deny/ask lists, so it stays
+  untracked there no matter what else the repo commits. proj-template itself is
+  the one exception: it tracks its copy, since that is the payload targets are
+  upgraded from.
 - **`.gitignore` merge**: add any template entries the repo lacks (notably
   `.claude/`, `.worktrees/`, `.env` block with `!.env.example`); keep all
   repo-specific entries (build output dirs, caches, data).
@@ -191,6 +227,13 @@ Notes:
   Diff each managed file against `template/` and carry stale inner config
   forward, don't stop at "the file is there." That diff is also what feeds the
   divergence triage in the first note — run it once and use it for both.
+- **Don't "simplify" the redundant `--python` on `uv sync`.** `test.yml` passes
+  `--python ${{ matrix.python-version }}` *and* sets `UV_PYTHON`; the env var
+  alone is sufficient, so the flag reads like something to delete. It stays:
+  the sync step fixes the interpreter the rest of the job inherits, so spelling
+  it out there is what keeps a copied-out sync line — or an edit that drops the
+  `env` block — from quietly reintroducing the no-op-matrix trap above. Carry
+  it forward on a sync; never drop it as cleanup.
 - **`target-branch: dev` — reconcile it, but check the branch exists first.**
   The template's `dependabot.yml` sets `target-branch: dev` on both ecosystems so
   update PRs open against the active branch and resolve manifests against the

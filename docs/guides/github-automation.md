@@ -5,6 +5,16 @@ Projects created from this template include GitHub-side automation in
 packaging. This guide is the canonical reference for what ships and why; the config files
 point back here.
 
+> **The back-links are absolute GitHub URLs on purpose.** `docs/` lives at the root of
+> proj-template, not inside `template/`, so a scaffolded repo receives the config files but
+> no local copy of this guide — a relative link would dangle everywhere it actually gets
+> read. `dependabot.yml` carries the URL in a header comment and `renovate.json` in its
+> `description` field, both pinned to `main` on `gitronald/proj-template`. The consequence
+> for editors: keep the config comments thin — a pointer plus anything that bites at edit
+> time — and put the rationale here, where it can be revised once instead of in every
+> derived repo. If this guide is ever moved or renamed, grep `template/.github/` for the
+> old path; nothing but the string itself keeps those links honest.
+
 | File | Trigger | What it does |
 |------|---------|--------------|
 | [`workflows/test.yml`](../../template/.github/workflows/test.yml) | Push or PR to `dev` or `main` | Installs deps with `uv`, then runs ruff lint, `ruff format --check`, `pyrefly check`, and `pytest` (with coverage via `addopts`) across Python 3.11–3.14 |
