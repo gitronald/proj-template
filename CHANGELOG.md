@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-09-08
+
+### Changed
+
+- `install-template` skill: the upgrade path now triages every managed file by diffing it against `template/` before applying a sync-matrix row, instead of treating "the file exists" as satisfied. A file that is absent or identical is applied silently; one that diverges but carries nothing the template lacks is replaced and reported (the repo is simply on an older template revision); one that carries content the template would drop or change — a customized value, an extra entry, a different command or timeout — is put to the user before being touched. Those questions are gathered across the whole matrix and asked in a single batched round offering replace / merge / keep, with the answers recorded in the upgrade plan's Log so the next upgrade does not re-litigate them.
+
+### Fixed
+
+- The template's `Stop` hook now runs `ruff format --check .` alongside `ruff check` and `pyrefly`, mirroring the checks the test workflow enforces. The linter does not police layout — quote style, wrapping, trailing-comma expansion — so the gate previously stayed green on code CI would reject.
+- The template's `Stop` hook now resolves paths independently of the agent's working directory. `.claude/settings.json` invokes the hook through `${CLAUDE_PROJECT_DIR:-.}` rather than a relative path, which previously failed whenever the agent's directory was not the project root, and `lint-typecheck.sh` walks up from the working directory to the nearest `pyproject.toml` before running `ruff` and `pyrefly` — so work inside a git worktree under `.worktrees/` is checked against that worktree's own tree and `.venv`, not the main checkout — falling back to `CLAUDE_PROJECT_DIR` when the directory sits outside any project.
+
+### Security
+
+- Raise the template's `pytest` dev-dependency floor to `>=9.0.3`, past GHSA-6w46-j5rx-g56g (insecure `/tmp/pytest-of-{user}` tmpdir handling, affecting `< 9.0.3`). The previous `>=9.0.2` floor resolved to a safe version in practice but permitted a vulnerable one.
+
 ## [0.8.1] - 2026-09-06
 
 ### Changed
