@@ -6,11 +6,15 @@ This file provides guidance to [Claude Code](claude.ai/code).
 
 `template/.gitignore` ignores `.claude/` so that generated repos receive the
 files on disk but never track them. In this repo the payload files under
-`template/.claude/` are tracked anyway — gitignore only affects untracked
-files — which makes maintenance asymmetric:
+`template/.claude/` are tracked anyway — an ignore rule does not untrack what
+is already in the index — but it does gate `git add`, which rejects any
+pathspec under the ignored directory whether the file is tracked or not. That
+makes every write to the payload awkward:
 
-- **Editing** an existing `template/.claude/` file: normal `git add` and
-  commit.
+- **Editing** an existing `template/.claude/` file: plain `git add` refuses
+  here too, so stage it with `git add -u template/.claude/<file>` — `-u`
+  considers only already-tracked files, so the ignore rule does not apply.
+  (`git update-index template/.claude/<file>` and `git commit -a` also work.)
 - **Adding** a new file under `template/.claude/`: plain `git add` refuses
   (path is ignored). Enter it into the index once with:
 
