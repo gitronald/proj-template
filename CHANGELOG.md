@@ -16,6 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   drops the `env` block, keeps testing the intended interpreter instead of silently falling back to
   `.python-version` and running the same Python in every matrix cell. A comment records that the
   restatement is deliberate, so a later reader does not "clean it up".
+- `install-template` skill: the `test.yml` sync row and reconcile notes now cover the `--python`
+  flag on `uv sync` alongside the `UV_PYTHON` env pin, with an explicit "don't simplify this away"
+  note. Without it the flag reads as redundant on inspection — which it is — and an upgrade that
+  tidied it out would leave the repo one `env`-block edit away from the silently-no-op matrix the
+  neighbouring note already warns about.
+- Template pinned version bumped: `astral-sh/setup-uv` v9.0.0 -> v10.0.1, in both `test.yml` and
+  `publish.yml`. v10's breaking change disables `enable-cache: auto` for the `pull_request_target`,
+  `workflow_run`, and `release` events; neither template workflow uses those triggers (`test.yml`
+  runs on `push`/`pull_request`, `publish.yml` on `push: tags`), so nothing changes for a scaffolded
+  repo beyond picking up v10's checksum-verification and manifest-timeout fixes.
 
 ## [0.8.4] - 2026-09-09
 
