@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-09-08
+
 ### Changed
 
 - `install-template` skill: the upgrade path now triages every managed file by diffing it against `template/` before applying a sync-matrix row, instead of treating "the file exists" as satisfied. A file that is absent or identical is applied silently; one that diverges but carries nothing the template lacks is replaced and reported (the repo is simply on an older template revision); one that carries content the template would drop or change — a customized value, an extra entry, a different command or timeout — is put to the user before being touched. Those questions are gathered across the whole matrix and asked in a single batched round offering replace / merge / keep, with the answers recorded in the upgrade plan's Log so the next upgrade does not re-litigate them.
