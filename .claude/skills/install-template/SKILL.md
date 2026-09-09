@@ -67,7 +67,10 @@ running it from a tool. If the user chose renovate, finish with the
 
 Work through every file in `template/`, applying the action for the repo type.
 "Merge" means bring the template's entries/sections in without removing
-repo-specific content; "never" means leave the repo's file alone.
+repo-specific content; "never" means leave the repo's file alone. When the
+target already has a managed file and its content diverges from `template/`,
+the row's action is not automatic — see "Diverging files are a question, not an
+overwrite" below.
 
 | Template path | package | app/site |
 |---|---|---|
@@ -78,7 +81,7 @@ repo-specific content; "never" means leave the repo's file alone.
 | `.pre-commit-config.yaml` | sync hooks (keep extra local hooks) | sync hooks (keep extra local hooks) |
 | `.python-version` | sync | sync unless repo pins older deliberately |
 | `.gitignore` | merge entries | merge entries |
-| `.claude/settings.json`, `.claude/hooks/lint-typecheck.sh` | copy (merge if settings exist); apply in the main checkout when `.claude/` is gitignored (see preflight) | same |
+| `.claude/settings.json`, `.claude/hooks/lint-typecheck.sh` | copy (merge if settings exist — diff the hook `command`, `timeout`, and permission lists, don't assume presence means current); apply in the main checkout when `.claude/` is gitignored (see preflight) | same |
 | `.claude/CLAUDE.md` | relocate if in an old spot; never overwrite its content, except the `## Development` tooling bullets (see note) | same |
 | `.github/workflows/test.yml` | sync (full Python matrix, `UV_PYTHON` env pin, SHA-pinned actions) | adapt: single Python from `.python-version`; drop pytest step if no tests; SHA-pinned actions |
 | `.github/workflows/publish.yml` | sync | skip |
@@ -88,6 +91,30 @@ repo-specific content; "never" means leave the repo's file alone.
 
 Notes:
 
+- **Diverging files are a question, not an overwrite.** Read this before
+  applying any row. For every `sync`/`copy`/`merge` row, diff the target's
+  existing file against `template/` first and sort the result:
+  - **Absent, or identical** — apply the row silently; there is nothing to
+    decide.
+  - **Diverges, but the repo's copy holds nothing the template lacks** — the
+    repo is simply carrying an older template revision. Replace it and say so
+    in the report; no question, since nothing is lost. (Example: a repo
+    upgraded before the Stop hook was made cwd-independent still has
+    `"command": ".claude/hooks/lint-typecheck.sh"` in `.claude/settings.json`
+    — stale template content with no repo value.)
+  - **Diverges and the repo's copy holds content the template would drop or
+    change** — a customized value, an extra entry, a different command or
+    timeout — **ask before touching it.** Never assume the template wins: the
+    repo may have diverged deliberately.
+
+  Gather every file in this last class across the whole matrix *before* asking,
+  then put them to the user in one batched `AskUserQuestion` round — do not
+  interrupt once per file. Offer per file (or per tightly-related group, since
+  a round holds at most four questions): **replace** with the template version,
+  **merge** the template's change while keeping the repo's customization, or
+  **keep** the repo's file as-is. Show the specific conflicting lines in the
+  question so the choice is informed, and record each answer in the plan's Log
+  with the reason, so the next upgrade doesn't re-litigate it.
 - **Relocate misplaced files; never duplicate.** The template moves files
   between versions, so before applying a row check whether the target already
   has that file in an *old/wrong* location (e.g. `CLAUDE.md` at the repo root
@@ -162,7 +189,8 @@ Notes:
   interpreter, so the matrix is a no-op; and a `dependabot.yml` that already
   lists both ecosystems but is missing the current `groups`/`cooldown` blocks.
   Diff each managed file against `template/` and carry stale inner config
-  forward, don't stop at "the file is there."
+  forward, don't stop at "the file is there." That diff is also what feeds the
+  divergence triage in the first note — run it once and use it for both.
 
 ### Verify, then enable the hook gate
 
