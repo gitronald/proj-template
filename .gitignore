@@ -17,6 +17,15 @@ dist/
 .coverage
 .coverage.*
 
+# template/ is a real, resolvable uv project, so any uv command run from inside
+# it (export, sync, run, lock) writes template/uv.lock as a side effect. That
+# lock is scaffolding input, never an artifact of this repo: proj-init.sh
+# rsyncs template/ into each new project and only excludes __pycache__, so a
+# committed lock would seed every scaffolded repo with stale, PROJECT-named
+# pins instead of the one `uv sync` builds for it. Ignore here, not in
+# template/.gitignore — scaffolded projects do commit their own uv.lock.
+/template/uv.lock
+
 .env
 .env.*
 !.env.example

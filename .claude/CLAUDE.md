@@ -29,3 +29,21 @@ makes every write to the payload awkward:
 - `git status` never shows untracked files under `template/.claude/`, so a
   created-but-never-indexed file is silently invisible — verify new payload
   files with `git ls-files template/.claude` after adding.
+
+## Running uv in this repo
+
+The repo root has **no `pyproject.toml`** — proj-template ships a scaffold and
+shell scripts, not a Python package of its own. So there is no test, lint, or
+type-check suite to run here, and `uv run <anything>` at the root correctly
+fails with `No pyproject.toml found in current directory or any parent`. That
+is expected; it is not a broken environment to repair.
+
+`template/` **is** a real, resolvable uv project, and uv discovers a project by
+walking up from the working directory. The two facts combine into a trap: the
+root failure invites a `cd template/`, and any uv command run there (`export`,
+`sync`, `run`, `lock`) writes `template/uv.lock` as a side effect. Prefer
+`uv run --no-project` for one-off Python; when a dependency audit genuinely
+needs the resolved set, exporting from `template/` is fine — just delete the
+lock afterward. `/template/uv.lock` is gitignored so a stray one cannot be
+committed, which matters because `proj-init.sh` rsyncs `template/` into every
+new project excluding only `__pycache__`.
