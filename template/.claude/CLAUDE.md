@@ -20,11 +20,12 @@ MODULE/
 
 ## Before finishing a task
 
-Run both checks at the project root and fix all reported errors before
+Run all three checks at the project root and fix all reported errors before
 completing a task:
 
 ```bash
 uv run ruff check .
+uv run ruff format --check .
 uv run pyrefly check
 ```
 
