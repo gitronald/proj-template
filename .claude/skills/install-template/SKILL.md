@@ -85,7 +85,7 @@ overwrite" below.
 | `.claude/CLAUDE.md` | relocate if in an old spot; never overwrite its content, except the `## Development` tooling bullets (see note) | same |
 | `.github/workflows/test.yml` | sync (full Python matrix, `UV_PYTHON` env pin, SHA-pinned actions) | adapt: single Python from `.python-version`; drop pytest step if no tests; SHA-pinned actions |
 | `.github/workflows/publish.yml` | sync | skip |
-| `.github/dependabot.yml` (or renovate pair) | ensure one automation exists; reconcile each ecosystem (groups, cooldown); set repo alert toggles (see note) | same |
+| `.github/dependabot.yml` (or renovate pair) | ensure one automation exists; reconcile each ecosystem (groups, cooldown, `target-branch` — see note); set repo alert toggles (see note) | same |
 | `.planners/` scaffold | create if missing | create if missing |
 | `MODULE/`, `tests/`, `README.md`, `CHANGELOG.md` | never | never |
 
@@ -191,6 +191,18 @@ Notes:
   Diff each managed file against `template/` and carry stale inner config
   forward, don't stop at "the file is there." That diff is also what feeds the
   divergence triage in the first note — run it once and use it for both.
+- **`target-branch: dev` — reconcile it, but check the branch exists first.**
+  The template's `dependabot.yml` sets `target-branch: dev` on both ecosystems so
+  update PRs open against the active branch and resolve manifests against the
+  tree they will merge into. A repo upgraded from an older template revision will
+  not have the key; add it per ecosystem — but only once the repo actually has a
+  `dev` branch (`git rev-parse --verify origin/dev`). A scaffolded repo always
+  does, since `proj-init.sh` creates and pushes `dev`; an older or non-template
+  repo may not, and pointing Dependabot at a missing branch stops its updates.
+  Two follow-ons: `dependabot.yml` is read from the **default** branch, so this
+  edit is inert until it reaches `main`; and with `target-branch` set, that
+  ecosystem's options no longer apply to *security* updates — moot under the
+  alerts-on / security-updates-off setting above.
 
 ### Verify, then enable the hook gate
 

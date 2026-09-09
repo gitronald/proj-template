@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   constraint instead: `dependabot.yml` is read from the default branch, so edits to it stay inert
   until they reach `main`. Renovate's other advantages (no silent digest mutation, fail-closed
   cooldown, no auto-merge) are unaffected.
+- `install-template` skill: the `dependabot.yml` sync row now reconciles `target-branch`
+  alongside `groups` and `cooldown`, so a repo upgraded from an older template revision picks
+  up the change above instead of silently keeping PRs pointed at the default branch. The
+  accompanying note gates the edit on the repo actually having a `dev` branch — scaffolded
+  repos always do, but an older or non-template repo may not, and pointing Dependabot at a
+  missing branch stops its updates.
 
 ## [0.8.3] - 2026-09-08
 
