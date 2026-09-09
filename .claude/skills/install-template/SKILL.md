@@ -83,7 +83,7 @@ overwrite" below.
 | `.gitignore` | merge entries | merge entries |
 | `.claude/settings.json`, `.claude/hooks/lint-typecheck.sh` | copy (merge if settings exist — diff the hook `command`, `timeout`, and permission lists, don't assume presence means current); apply in the main checkout when `.claude/` is gitignored (see preflight) | same |
 | `.claude/CLAUDE.md` | relocate if in an old spot; never overwrite its content, except the `## Development` tooling bullets (see note) | same |
-| `.github/workflows/test.yml` | sync (full Python matrix, `UV_PYTHON` env pin, SHA-pinned actions) | adapt: single Python from `.python-version`; drop pytest step if no tests; SHA-pinned actions |
+| `.github/workflows/test.yml` | sync (full Python matrix, `UV_PYTHON` env pin **and** `--python` on `uv sync` — see note, SHA-pinned actions) | adapt: single Python from `.python-version`; drop pytest step if no tests; SHA-pinned actions |
 | `.github/workflows/publish.yml` | sync | skip |
 | `.github/dependabot.yml` (or renovate pair) | ensure one automation exists; reconcile each ecosystem (groups, cooldown, `target-branch` — see note); set repo alert toggles (see note) | same |
 | `.planners/` scaffold | create if missing | create if missing |
@@ -191,6 +191,13 @@ Notes:
   Diff each managed file against `template/` and carry stale inner config
   forward, don't stop at "the file is there." That diff is also what feeds the
   divergence triage in the first note — run it once and use it for both.
+- **Don't "simplify" the redundant `--python` on `uv sync`.** `test.yml` passes
+  `--python ${{ matrix.python-version }}` *and* sets `UV_PYTHON`; the env var
+  alone is sufficient, so the flag reads like something to delete. It stays:
+  the sync step fixes the interpreter the rest of the job inherits, so spelling
+  it out there is what keeps a copied-out sync line — or an edit that drops the
+  `env` block — from quietly reintroducing the no-op-matrix trap above. Carry
+  it forward on a sync; never drop it as cleanup.
 - **`target-branch: dev` — reconcile it, but check the branch exists first.**
   The template's `dependabot.yml` sets `target-branch: dev` on both ecosystems so
   update PRs open against the active branch and resolve manifests against the
