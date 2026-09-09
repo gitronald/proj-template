@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Template pinned version bumped: the `ruff-pre-commit` hook to v0.16.6.
+
 ## [0.8.2] - 2026-09-08
 
 ### Changed
