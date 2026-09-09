@@ -1,21 +1,14 @@
 # Dependabot version updates. Rationale and setup:
 # https://github.com/gitronald/proj-template/blob/main/docs/guides/github-automation.md
 #
-# This file itself must live on the repository's DEFAULT branch (typically `main`)
-# — that is where Dependabot reads its config from, regardless of `target-branch`.
-# Edits landed only on `dev` are inert until they reach the default branch.
+# Dependabot reads this file from the DEFAULT branch only, whatever `target-branch`
+# says — an edit landed on `dev` alone is inert until it reaches the default branch.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
-    # Open PRs against `dev`, the active branch, instead of the default branch.
-    # Also scopes the manifest scan to `dev`, so updates resolve against the tree
-    # they will merge into. Note: with target-branch set, this entry's options no
-    # longer apply to security updates (those always use the default branch) —
-    # harmless here, since this template keeps Dependabot security-update PRs off
-    # and relies on alerts plus the weekly version updates.
     target-branch: dev
     groups:
       github-actions:

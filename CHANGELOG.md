@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- `template/.github/dependabot.yml` lost its `target-branch` rationale comment, which restated the
+  guide's Dependabot section (the options-reference quote, the manifest-scan scoping, the
+  security-updates caveat) in full. The header keeps the guide link — absolute, since a scaffolded
+  repo has no local `docs/` copy — plus a two-line note that Dependabot reads the file from the
+  default branch only, the one fact that makes an edit to this file silently do nothing and so
+  worth having where the edit happens.
 - The template's Claude permissions moved out of `.claude/settings.json` into a new
   `.claude/settings.local.json`, leaving `settings.json` to carry only the shared `Stop` hook.
   `settings.local.json` is the file Claude Code writes machine-local permission grants to, so
