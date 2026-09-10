@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-09-09
+
 ### Fixed
 
 - `proj-init.sh` no longer corrupts `CLAUDE_PROJECT_DIR` when substituting placeholders. The
