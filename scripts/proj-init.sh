@@ -16,9 +16,11 @@ REPO_URL="https://github.com/gitronald/proj-template.git"
 # Escape sed's replacement-side metacharacters (\ / &) in a value before
 # interpolating it into an s/// expression. Without this, a "/" breaks the
 # expression (sed exits non-zero, aborting mid-scaffold under set -e) and an "&"
-# silently expands to the matched text instead of inserting itself.
+# silently expands to the matched text instead of inserting itself. Newlines get
+# folded to spaces first: sed treats a literal newline in a replacement as an
+# unterminated command, which set -e turns into the same mid-scaffold abort.
 sed_escape() {
-    printf '%s' "$1" | sed -e 's|[\\/&]|\\&|g'
+    printf '%s' "$1" | tr '\n\r' '  ' | sed -e 's|[\\/&]|\\&|g'
 }
 
 show_help() {
@@ -92,6 +94,11 @@ esac
 
 NAME="$(basename "$DEST")"
 MOD_NAME="${NAME//-/_}"
+# This gate is load-bearing beyond module naming: NAME and MOD_NAME are later
+# interpolated into sed unescaped (the MODULE/PROJECT substitution below), and
+# MOD_NAME is NAME with "-" swapped to "_", so any sed metacharacter in NAME
+# survives into MOD_NAME and is rejected here before those sed calls run. Keep
+# the character class this strict, or escape those call sites with sed_escape.
 if ! [[ "$MOD_NAME" =~ ^[a-z_][a-z0-9_]*$ ]]; then
     echo "Error: '${NAME}' does not map to a valid Python module name (got '${MOD_NAME}')"
     echo "Use lowercase letters, digits, underscores, and dashes."
