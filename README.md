@@ -26,11 +26,37 @@ proj-init --license apache-2.0 ~/repos/myproject
 ## What it does
 
 1. Clones the template repo and replaces placeholders: `PROJECT` becomes your project name, and `MODULE` becomes its Python module name (dashes become underscores)
-2. Fetches a LICENSE file from GitHub's API (default: MIT)
-3. Initializes a git repo on a `dev` branch
-4. Installs dependencies with `uv sync`
-5. Sets up pre-commit hooks and stanza
-6. Makes the initial commit
+2. Stamps the template release it used into `[tool.proj-template]` in the new repo's `pyproject.toml`, so you can later tell which template version a repo carries (see [Template version stamp](#template-version-stamp))
+3. Fetches a LICENSE file from GitHub's API (default: MIT)
+4. Initializes a git repo on a `dev` branch
+5. Installs dependencies with `uv sync`
+6. Sets up pre-commit hooks and stanza
+7. Makes the initial commit
+
+## Template version stamp
+
+Every scaffolded repo records the template release it came from:
+
+```toml
+[tool.proj-template]
+version = "0.9.0"
+```
+
+The version is read from the *cloned* template, so `--branch dev` records the
+prerelease actually applied rather than whatever a local checkout happens to be
+on. The `install-template` skill re-stamps it on upgrade — and deliberately does
+not stamp a newer release when an upgrade only partly lands, since a stamp that
+overstates would make the next upgrade skip the repo.
+
+The table is inert to anyone installing your package: build backends translate
+only `[project]`, so it never reaches the wheel or the PyPI metadata. It does
+appear in the sdist, which carries `pyproject.toml` unconditionally.
+
+To audit drift across repos:
+
+```bash
+grep -A1 '\[tool.proj-template\]' ~/repos/*/pyproject.toml
+```
 
 ## Future
 
