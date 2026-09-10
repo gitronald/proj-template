@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- `proj-init.sh` no longer corrupts `CLAUDE_PROJECT_DIR` when substituting placeholders. The
+  content pass ran an unanchored `s/PROJECT/<name>/g`, which also rewrote the variable inside
+  `.claude/settings.json` and `.claude/hooks/lint-typecheck.sh` — so every freshly scaffolded repo
+  got a Stop hook pointing at a variable that does not exist, silently falling back to the cwd,
+  which is the exact failure that variable was added in 0.8.2 to fix. Both placeholders are now
+  matched with `\b` word boundaries; `_` is a word character, so `CLAUDE_PROJECT_DIR` cannot match
+  while every real placeholder still does.
+- `proj-init.sh` no longer strips the executable bit from `.claude/hooks/lint-typecheck.sh`. The
+  substitution pass wrote through `sed > file.tmp && mv`, which replaced each file with a fresh
+  0644 one; a non-executable hook command fails, so the scaffolded lint/type-check gate never ran.
+  The pass now uses `sed -i`, which preserves file modes.
+- `proj-init.sh` falls back to the GitHub login when an account has no display name set. `.name` is
+  `null` for those accounts and jq renders it as the string `null`, which was written into the
+  scaffolded LICENSE as `Copyright (c) <year> null`.
+- `proj-init.sh` no longer writes an empty LICENSE when the license fetch fails. `gh api | sed >
+  LICENSE` reported the exit status of `sed`, so a failed fetch left `set -e` unfired and produced
+  an empty file; the body is now captured in a command substitution, where the failure aborts.
+- `proj-init.sh` rejects a second path argument instead of silently scaffolding the last one, and
+  renames `MODULE` paths by basename so a destination nested under a directory named `MODULE` no
+  longer has its parent rewritten into a failing `mv`.
+- `proj-init.sh` no longer assigns its template clone to `TMPDIR`, a standard environment variable
+  that child processes read to place their own temporary files. It now uses `TEMPLATE_TMP`.
 - `proj-init.sh` now validates `--license` before interpolating it into the GitHub API path.
   The value went straight into `gh api "licenses/${LICENSE}"`, so a key containing `/` or `..`
   walked the path and called a different endpoint (`--license ../user` reaching `/user`), and a
