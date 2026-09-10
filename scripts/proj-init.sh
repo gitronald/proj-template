@@ -128,7 +128,11 @@ if [ -z "$TEMPLATE_VERSION" ]; then
     echo "Warning: template VERSION not found; stamping as 'unknown'"
     TEMPLATE_VERSION="unknown"
 fi
-sed "s/TEMPLATE_VERSION/${TEMPLATE_VERSION}/" "$DEST/pyproject.toml" \
+# Escape sed's replacement metacharacters (\ / &) before substituting: an
+# unescaped "/" would break the s/// expression and abort mid-scaffold under
+# set -e, and an unescaped "&" would silently expand to the matched text.
+TEMPLATE_VERSION_ESC="$(printf '%s' "$TEMPLATE_VERSION" | sed -e 's|[\\/&]|\\&|g')"
+sed "s/TEMPLATE_VERSION/${TEMPLATE_VERSION_ESC}/" "$DEST/pyproject.toml" \
     > "$DEST/pyproject.toml.tmp" && mv "$DEST/pyproject.toml.tmp" "$DEST/pyproject.toml"
 
 # Fetch license from GitHub API
