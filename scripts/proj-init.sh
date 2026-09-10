@@ -7,7 +7,11 @@
 #
 # Usage: proj-init.sh <path>
 #   path  Target directory (e.g., ~/repos/gdrive). Basename becomes the project name.
-set -e
+#
+# -u catches a typo'd or never-assigned variable instead of expanding it to "";
+# -o pipefail makes a pipeline fail when any stage does, not just the last, so a
+# failing producer can no longer be masked by a successful consumer.
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VERSION_FILE="$SCRIPT_DIR/../VERSION"
@@ -60,13 +64,37 @@ while [[ $# -gt 0 ]]; do
         --branch)  [ $# -ge 2 ] || { echo "Error: --branch requires a value"; exit 1; }; BRANCH="$2"; shift 2 ;;
         --deps)    [ $# -ge 2 ] || { echo "Error: --deps requires a value"; exit 1; }; DEPS="$2"; shift 2 ;;
         --*) echo "Error: unknown option $1"; show_help; exit 1 ;;
-        *) DEST="$1"; shift ;;
+        *)
+            # Reject a second path instead of silently scaffolding the last one.
+            [ -z "${DEST:-}" ] || { echo "Error: unexpected extra argument '$1' (path already set to '${DEST}')"; exit 1; }
+            DEST="$1"; shift ;;
     esac
 done
 
 if [ -z "${DEST:-}" ]; then
     echo "Error: path required"
     show_help
+    exit 1
+fi
+
+# LICENSE is interpolated into the gh API path ("licenses/${LICENSE}"), so
+# restrict it to the shape GitHub's license keys actually take (mit, apache-2.0,
+# bsd-3-clause, cc0-1.0). Without this a value containing "/" or ".." walks the
+# path and calls a different endpoint entirely, and a "?" appends a query string.
+# The endpoint is case-insensitive, so fold case rather than rejecting "MIT".
+LICENSE="${LICENSE,,}"
+if ! [[ "$LICENSE" =~ ^[a-z0-9][a-z0-9.-]*$ ]]; then
+    echo "Error: '--license ${LICENSE}' is not a valid license key"
+    echo "Keys are lowercase, e.g. mit, apache-2.0, bsd-3-clause."
+    echo "Run 'gh api licenses --jq .[].key' for the full list."
+    exit 1
+fi
+
+# BRANCH is passed to git clone --branch. Let git decide what a valid ref name
+# is rather than guessing: this rejects a leading "-" (which git would read as an
+# option), embedded spaces, "..", and the other shapes git itself refuses.
+if ! git check-ref-format --branch "$BRANCH" > /dev/null 2>&1; then
+    echo "Error: '--branch ${BRANCH}' is not a valid git branch name"
     exit 1
 fi
 
@@ -108,10 +136,10 @@ fi
 echo "Scaffolding ${NAME} at ${DEST}"
 
 # Clone template to a temp directory
-TMPDIR=$(mktemp -d)
-trap 'rm -rf "$TMPDIR"' EXIT
-git clone --quiet --depth 1 --branch "$BRANCH" "$REPO_URL" "$TMPDIR/proj-template"
-TEMPLATE_DIR="$TMPDIR/proj-template/template"
+TEMPLATE_TMP=$(mktemp -d)
+trap 'rm -rf "$TEMPLATE_TMP"' EXIT
+git clone --quiet --depth 1 --branch "$BRANCH" "$REPO_URL" "$TEMPLATE_TMP/proj-template"
+TEMPLATE_DIR="$TEMPLATE_TMP/proj-template/template"
 
 # Fails if DEST already exists (atomic guard)
 mkdir "$DEST"
@@ -124,21 +152,41 @@ else
     rm -f "$DEST/.github/renovate.json" "$DEST/.github/workflows/renovate.yml"
 fi
 
-# Rename all MODULE-named paths (deepest first to avoid moving parents before children)
+# Rename all MODULE-named paths (deepest first to avoid moving parents before
+# children). Rewrite only the basename: "${f/MODULE/...}" replaces the first
+# match anywhere in the path, so a DEST that itself sits under a directory named
+# MODULE would have its parent rewritten and the mv would fail.
 find "$DEST" -name '*MODULE*' -depth | while read -r f; do
-    mv "$f" "${f/MODULE/${MOD_NAME}}"
+    mv "$f" "$(dirname "$f")/$(basename "$f" | sed "s/MODULE/${MOD_NAME}/")"
 done
 
-# Replace placeholders in file contents: MODULE = module name, PROJECT = project name
-grep -rlE "MODULE|PROJECT" "$DEST" | while read -r f; do
-    sed "s/MODULE/${MOD_NAME}/g; s/PROJECT/${NAME}/g" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
-done
+# Replace placeholders in file contents: MODULE = module name, PROJECT = project
+# name. The \b word boundaries are load-bearing, not decoration: an unanchored
+# s/PROJECT/.../g also rewrites CLAUDE_PROJECT_DIR in .claude/settings.json and
+# .claude/hooks/lint-typecheck.sh, leaving the Stop hook pointed at an
+# environment variable that no longer exists — it then silently falls back to the
+# cwd, which is the exact bug that variable was introduced to fix. "_" is a word
+# character, so \bPROJECT\b cannot match inside CLAUDE_PROJECT_DIR, while every
+# real placeholder (bounded by quotes, slashes, dots, or spaces) still matches.
+# sed -i edits in place so file modes survive; the previous
+# "sed > tmp && mv tmp f" pattern dropped the executable bit from
+# .claude/hooks/lint-typecheck.sh, which stops the hook from running at all.
+# grep exits 1 when nothing matches, which is legitimate here but which pipefail
+# would turn into an abort — so tolerate exit 1 specifically and let a real grep
+# failure (exit 2) still stop the scaffold. Reading the list from a variable
+# rather than a pipeline also keeps the loop body in this shell, so a sed failure
+# aborts instead of dying in a subshell.
+placeholder_files="$(grep -rlE '\bMODULE\b|\bPROJECT\b' "$DEST" || [ $? -eq 1 ])"
+while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    sed -i "s/\bMODULE\b/${MOD_NAME}/g; s/\bPROJECT\b/${NAME}/g" "$f"
+done <<< "$placeholder_files"
 
 # Stamp [tool.proj-template] with the release actually scaffolded. Read VERSION
 # from the clone, not $VERSION_FILE: the clone reflects --branch, which can
 # differ from the local checkout's VERSION, and is the only copy present when
 # this script runs from outside a clone.
-TEMPLATE_VERSION="$(cat "$TMPDIR/proj-template/VERSION" 2>/dev/null || true)"
+TEMPLATE_VERSION="$(cat "$TEMPLATE_TMP/proj-template/VERSION" 2>/dev/null || true)"
 if [ -z "$TEMPLATE_VERSION" ]; then
     echo "Warning: template VERSION not found; stamping as 'unknown'"
     TEMPLATE_VERSION="unknown"
@@ -151,9 +199,17 @@ sed "s/TEMPLATE_VERSION/${TEMPLATE_VERSION_ESC}/" "$DEST/pyproject.toml" \
 # it is the one value here that can legitimately contain sed metacharacters
 # ("Ada / Lovelace", "Smith & Co") — escape it before interpolating.
 SPDX_ID=$(gh api "licenses/${LICENSE}" --jq '.spdx_id')
-AUTHOR=$(gh api user --jq '.name')
+# .name is null for accounts with no display name set, and jq renders that as the
+# string "null" — fall back to the login rather than writing "Copyright (c) 2026
+# null" into the license.
+AUTHOR=$(gh api user --jq '.name // .login')
 YEAR=$(date +%Y)
-gh api "licenses/${LICENSE}" --jq '.body' \
+# Fetch into a variable first. As a pipeline, a failing gh api would leave sed to
+# succeed on empty input, and the pipeline's exit status is sed's — so set -e
+# would not fire and the repo would get a silently empty LICENSE. In a command
+# substitution the failure aborts the script instead.
+LICENSE_BODY=$(gh api "licenses/${LICENSE}" --jq '.body')
+printf '%s\n' "$LICENSE_BODY" \
     | sed "s/\[year\]/${YEAR}/g; s/\[fullname\]/$(sed_escape "$AUTHOR")/g" \
     > "$DEST/LICENSE"
 sed "/^readme = /a\\

@@ -2,6 +2,7 @@
 
 | # | Plan | Status | Concluded | PR |
 |---|---|---|---|---|
+| 007 | [Make the scaffolding scripts run on macOS](plans/007-macos-compatibility/plan.md) | draft | — | — |
 | 005 | [Update template scaffold to the planners layout](plans/005-template-planners-scaffold/plan.md) | done | 2026-06-10 11:04 PT | [#23](https://github.com/gitronald/proj-template/pull/23) |
 | 004 | [Migrate plans to the .planners layout](plans/004-migrate-to-planners-layout/plan.md) | done | 2026-06-10 09:36 PT | [#22](https://github.com/gitronald/proj-template/pull/22) |
 | 003 | [Add security-hardened Renovate dependency automation to the template](plans/003-add-renovate/plan.md) | done | 2026-06-05 23:51 PT | [#17](https://github.com/gitronald/proj-template/pull/17) |
