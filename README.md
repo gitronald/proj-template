@@ -39,7 +39,7 @@ Every scaffolded repo records the template release it came from:
 
 ```toml
 [tool.proj-template]
-version = "0.9.0"
+version = "0.9.0"   # whichever release scaffolded it, not a version to match
 ```
 
 The version is read from the *cloned* template, so `--branch dev` records the
