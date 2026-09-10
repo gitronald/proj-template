@@ -79,6 +79,7 @@ overwrite" below.
 | `pyproject.toml` dev group (`ruff`, `pyrefly`, `pre-commit`) | merge | merge |
 | `pyproject.toml` dev group (`pytest`, `pytest-cov`), `[tool.pytest.ini_options]` (`addopts` uses bare `--cov`; drop a repo's `--cov=<pkg>` since `run.source` names it), `[tool.coverage.*]` (set `run.source` to the repo's package) | merge | only if `tests/` exists |
 | `pyproject.toml` `[build-system]`, sdist `only-include`, `[project.urls]`, `[project.scripts]` | merge | skip |
+| `pyproject.toml` `[tool.proj-template]` `version` | stamp the release being applied (see note) | same |
 | `.pre-commit-config.yaml` | sync hooks (keep extra local hooks) | sync hooks (keep extra local hooks) |
 | `.python-version` | sync | sync unless repo pins older deliberately |
 | `.gitignore` | merge entries | merge entries |
@@ -116,6 +117,20 @@ Notes:
   **keep** the repo's file as-is. Show the specific conflicting lines in the
   question so the choice is informed, and record each answer in the plan's Log
   with the reason, so the next upgrade doesn't re-litigate it.
+- **The `[tool.proj-template]` stamp is exempt from the question above, and is
+  written last.** It records which template release the repo carries, so it is
+  never a merge and never a customization to preserve: overwrite whatever
+  version is there, and add the table (after `[project.scripts]`) when a repo
+  predates it. Write it only *after* the rest of the matrix has been applied and
+  any batched questions answered, and only if the upgrade actually landed in
+  full — if the user chose **keep** on rows that leave the repo behind the
+  template, stamp the older release the repo still matches, or leave the stamp
+  untouched and say so in the report. A stamp that overstates is worse than an
+  absent one, since it makes the next upgrade skip the repo. The template ships
+  the literal `TEMPLATE_VERSION` placeholder there (`proj-init.sh` substitutes
+  it at scaffold time), so never copy that string into a target — resolve it to
+  the release being applied, and treat a `TEMPLATE_VERSION` or `unknown` value
+  found in a repo as "never stamped".
 - **Claude settings are always a question, never a silent copy.** The
   `.claude/settings.json` / `.claude/settings.local.json` row is exempt from the
   "diverges but holds nothing the template lacks — replace silently" path above.

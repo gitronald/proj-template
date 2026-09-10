@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Scaffolded repos now carry a `[tool.proj-template]` table in `pyproject.toml` recording the
+  template release they came from, so template drift is auditable from inside each repo without a
+  central registry or a new file. `proj-init.sh` stamps it from the *cloned* `VERSION` rather than
+  the local checkout's, so `--branch dev` records the prerelease actually applied. The table is
+  inert to package consumers: build backends translate only `[project]`, so it never reaches the
+  wheel or the PyPI metadata.
+- `install-template` gained a matrix row and note for re-stamping the version on upgrade, including
+  the rule that a partial upgrade must not stamp the newer release.
+
+### Changed
+
+- The sdist `only-include` comment in `template/pyproject.toml` no longer implies the list is
+  exhaustive: hatchling force-includes `pyproject.toml`, `PKG-INFO`, and `.gitignore` in every
+  sdist regardless of the list, and neither `exclude` nor `ignore-vcs` drops them.
+
 ## [0.8.5] - 2026-09-09
 
 ### Changed
