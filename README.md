@@ -21,11 +21,17 @@ Then create a new project:
 ```bash
 proj-init ~/repos/myproject
 proj-init --license apache-2.0 ~/repos/myproject
+proj-init --source ~/repos/proj-template ~/repos/myproject   # scaffold from a local checkout or fork
 ```
+
+`--source` still clones, so it scaffolds the source's committed tree: unpushed
+commits are picked up, uncommitted edits are not.
+
+The script targets bash 3.2+, so it runs on stock macOS as well as Linux.
 
 ## What it does
 
-1. Clones the template repo and replaces placeholders: `PROJECT` becomes your project name, and `MODULE` becomes its Python module name (dashes become underscores)
+1. Clones the template repo and replaces placeholders: `PROJECT__NAME` becomes your project name, and `MODULE__NAME` becomes its Python module name (dashes become underscores)
 2. Stamps the template release it used into `[tool.proj-template]` in the new repo's `pyproject.toml`, so you can later tell which template version a repo carries (see [Template version stamp](#template-version-stamp))
 3. Fetches a LICENSE file from GitHub's API (default: MIT)
 4. Initializes a git repo on a `dev` branch
@@ -65,12 +71,12 @@ grep -A1 '\[tool.proj-template\]' ~/repos/*/pyproject.toml
 ## Template structure
 
 ```
-MODULE/
+MODULE__NAME/
 ├── __init__.py
 ├── cli.py
 tests/
 ├── __init__.py
-├── test_MODULE.py
+├── test_MODULE__NAME.py
 .planners/
 ├── README.md                  # generated plans index (planners CLI)
 ├── plans/
