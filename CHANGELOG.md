@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `proj-init.sh` no longer breaks when your GitHub display name contains a sed metacharacter. The
+  name is fetched with `gh api user --jq .name` and substituted into the LICENSE body, so a name
+  like "Ada / Lovelace" aborted the scaffold mid-run (`set -e` on a failed `s///`) and one like
+  "Smith & Co" silently wrote `[fullname]` into the license instead of the name. Escaping is now
+  centralized in a `sed_escape` helper, which the version stamp added in 0.9.0 also uses.
+
 ## [0.9.0] - 2026-09-09
 
 ### Added

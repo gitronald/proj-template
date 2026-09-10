@@ -13,6 +13,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VERSION_FILE="$SCRIPT_DIR/../VERSION"
 REPO_URL="https://github.com/gitronald/proj-template.git"
 
+# Escape sed's replacement-side metacharacters (\ / &) in a value before
+# interpolating it into an s/// expression. Without this, a "/" breaks the
+# expression (sed exits non-zero, aborting mid-scaffold under set -e) and an "&"
+# silently expands to the matched text instead of inserting itself.
+sed_escape() {
+    printf '%s' "$1" | sed -e 's|[\\/&]|\\&|g'
+}
+
 show_help() {
     echo "Usage: proj-init.sh [--license <key>] [--branch <name>] [--deps <tool>] <path>"
     echo ""
@@ -128,19 +136,18 @@ if [ -z "$TEMPLATE_VERSION" ]; then
     echo "Warning: template VERSION not found; stamping as 'unknown'"
     TEMPLATE_VERSION="unknown"
 fi
-# Escape sed's replacement metacharacters (\ / &) before substituting: an
-# unescaped "/" would break the s/// expression and abort mid-scaffold under
-# set -e, and an unescaped "&" would silently expand to the matched text.
-TEMPLATE_VERSION_ESC="$(printf '%s' "$TEMPLATE_VERSION" | sed -e 's|[\\/&]|\\&|g')"
+TEMPLATE_VERSION_ESC="$(sed_escape "$TEMPLATE_VERSION")"
 sed "s/TEMPLATE_VERSION/${TEMPLATE_VERSION_ESC}/" "$DEST/pyproject.toml" \
     > "$DEST/pyproject.toml.tmp" && mv "$DEST/pyproject.toml.tmp" "$DEST/pyproject.toml"
 
-# Fetch license from GitHub API
+# Fetch license from GitHub API. AUTHOR is a free-text GitHub display name, so
+# it is the one value here that can legitimately contain sed metacharacters
+# ("Ada / Lovelace", "Smith & Co") — escape it before interpolating.
 SPDX_ID=$(gh api "licenses/${LICENSE}" --jq '.spdx_id')
 AUTHOR=$(gh api user --jq '.name')
 YEAR=$(date +%Y)
 gh api "licenses/${LICENSE}" --jq '.body' \
-    | sed "s/\[year\]/${YEAR}/g; s/\[fullname\]/${AUTHOR}/g" \
+    | sed "s/\[year\]/${YEAR}/g; s/\[fullname\]/$(sed_escape "$AUTHOR")/g" \
     > "$DEST/LICENSE"
 sed "/^readme = /a\\
 license = \"${SPDX_ID}\"
