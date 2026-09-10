@@ -5,7 +5,7 @@ status: active
 branch: feature/macos-compatibility
 created: 2026-09-09T23:12:15-07:00
 concluded:
-pr:
+pr: https://github.com/gitronald/proj-template/pull/40
 ---
 
 # Make the scaffolding scripts run on macOS
@@ -179,3 +179,67 @@ directly — both of which were live bugs here in 0.9.1 and 0.9.2.
   and `macos-latest`.
 - A repo scaffolded on macOS is byte-identical to one scaffolded on Linux, given
   the same name and template version.
+
+## Log
+
+### 2026-09-10 — implementation
+
+Activated on `dev`; worked in `.worktrees/macos-compatibility`, draft PR #40.
+
+**Reproduced on a stock Mac first** (bash 3.2.57, BSD sed/grep, `openrsync`):
+`${LICENSE,,}` aborts with `bad substitution`, and BSD `sed` leaves
+`s/\bPROJECT\b/.../` unmatched — placeholder survives, exit 0. One correction to
+the inventory table: macOS `grep -E` *does* honor `\b`, so the file list is
+found and only the `sed` pass silently no-ops. Same broken output, different row.
+
+**Deviations from the spec, both decided with the user:**
+
+- **Spelling is `PROJECT__NAME` / `MODULE__NAME`, not `__PROJECT__` /
+  `__MODULE__`.** `template/pyproject.toml` has `name = "PROJECT"`, and uv
+  rejects `__PROJECT__` ("Names must start and end with a letter or digit"),
+  which would stop `template/` resolving as a uv project. The double-underscore
+  infix keeps the property the plan wanted — no collision with
+  `CLAUDE_PROJECT_DIR` or any identifier, so a plain literal match — while
+  staying a valid package name and Python identifier. Used for both
+  placeholders for symmetry. The script comment warns against "tidying" it to
+  `__PROJECT__`.
+- **Template-source seam is `--source <repo>`, and it clones.** A documented
+  flag (the user's choice over an env var). Rather than copying a checkout's
+  `template/` — which would also copy gitignored strays like `template/uv.lock`
+  or `.venv` — it swaps the clone URL (`file://` for a local path so `--depth`
+  is honored), so the output is exactly what a GitHub scaffold produces. That
+  made it combinable with `--branch` instead of exclusive; `--branch` now
+  defaults to the source's default branch (still `main` on GitHub). `--`
+  precedes the URL so a `-`-prefixed value is not read as a git option.
+  Trade-off: uncommitted edits are not scaffolded.
+
+**Portable in-place edit** is `sed > tmp; cat tmp > f; rm tmp`, commented
+against the `mv` "simplification". With the new spelling the hook file no longer
+contains a placeholder at all, but the idiom still guards any future executable.
+`find -name ... -depth` reordered to `find -depth -name ...` (GNU warns on the
+former).
+
+**Tests** live in `tests/` as plain bash (no bats dependency).
+`proj-init.test.sh` runs the real script under `/bin/bash` with `gh`, `uv`,
+`stanza`, and `planners` stubbed on `PATH` (the `stanza` stub points `origin` at
+a local bare repo so the push succeeds) and git isolated via
+`GIT_CONFIG_GLOBAL`. It asserts the plan's five checks plus license folding and
+insertion, deps selection, the initial commit, and the validation path.
+`portability.test.sh` greps comment-stripped lines of every `*.sh` for the banned
+constructs, and each rule self-checks against a sample so a rotted regex fails
+loudly. Both pass locally on macOS; `openrsync` caused no trouble.
+
+**shellcheck** (first-ever run, via `shellcheck-py`): `proj-init.sh` clean. It
+flagged SC1090 on the runtime-chosen `.env` source in `renovatabot-enroll.sh`
+(directive added — the only change there beyond the shebang) and SC2016 on the
+tests' intentionally literal `$` strings (suppressed at those sites).
+
+**CI**: `.github/workflows/test.yml` — shellcheck on ubuntu; guard and
+behavioral suite on `ubuntu-latest` and `macos-latest` under `/bin/bash`; each
+uploads a checksum-plus-exec-bit manifest and an `identical` job diffs them for
+the byte-identical acceptance criterion. Actions SHA-pinned to the template's
+versions.
+
+Docs: README, CHANGELOG `[Unreleased]`, and both skills updated — including the
+plan's install-template risk, now an explicit "placeholders are never copied"
+note covering both old and new spellings.
