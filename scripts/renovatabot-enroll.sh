@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Enroll a repo in self-hosted Renovate: push the GitHub App secrets, normalize
 # Dependabot so Renovate is the only bot opening PRs, and kick the first run.
 #

@@ -8,12 +8,21 @@
 # Usage: proj-init.sh <path>
 #   path  Target directory (e.g., ~/repos/gdrive). Basename becomes the project name.
 #
+# Targets bash 3.2+ (stock macOS /bin/bash), not POSIX sh. Run under sh, the
+# first bash-only line would fail with a cryptic syntax error; fail with a
+# sentence instead. This must stay above set -u, where an unset BASH_VERSION
+# would itself be the error.
+if [ -z "${BASH_VERSION:-}" ]; then
+    echo "Error: proj-init.sh requires bash; run it as 'bash proj-init.sh'" >&2
+    exit 1
+fi
+
 # -u catches a typo'd or never-assigned variable instead of expanding it to "";
 # -o pipefail makes a pipeline fail when any stage does, not just the last, so a
 # failing producer can no longer be masked by a successful consumer.
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 VERSION_FILE="$SCRIPT_DIR/../VERSION"
 REPO_URL="https://github.com/gitronald/proj-template.git"
 
@@ -82,7 +91,9 @@ fi
 # bsd-3-clause, cc0-1.0). Without this a value containing "/" or ".." walks the
 # path and calls a different endpoint entirely, and a "?" appends a query string.
 # The endpoint is case-insensitive, so fold case rather than rejecting "MIT".
-LICENSE="${LICENSE,,}"
+# tr rather than ${LICENSE,,}: the latter is bash 4 and a syntax error under the
+# bash 3.2 that macOS ships as /bin/bash.
+LICENSE="$(printf '%s' "$LICENSE" | tr '[:upper:]' '[:lower:]')"
 if ! [[ "$LICENSE" =~ ^[a-z0-9][a-z0-9.-]*$ ]]; then
     echo "Error: '--license ${LICENSE}' is not a valid license key"
     echo "Keys are lowercase, e.g. mit, apache-2.0, bsd-3-clause."
