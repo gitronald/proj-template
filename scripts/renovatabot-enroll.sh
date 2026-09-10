@@ -96,6 +96,7 @@ docs/guides/github-automation.md, 'Reusing one App across repos')."
 # var (captured here, never echoed to the terminal).
 read_env_value() {
     local _name="$1"
+    # shellcheck source=/dev/null  # the .env path is chosen at runtime
     ( set +u; . "$ENV_FILE" >/dev/null 2>&1; printf '%s' "${!_name:-}" )
 }
 CLIENT_ID="$(read_env_value RENOVATE_CLIENT_ID)"
