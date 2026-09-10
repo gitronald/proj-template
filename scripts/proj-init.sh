@@ -70,6 +70,19 @@ if [ -z "${DEST:-}" ]; then
     exit 1
 fi
 
+# LICENSE is interpolated into the gh API path ("licenses/${LICENSE}"), so
+# restrict it to the shape GitHub's license keys actually take (mit, apache-2.0,
+# bsd-3-clause, cc0-1.0). Without this a value containing "/" or ".." walks the
+# path and calls a different endpoint entirely, and a "?" appends a query string.
+# The endpoint is case-insensitive, so fold case rather than rejecting "MIT".
+LICENSE="${LICENSE,,}"
+if ! [[ "$LICENSE" =~ ^[a-z0-9][a-z0-9.-]*$ ]]; then
+    echo "Error: '--license ${LICENSE}' is not a valid license key"
+    echo "Keys are lowercase, e.g. mit, apache-2.0, bsd-3-clause."
+    echo "Run 'gh api licenses --jq .[].key' for the full list."
+    exit 1
+fi
+
 # Choose the dependency-update automation. Dependabot is the zero-setup default;
 # Renovate is opt-in (stronger hardening, but needs a one-time GitHub App + secrets).
 case "$DEPS" in

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `proj-init.sh` now validates `--license` before interpolating it into the GitHub API path.
+  The value went straight into `gh api "licenses/${LICENSE}"`, so a key containing `/` or `..`
+  walked the path and called a different endpoint (`--license ../user` reaching `/user`), and a
+  `?` appended a query string. Keys are now normalized to lowercase — the endpoint is
+  case-insensitive, so `--license MIT` keeps working — and must match `^[a-z0-9][a-z0-9.-]*$`,
+  which all 13 keys GitHub currently returns satisfy.
+
 ## [0.9.1] - 2026-09-09
 
 ### Fixed
