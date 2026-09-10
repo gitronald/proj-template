@@ -7,7 +7,11 @@
 #
 # Usage: proj-init.sh <path>
 #   path  Target directory (e.g., ~/repos/gdrive). Basename becomes the project name.
-set -e
+#
+# -u catches a typo'd or never-assigned variable instead of expanding it to "";
+# -o pipefail makes a pipeline fail when any stage does, not just the last, so a
+# failing producer can no longer be masked by a successful consumer.
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VERSION_FILE="$SCRIPT_DIR/../VERSION"
@@ -86,6 +90,14 @@ if ! [[ "$LICENSE" =~ ^[a-z0-9][a-z0-9.-]*$ ]]; then
     exit 1
 fi
 
+# BRANCH is passed to git clone --branch. Let git decide what a valid ref name
+# is rather than guessing: this rejects a leading "-" (which git would read as an
+# option), embedded spaces, "..", and the other shapes git itself refuses.
+if ! git check-ref-format --branch "$BRANCH" > /dev/null 2>&1; then
+    echo "Error: '--branch ${BRANCH}' is not a valid git branch name"
+    exit 1
+fi
+
 # Choose the dependency-update automation. Dependabot is the zero-setup default;
 # Renovate is opt-in (stronger hardening, but needs a one-time GitHub App + secrets).
 case "$DEPS" in
@@ -159,9 +171,16 @@ done
 # sed -i edits in place so file modes survive; the previous
 # "sed > tmp && mv tmp f" pattern dropped the executable bit from
 # .claude/hooks/lint-typecheck.sh, which stops the hook from running at all.
-grep -rlE '\bMODULE\b|\bPROJECT\b' "$DEST" | while read -r f; do
+# grep exits 1 when nothing matches, which is legitimate here but which pipefail
+# would turn into an abort — so tolerate exit 1 specifically and let a real grep
+# failure (exit 2) still stop the scaffold. Reading the list from a variable
+# rather than a pipeline also keeps the loop body in this shell, so a sed failure
+# aborts instead of dying in a subshell.
+placeholder_files="$(grep -rlE '\bMODULE\b|\bPROJECT\b' "$DEST" || [ $? -eq 1 ])"
+while IFS= read -r f; do
+    [ -n "$f" ] || continue
     sed -i "s/\bMODULE\b/${MOD_NAME}/g; s/\bPROJECT\b/${NAME}/g" "$f"
-done
+done <<< "$placeholder_files"
 
 # Stamp [tool.proj-template] with the release actually scaffolded. Read VERSION
 # from the clone, not $VERSION_FILE: the clone reflects --branch, which can

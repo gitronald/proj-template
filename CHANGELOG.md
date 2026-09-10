@@ -31,6 +31,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   longer has its parent rewritten into a failing `mv`.
 - `proj-init.sh` no longer assigns its template clone to `TMPDIR`, a standard environment variable
   that child processes read to place their own temporary files. It now uses `TEMPLATE_TMP`.
+- `proj-init.sh` runs under `set -euo pipefail` rather than `set -e` alone, so an unset variable and
+  a failing stage anywhere in a pipeline both stop the scaffold instead of passing silently. The
+  placeholder-substitution pass reads its file list from a variable rather than a pipeline, so a
+  failing `sed` aborts instead of dying in a subshell, and `grep`'s "no matches" exit 1 is tolerated
+  explicitly while a real `grep` error still stops the run.
+- `proj-init.sh` validates `--branch` with `git check-ref-format --branch`, rejecting a leading `-`
+  (which `git clone` would read as an option), embedded spaces, and `..`.
 - `proj-init.sh` now validates `--license` before interpolating it into the GitHub API path.
   The value went straight into `gh api "licenses/${LICENSE}"`, so a key containing `/` or `..`
   walked the path and called a different endpoint (`--license ../user` reaching `/user`), and a
