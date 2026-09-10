@@ -1,5 +1,5 @@
 [project]
-name = "PROJECT"
+name = "PROJECT__NAME"
 version = "0.1.0a0"
 description = ""
 authors = [
@@ -12,10 +12,10 @@ dependencies = [
 readme = "README.md"
 
 [project.urls]
-repository = "https://github.com/gitronald/PROJECT"
+repository = "https://github.com/gitronald/PROJECT__NAME"
 
 [project.scripts]
-PROJECT = "MODULE.cli:app"
+PROJECT__NAME = "MODULE__NAME.cli:app"
 
 # Which proj-template release this repo was scaffolded from, stamped by
 # proj-init.sh and re-stamped by the install-template skill on upgrade. Inert to
@@ -41,7 +41,7 @@ build-backend = "hatchling.build"
 # secrets out of it. Adding a path here does not make it importable; wheel
 # contents come from the package dir, not this list.
 only-include = [
-    "/MODULE",
+    "/MODULE__NAME",
     "/README.md",
     "/CHANGELOG.md",
     "/LICENSE",
@@ -88,7 +88,7 @@ testpaths = ["tests"]
 addopts = "--cov --cov-report=term-missing"
 
 [tool.coverage.run]
-source = ["MODULE"]
+source = ["MODULE__NAME"]
 branch = true
 
 [tool.coverage.report]

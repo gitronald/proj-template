@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Scaffold a new Python project from proj-template.
 #
-# Copies the template, replaces PROJECT placeholders with the given name and
-# MODULE placeholders with its module form (dashes become underscores),
+# Copies the template, replaces PROJECT__NAME placeholders with the given name and
+# MODULE__NAME placeholders with its module form (dashes become underscores),
 # initializes git, installs dependencies, and makes the initial commit.
 #
 # Usage: proj-init.sh <path>
@@ -37,14 +37,18 @@ sed_escape() {
 }
 
 show_help() {
-    echo "Usage: proj-init.sh [--license <key>] [--branch <name>] [--deps <tool>] <path>"
+    echo "Usage: proj-init.sh [--license <key>] [--source <repo>] [--branch <name>] [--deps <tool>] <path>"
     echo ""
     echo "  path     Target directory (e.g., ~/repos/gdrive)"
     echo "           Basename becomes the project name; dashes become"
     echo "           underscores in the Python module name."
     echo "  --license  License key (default: mit)"
     echo "             Run 'gh api licenses --jq .[].key' for options."
-    echo "  --branch   Template branch to clone (default: main)"
+    echo "  --source   proj-template repo to clone: a local checkout path or a"
+    echo "             git URL, e.g. a fork (default: the GitHub repo)."
+    echo "             Only committed changes are cloned."
+    echo "  --branch   Template branch to clone (default: the source's default"
+    echo "             branch, main on GitHub)"
     echo "  --deps     Dependency-update automation: dependabot or renovate"
     echo "             (default: dependabot). 'renovate' needs a one-time GitHub"
     echo "             App + secrets; see docs/guides/github-automation.md."
@@ -65,11 +69,13 @@ if [ "${1:-}" = "-v" ] || [ "${1:-}" = "--version" ]; then
 fi
 
 LICENSE="mit"
-BRANCH="main"
+SOURCE=""
+BRANCH=""
 DEPS=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --license) [ $# -ge 2 ] || { echo "Error: --license requires a value"; exit 1; }; LICENSE="$2"; shift 2 ;;
+        --source)  [ $# -ge 2 ] || { echo "Error: --source requires a value"; exit 1; }; SOURCE="$2"; shift 2 ;;
         --branch)  [ $# -ge 2 ] || { echo "Error: --branch requires a value"; exit 1; }; BRANCH="$2"; shift 2 ;;
         --deps)    [ $# -ge 2 ] || { echo "Error: --deps requires a value"; exit 1; }; DEPS="$2"; shift 2 ;;
         --*) echo "Error: unknown option $1"; show_help; exit 1 ;;
@@ -104,9 +110,23 @@ fi
 # BRANCH is passed to git clone --branch. Let git decide what a valid ref name
 # is rather than guessing: this rejects a leading "-" (which git would read as an
 # option), embedded spaces, "..", and the other shapes git itself refuses.
-if ! git check-ref-format --branch "$BRANCH" > /dev/null 2>&1; then
+if [ -n "$BRANCH" ] && ! git check-ref-format --branch "$BRANCH" > /dev/null 2>&1; then
     echo "Error: '--branch ${BRANCH}' is not a valid git branch name"
     exit 1
+fi
+
+# Clone rather than copy even for a local --source: a clone carries exactly the
+# committed tree a GitHub scaffold would, where a copy of a checkout's template/
+# would also sweep in gitignored strays (a template/uv.lock, a .venv). A plain
+# path makes git do a local clone, which ignores --depth with a warning; a
+# file:// URL takes the normal transport and honors it.
+CLONE_URL="$REPO_URL"
+if [ -n "$SOURCE" ]; then
+    if [ -d "$SOURCE" ]; then
+        CLONE_URL="file://$(cd "$SOURCE" && pwd)"
+    else
+        CLONE_URL="$SOURCE"
+    fi
 fi
 
 # Choose the dependency-update automation. Dependabot is the zero-setup default;
@@ -134,7 +154,7 @@ esac
 NAME="$(basename "$DEST")"
 MOD_NAME="${NAME//-/_}"
 # This gate is load-bearing beyond module naming: NAME and MOD_NAME are later
-# interpolated into sed unescaped (the MODULE/PROJECT substitution below), and
+# interpolated into sed unescaped (the placeholder substitution below), and
 # MOD_NAME is NAME with "-" swapped to "_", so any sed metacharacter in NAME
 # survives into MOD_NAME and is rejected here before those sed calls run. Keep
 # the character class this strict, or escape those call sites with sed_escape.
@@ -149,7 +169,12 @@ echo "Scaffolding ${NAME} at ${DEST}"
 # Clone template to a temp directory
 TEMPLATE_TMP=$(mktemp -d)
 trap 'rm -rf "$TEMPLATE_TMP"' EXIT
-git clone --quiet --depth 1 --branch "$BRANCH" "$REPO_URL" "$TEMPLATE_TMP/proj-template"
+# "--" keeps a --source value starting with "-" from being read as a git option.
+if [ -n "$BRANCH" ]; then
+    git clone --quiet --depth 1 --branch "$BRANCH" -- "$CLONE_URL" "$TEMPLATE_TMP/proj-template"
+else
+    git clone --quiet --depth 1 -- "$CLONE_URL" "$TEMPLATE_TMP/proj-template"
+fi
 TEMPLATE_DIR="$TEMPLATE_TMP/proj-template/template"
 
 # Fails if DEST already exists (atomic guard)
@@ -163,34 +188,39 @@ else
     rm -f "$DEST/.github/renovate.json" "$DEST/.github/workflows/renovate.yml"
 fi
 
-# Rename all MODULE-named paths (deepest first to avoid moving parents before
-# children). Rewrite only the basename: "${f/MODULE/...}" replaces the first
-# match anywhere in the path, so a DEST that itself sits under a directory named
-# MODULE would have its parent rewritten and the mv would fail.
-find "$DEST" -name '*MODULE*' -depth | while read -r f; do
-    mv "$f" "$(dirname "$f")/$(basename "$f" | sed "s/MODULE/${MOD_NAME}/")"
+# Rename all MODULE__NAME-named paths (deepest first to avoid moving parents
+# before children). Rewrite only the basename: "${f/MODULE__NAME/...}" replaces
+# the first match anywhere in the path, so a DEST that itself sits under a
+# directory with the placeholder in its name would have its parent rewritten and
+# the mv would fail.
+find "$DEST" -depth -name '*MODULE__NAME*' | while read -r f; do
+    mv "$f" "$(dirname "$f")/$(basename "$f" | sed "s/MODULE__NAME/${MOD_NAME}/")"
 done
 
-# Replace placeholders in file contents: MODULE = module name, PROJECT = project
-# name. The \b word boundaries are load-bearing, not decoration: an unanchored
-# s/PROJECT/.../g also rewrites CLAUDE_PROJECT_DIR in .claude/settings.json and
-# .claude/hooks/lint-typecheck.sh, leaving the Stop hook pointed at an
-# environment variable that no longer exists — it then silently falls back to the
-# cwd, which is the exact bug that variable was introduced to fix. "_" is a word
-# character, so \bPROJECT\b cannot match inside CLAUDE_PROJECT_DIR, while every
-# real placeholder (bounded by quotes, slashes, dots, or spaces) still matches.
-# sed -i edits in place so file modes survive; the previous
-# "sed > tmp && mv tmp f" pattern dropped the executable bit from
-# .claude/hooks/lint-typecheck.sh, which stops the hook from running at all.
+# Replace placeholders in file contents: MODULE__NAME = module name,
+# PROJECT__NAME = project name. The spellings are load-bearing. The old bare
+# PROJECT also matched inside CLAUDE_PROJECT_DIR, so it needed \b word
+# boundaries — and \b is a GNU extension that BSD sed on macOS reads as a
+# literal "b", so nothing matched and placeholders shipped silently.
+# PROJECT__NAME cannot occur inside another token, so a plain literal match is
+# correct on every platform; it is also still a valid package name, which keeps
+# template/ resolvable as a uv project. Do not shorten it to __PROJECT__: uv
+# rejects names that start or end with "_".
 # grep exits 1 when nothing matches, which is legitimate here but which pipefail
 # would turn into an abort — so tolerate exit 1 specifically and let a real grep
 # failure (exit 2) still stop the scaffold. Reading the list from a variable
 # rather than a pipeline also keeps the loop body in this shell, so a sed failure
 # aborts instead of dying in a subshell.
-placeholder_files="$(grep -rlE '\bMODULE\b|\bPROJECT\b' "$DEST" || [ $? -eq 1 ])"
+placeholder_files="$(grep -rlF -e MODULE__NAME -e PROJECT__NAME "$DEST" || [ $? -eq 1 ])"
 while IFS= read -r f; do
     [ -n "$f" ] || continue
-    sed -i "s/\bMODULE\b/${MOD_NAME}/g; s/\bPROJECT\b/${NAME}/g" "$f"
+    sed "s/MODULE__NAME/${MOD_NAME}/g; s/PROJECT__NAME/${NAME}/g" "$f" > "$f.tmp"
+    # Copy back with cat, not mv. mv installs the temp file's inode with default
+    # permissions, which strips the executable bit (0.9.2 fixed exactly that for
+    # .claude/hooks/lint-typecheck.sh); cat rewrites the original inode, so its
+    # mode survives. sed -i would too, but GNU and BSD sed spell it differently.
+    cat "$f.tmp" > "$f"
+    rm -f "$f.tmp"
 done <<< "$placeholder_files"
 
 # Stamp [tool.proj-template] with the release actually scaffolded. Read VERSION
