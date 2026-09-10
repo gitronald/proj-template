@@ -119,6 +119,22 @@ grep -rlE "MODULE|PROJECT" "$DEST" | while read -r f; do
     sed "s/MODULE/${MOD_NAME}/g; s/PROJECT/${NAME}/g" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 done
 
+# Stamp [tool.proj-template] with the release actually scaffolded. Read VERSION
+# from the clone, not $VERSION_FILE: the clone reflects --branch, which can
+# differ from the local checkout's VERSION, and is the only copy present when
+# this script runs from outside a clone.
+TEMPLATE_VERSION="$(cat "$TMPDIR/proj-template/VERSION" 2>/dev/null || true)"
+if [ -z "$TEMPLATE_VERSION" ]; then
+    echo "Warning: template VERSION not found; stamping as 'unknown'"
+    TEMPLATE_VERSION="unknown"
+fi
+# Escape sed's replacement metacharacters (\ / &) before substituting: an
+# unescaped "/" would break the s/// expression and abort mid-scaffold under
+# set -e, and an unescaped "&" would silently expand to the matched text.
+TEMPLATE_VERSION_ESC="$(printf '%s' "$TEMPLATE_VERSION" | sed -e 's|[\\/&]|\\&|g')"
+sed "s/TEMPLATE_VERSION/${TEMPLATE_VERSION_ESC}/" "$DEST/pyproject.toml" \
+    > "$DEST/pyproject.toml.tmp" && mv "$DEST/pyproject.toml.tmp" "$DEST/pyproject.toml"
+
 # Fetch license from GitHub API
 SPDX_ID=$(gh api "licenses/${LICENSE}" --jq '.spdx_id')
 AUTHOR=$(gh api user --jq '.name')
@@ -155,6 +171,7 @@ git push -u origin dev
 echo ""
 echo "Done. Project ready at ${DEST}"
 echo "  cd ${DEST}"
+echo "  scaffolded from proj-template ${TEMPLATE_VERSION}"
 
 if [ "$DEPS" = "renovate" ]; then
     echo ""
