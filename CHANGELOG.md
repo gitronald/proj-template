@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-09-09
+
 ### Fixed
 
 - `proj-init.sh` no longer breaks when your GitHub display name contains a sed metacharacter. The
