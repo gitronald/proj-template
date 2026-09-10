@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-09
+
 ### Added
 
 - Scaffolded repos now carry a `[tool.proj-template]` table in `pyproject.toml` recording the
