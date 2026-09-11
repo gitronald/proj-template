@@ -33,10 +33,21 @@ makes every write to the payload awkward:
 ## Running uv in this repo
 
 The repo root has **no `pyproject.toml`** — proj-template ships a scaffold and
-shell scripts, not a Python package of its own. So there is no test, lint, or
-type-check suite to run here, and `uv run <anything>` at the root correctly
+shell scripts, not a Python package of its own. So there is no Python test,
+lint, or type-check suite at the root, and `uv run <anything>` there correctly
 fails with `No pyproject.toml found in current directory or any parent`. That
 is expected; it is not a broken environment to repair.
+
+The scaffolding scripts have a shell suite instead, which CI runs on Linux and
+macOS alongside `shellcheck`. Run it after changing `scripts/` or `template/`:
+
+```bash
+/bin/bash tests/portability.test.sh
+/bin/bash tests/proj-init.test.sh
+```
+
+The behavioral test scaffolds from this checkout's HEAD, so commit first — it
+refuses to run over uncommitted changes to `scripts/`, `template/`, or `VERSION`.
 
 `template/` **is** a real, resolvable uv project, and uv discovers a project by
 walking up from the working directory. The two facts combine into a trap: the

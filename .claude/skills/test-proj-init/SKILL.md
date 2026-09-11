@@ -13,8 +13,8 @@ automated suite, which CI also runs on Linux and macOS:
 /bin/bash tests/proj-init.test.sh     # real script, --source this checkout, gh/uv/stanza stubbed
 ```
 
-It covers placeholders, renames, `CLAUDE_PROJECT_DIR`, the hook's executable bit, the
-version stamp, license handling, and deps selection, but stubs `uv` and GitHub — so it
+It covers placeholders (bare spellings included), renames, `CLAUDE_PROJECT_DIR`,
+executable bits surviving substitution, the version stamp, license handling, and deps selection, but stubs `uv` and GitHub — so it
 does not prove the scaffold *builds*. The two modes below do:
 
 - **local** — scaffold from this checkout with `--source`, then build and test the
@@ -41,7 +41,9 @@ regresses, so it proves much less.
   clones GitHub, so pass `--branch dev` to test dev and push first
   (`git log origin/<branch>..<branch>` is empty). With `--source <this checkout>` it
   clones the local repo instead, which picks up unpushed commits — but uncommitted
-  edits are invisible either way; commit them first.
+  edits are invisible either way; commit them first (`tests/proj-init.test.sh`
+  refuses to run until you do). Without `--branch`, a local `--source` is cloned at
+  whatever branch it has checked out.
 - Full mode: the target repo name must be free — `gh repo view <owner>/template-test`
   should fail. If a leftover test repo exists, delete it
   (`gh repo delete <owner>/template-test --yes`); when the token lacks `delete_repo`,
@@ -83,7 +85,9 @@ before creating anything.
 
 In the scaffolded project (both modes):
 
-- `grep -rn "MODULE__NAME\|PROJECT__NAME" . --exclude-dir=.git --exclude-dir=.venv` finds nothing.
+- `grep -rnwF -e MODULE -e PROJECT -e MODULE__NAME -e PROJECT__NAME . --exclude-dir=.git --exclude-dir=.venv`
+  finds nothing. It is word-bounded, so `CLAUDE_PROJECT_DIR` does not match, and it
+  includes the bare spellings, so a file the placeholder rename missed still shows up.
 - `pyproject.toml`: `name = "template-test"`; a `license = "<SPDX>"` line inserted
   after `readme`; repository URL ends in `/template-test`; entry point reads
   `template-test = "template_test.cli:app"`; sdist `only-include` lists

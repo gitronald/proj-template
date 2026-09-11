@@ -11,8 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - `proj-init.sh --source <repo>` scaffolds from a local proj-template checkout or a fork's git URL
   instead of the GitHub repo. It still clones, so the output is exactly the source's committed
-  tree — a checkout's gitignored strays (`template/uv.lock`, `.venv`) never leak in. `--branch`
-  now defaults to the source's default branch (still `main` on GitHub).
+  tree — a checkout's gitignored strays (`template/uv.lock`, `.venv`) never leak in. Without
+  `--branch` it clones the source's HEAD: `main` on GitHub, or whatever branch a local checkout
+  has checked out. The script prints the commit it scaffolded from, and refuses a source with no
+  `template/MODULE__NAME/` before creating anything.
 - Tests and CI for the scaffolding scripts: `tests/proj-init.test.sh` scaffolds from the checkout
   with `gh`, `uv`, and `stanza` stubbed and asserts on the result; `tests/portability.test.sh`
   fails on constructs that break on macOS (`sed -i`, `\b`, bash 4 syntax); and
@@ -32,7 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   and BSD `sed` read the `\b` word boundaries as a literal `b` — so the placeholder pass matched
   nothing, the script still printed "Done", and the new repo shipped with its placeholders intact.
   The script now needs only bash 3.2 and POSIX `sed`/`grep`, edits files without `sed -i` while
-  keeping their modes, and exits with a clear error when run under `sh`.
+  keeping their modes, and exits with a clear error when run under a shell that is not bash, such
+  as `dash`.
 
 ## [0.9.2] - 2026-09-09
 

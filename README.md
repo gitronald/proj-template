@@ -25,7 +25,9 @@ proj-init --source ~/repos/proj-template ~/repos/myproject   # scaffold from a l
 ```
 
 `--source` still clones, so it scaffolds the source's committed tree: unpushed
-commits are picked up, uncommitted edits are not.
+commits are picked up, uncommitted edits are not. Without `--branch`, a local
+checkout is cloned at whatever branch it has checked out; the script prints the
+commit it used.
 
 The script targets bash 3.2+, so it runs on stock macOS as well as Linux.
 
