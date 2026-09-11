@@ -38,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   The script now needs only bash 3.2 and POSIX `sed`/`grep`, edits files without `sed -i` while
   keeping their modes, and exits with a clear error when run under a shell that is not bash, such
   as `dash`.
+- `proj-init.sh` rejects an empty option value such as `--branch ""` instead of silently falling
+  back to the default, so an unset variable passed as a flag cannot scaffold the wrong branch.
 
 ## [0.9.2] - 2026-09-09
 

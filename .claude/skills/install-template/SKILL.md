@@ -103,7 +103,7 @@ Notes:
   When a merge row brings in such a line, resolve the placeholder to the target's
   project name or package directory, and when diffing, treat a placeholder
   against the target's real name as a match, not a divergence. Repos scaffolded
-  before 0.9.3 used the bare spellings `PROJECT` and `MODULE`; the same rule
+  before 0.10.0 used the bare spellings `PROJECT` and `MODULE`; the same rule
   applies — a bare or double-underscored placeholder left in a target is always
   a bug, never a customization.
 
