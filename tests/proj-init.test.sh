@@ -5,7 +5,12 @@
 # stanza, and planners stubbed on PATH, so nothing touches the network or
 # GitHub, then asserts on the result. Everything else is the real script: the
 # clone, rsync, path renames, placeholder substitution, license insertion, git
-# init, commit, and push. --source clones, so only committed changes are tested.
+# init, commit, and push.
+#
+# --source clones HEAD while the script under test is the working-tree copy, so
+# the suite refuses to run over uncommitted changes to scripts/, template/, or
+# VERSION: it would otherwise pair a script and a template that no commit
+# contains, and report greens and reds that the commit would not.
 #
 # The script under test runs under /bin/bash — 3.2 on macOS — rather than
 # whatever bash is first on PATH, since that is what a stock Mac has.
@@ -18,6 +23,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
 SCRIPT="$ROOT/scripts/proj-init.sh"
 BASH_UNDER_TEST="${BASH_UNDER_TEST:-/bin/bash}"
+
+if [ -n "$(git -C "$ROOT" status --porcelain -- scripts template VERSION)" ]; then
+    echo "Error: uncommitted changes under scripts/, template/, or VERSION; commit them first"
+    git -C "$ROOT" status --short -- scripts template VERSION
+    exit 1
+fi
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -86,20 +97,37 @@ git config --global init.defaultBranch main
 
 # --- Helpers ----------------------------------------------------------------
 
-# scaffold <name> <extra proj-init args...>; output goes to $WORK/<name>.log
+# scaffold <name> <extra proj-init args...>; output goes to $WORK/<name>.log.
+# A --source among the extra args overrides this checkout. stdin is /dev/null so
+# a scaffold without --deps never waits on the interactive prompt.
 scaffold() {
     local name="$1"
     shift
     (cd "$WORK" && "$BASH_UNDER_TEST" "$SCRIPT" --source "$ROOT" "$@" "$name") \
-        > "$WORK/$name.log" 2>&1
+        < /dev/null > "$WORK/$name.log" 2>&1
 }
 
+# rejects <name> <expected error text> <extra proj-init args...>: the scaffold
+# fails, prints that error — so an unrelated early failure cannot take the
+# credit — and leaves nothing at $WORK/<name>.
+rejects() {
+    local name="$1" expected="$2"
+    shift 2
+    ! scaffold "$name" "$@" && grep -qF -- "$expected" "$WORK/$name.log" && [ ! -e "$WORK/$name" ]
+}
+
+# Look for the bare spellings too, word-bounded (-w, which BSD grep supports):
+# a file the placeholder rename missed must still fail, while CLAUDE_PROJECT_DIR
+# — where "PROJECT" sits between underscores — must not. grep exits 1 for no
+# match; exit 2 (an unreadable file) fails the check rather than passing it.
 no_placeholder_contents() {
-    ! grep -rlF --exclude-dir=.git -e PROJECT__NAME -e MODULE__NAME "$1"
+    local rc=0
+    grep -rlFw --exclude-dir=.git -e PROJECT -e MODULE -e PROJECT__NAME -e MODULE__NAME "$1" || rc=$?
+    [ "$rc" -eq 1 ]
 }
 
 no_placeholder_paths() {
-    [ -z "$(find "$1" -path "$1/.git" -prune -o -name '*__NAME*' -print)" ]
+    [ -z "$(find "$1" -path "$1/.git" -prune -o \( -name '*PROJECT*' -o -name '*MODULE*' \) -print)" ]
 }
 
 version_stamped() {
@@ -118,11 +146,6 @@ dev_pushed() {
     git -C "$1" rev-parse --verify -q origin/dev > /dev/null
 }
 
-rejects_before_creating() {
-    ! (cd "$WORK" && "$BASH_UNDER_TEST" "$SCRIPT" --source "$ROOT" --deps dependabot "$1") \
-        > /dev/null 2>&1 && [ ! -e "$WORK/$1" ]
-}
-
 runs_clean() {
     "$BASH_UNDER_TEST" "$SCRIPT" "$@" > /dev/null
 }
@@ -134,7 +157,17 @@ echo "proj-init.sh under $("$BASH_UNDER_TEST" -c 'echo "bash $BASH_VERSION"')"
 
 check "--help runs clean" runs_clean --help
 check "--version runs clean" runs_clean --version
-check "invalid name is rejected before anything is created" rejects_before_creating Bad.Name
+check "invalid name is rejected before anything is created" \
+    rejects Bad.Name "Error: 'Bad.Name' does not map to a valid Python module name" --deps dependabot
+check "empty --branch is rejected" rejects empty-branch "Error: --branch requires a value" --branch ""
+check "empty --source is rejected" rejects empty-source "Error: --source requires a value" --source ""
+
+NOT_TEMPLATE="$WORK/not-a-template"
+git init --quiet "$NOT_TEMPLATE"
+git -C "$NOT_TEMPLATE" commit --quiet --allow-empty -m "empty"
+check "a source with no template is rejected before anything is created" \
+    rejects no-template "Error: $NOT_TEMPLATE has no template/MODULE__NAME/" \
+    --deps dependabot --source "$NOT_TEMPLATE"
 
 # Mixed-case license key exercises the case fold that used to be ${LICENSE,,}.
 if scaffold template-test --license MIT --deps dependabot; then
@@ -148,10 +181,13 @@ fi
 P="$WORK/template-test"
 expected_version="$(git -C "$ROOT" show HEAD:VERSION)"
 
+check "log names the template commit scaffolded" \
+    grep -qF "$(git -C "$ROOT" rev-parse HEAD)" "$WORK/template-test.log"
 check "no placeholder survives in file contents" no_placeholder_contents "$P"
 check "no placeholder survives in paths" no_placeholder_paths "$P"
 check "module dir renamed to template_test/" test -f "$P/template_test/cli.py"
 check "test file renamed to test_template_test.py" test -f "$P/tests/test_template_test.py"
+check ".claude/CLAUDE.md names the renamed package" grep -qxF 'template_test/' "$P/.claude/CLAUDE.md"
 check "project name keeps its dash" grep -qxF 'name = "template-test"' "$P/pyproject.toml"
 check "entry point maps dashed name to underscored module" \
     grep -qxF 'template-test = "template_test.cli:app"' "$P/pyproject.toml"
@@ -180,6 +216,27 @@ if scaffold renovate-test --deps renovate; then
 else
     fail "renovate scaffold exits 0"
     cat "$WORK/renovate-test.log"
+fi
+
+# A source whose template has an executable file carrying a placeholder. The
+# stock template's executables carry none, so only this exercises the rewrite
+# loop's copy-back keeping a 0755 mode. It scaffolds with noclobber exported,
+# which that copy-back's overwrite must survive, and from a relative path
+# holding "%41", which a file:// URL built from it would percent-decode to "A".
+FIXTURE_SRC="$WORK/fix%41src"
+git clone --quiet --no-local --depth 1 "$ROOT" "$FIXTURE_SRC"
+printf '#!/bin/sh\necho PROJECT__NAME\n' > "$FIXTURE_SRC/template/exec-fixture.sh"
+chmod +x "$FIXTURE_SRC/template/exec-fixture.sh"
+git -C "$FIXTURE_SRC" add template/exec-fixture.sh
+git -C "$FIXTURE_SRC" commit --quiet -m "add executable fixture"
+if (set -o noclobber; export SHELLOPTS; scaffold fixture-test --deps dependabot --source 'fix%41src'); then
+    pass "fixture scaffold exits 0 (noclobber exported, % in relative --source)"
+    F="$WORK/fixture-test"
+    check "executable fixture keeps its mode through substitution" test -x "$F/exec-fixture.sh"
+    check "executable fixture's placeholder replaced" grep -qxF 'echo fixture-test' "$F/exec-fixture.sh"
+else
+    fail "fixture scaffold exits 0 (noclobber exported, % in relative --source)"
+    cat "$WORK/fixture-test.log"
 fi
 
 if [ -n "${MANIFEST_OUT:-}" ]; then
