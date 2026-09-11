@@ -1,11 +1,11 @@
 ---
 id: 7
 slug: macos-compatibility
-status: active
+status: done
 branch: feature/macos-compatibility
 created: 2026-09-09T23:12:15-07:00
-concluded:
-pr:
+concluded: 2026-09-10T17:08:42-07:00
+pr: https://github.com/gitronald/proj-template/pull/40
 ---
 
 # Make the scaffolding scripts run on macOS
@@ -179,3 +179,155 @@ directly — both of which were live bugs here in 0.9.1 and 0.9.2.
   and `macos-latest`.
 - A repo scaffolded on macOS is byte-identical to one scaffolded on Linux, given
   the same name and template version.
+
+## Log
+
+### 2026-09-10 — implementation
+
+Activated on `dev`; worked in `.worktrees/macos-compatibility`, draft PR #40.
+
+**Reproduced on a stock Mac first** (bash 3.2.57, BSD sed/grep, `openrsync`):
+`${LICENSE,,}` aborts with `bad substitution`, and BSD `sed` leaves
+`s/\bPROJECT\b/.../` unmatched — placeholder survives, exit 0. One correction to
+the inventory table: macOS `grep -E` *does* honor `\b`, so the file list is
+found and only the `sed` pass silently no-ops. Same broken output, different row.
+
+**Deviations from the spec, both decided with the user:**
+
+- **Spelling is `PROJECT__NAME` / `MODULE__NAME`, not `__PROJECT__` /
+  `__MODULE__`.** `template/pyproject.toml` has `name = "PROJECT"`, and uv
+  rejects `__PROJECT__` ("Names must start and end with a letter or digit"),
+  which would stop `template/` resolving as a uv project. The double-underscore
+  infix keeps the property the plan wanted — no collision with
+  `CLAUDE_PROJECT_DIR` or any identifier, so a plain literal match — while
+  staying a valid package name and Python identifier. Used for both
+  placeholders for symmetry. The script comment warns against "tidying" it to
+  `__PROJECT__`.
+- **Template-source seam is `--source <repo>`, and it clones.** A documented
+  flag (the user's choice over an env var). Rather than copying a checkout's
+  `template/` — which would also copy gitignored strays like `template/uv.lock`
+  or `.venv` — it swaps the clone URL (`file://` for a local path so `--depth`
+  is honored), so the output is exactly what a GitHub scaffold produces. That
+  made it combinable with `--branch` instead of exclusive; `--branch` now
+  defaults to the source's default branch (still `main` on GitHub). `--`
+  precedes the URL so a `-`-prefixed value is not read as a git option.
+  Trade-off: uncommitted edits are not scaffolded.
+
+**Portable in-place edit** is `sed > tmp; cat tmp > f; rm tmp`, commented
+against the `mv` "simplification". With the new spelling the hook file no longer
+contains a placeholder at all, but the idiom still guards any future executable.
+`find -name ... -depth` reordered to `find -depth -name ...` (GNU warns on the
+former).
+
+**Tests** live in `tests/` as plain bash (no bats dependency).
+`proj-init.test.sh` runs the real script under `/bin/bash` with `gh`, `uv`,
+`stanza`, and `planners` stubbed on `PATH` (the `stanza` stub points `origin` at
+a local bare repo so the push succeeds) and git isolated via
+`GIT_CONFIG_GLOBAL`. It asserts the plan's five checks plus license folding and
+insertion, deps selection, the initial commit, and the validation path.
+`portability.test.sh` greps comment-stripped lines of every `*.sh` for the banned
+constructs, and each rule self-checks against a sample so a rotted regex fails
+loudly. Both pass locally on macOS; `openrsync` caused no trouble.
+
+**shellcheck** (first-ever run, via `shellcheck-py`): `proj-init.sh` clean. It
+flagged SC1090 on the runtime-chosen `.env` source in `renovatabot-enroll.sh`
+(directive added — the only change there beyond the shebang) and SC2016 on the
+tests' intentionally literal `$` strings (suppressed at those sites).
+
+**CI**: `.github/workflows/test.yml` — shellcheck on ubuntu; guard and
+behavioral suite on `ubuntu-latest` and `macos-latest` under `/bin/bash`; each
+uploads a checksum-plus-exec-bit manifest and an `identical` job diffs them for
+the byte-identical acceptance criterion. Actions SHA-pinned to the template's
+versions.
+
+Docs: README, CHANGELOG `[Unreleased]`, and both skills updated — including the
+plan's install-template risk, now an explicit "placeholders are never copied"
+note covering both old and new spellings.
+
+### 2026-09-10 — review follow-up
+
+`/code-review` on PR #40 (posted as a PR comment) returned 15 verified findings.
+Fixed the 13 this PR introduced, each paired with a test, and proved every new
+test by mutation: reverting its fix in a scratch clone makes the suite fail.
+
+- **Regression: `template/.claude/CLAUDE.md` still said `MODULE/`.** The rename
+  missed it (gitignore-aware search skips `template/.claude/`), and the literal
+  `MODULE__NAME` match never selects it, so every scaffold shipped the bare
+  placeholder. CI stayed green because the assertions looked only for the new
+  spellings. Fixed the file. The content check now also matches bare
+  `PROJECT`/`MODULE`, word-bounded with `grep -w` so `CLAUDE_PROJECT_DIR` is not a
+  hit, and fails on grep exit 2. The path check matches both spellings too.
+- **Template check before `mkdir`.** A clone with no `template/MODULE__NAME/`
+  errors before anything is created. That covers a repo that is not a
+  proj-template, an "empty" clone of a mirror whose HEAD names a missing branch,
+  and a pre-rename release. The script also prints the commit it cloned.
+- **`--source` clones with `--no-local` on the raw path** instead of building a
+  `file://` URL. git percent-decoded that URL (a `%41` in the path named another
+  directory), and the `cd` that built it ran without `--`.
+- **`set +o noclobber`**, so an exported SHELLOPTS cannot break the cat-back.
+- **Empty option values are rejected** (`--branch ""`, `--source ""`, and so on)
+  rather than read as "use the default".
+- **Tests.** An executable fixture carrying a placeholder: the stock template's
+  executables have none, which is why reverting cat-back to `mv` had kept the
+  suite green. It is scaffolded under an exported noclobber from a relative
+  `fix%41src` path. Also new: a `rejects` helper that asserts the specific
+  `Error:` text, a non-template source, and a refusal to run over uncommitted
+  `scripts/`, `template/`, or `VERSION` changes, since `--source` clones HEAD
+  while the script under test is the working-tree copy.
+- **Portability guard.** New rules for GNU BRE escapes (`\|` `\+` `\?` `\<`
+  `\>`), `${a[i],,}`, and `sed -E -i`. `ls-files -z` means non-ASCII paths are
+  scanned, grep exit 2 fails the check, and each rule takes several self-check
+  samples.
+- **Docs.** The `--branch` default is now described accurately: a local
+  `--source` clones its checked-out branch. The `sh` wording is corrected:
+  macOS `/bin/sh` is bash in POSIX mode, and the guard's real ordering
+  constraint is `set -o pipefail`. The repo's `.claude/CLAUDE.md` now names the
+  shell suite.
+
+Mutations, all killed: the CLAUDE.md placeholder, the `mv` copy-back, the
+noclobber reset, the template check, empty `--branch`, and the `file://` URL.
+The full suite passes all 33 checks under `/bin/bash` 3.2 locally, and CI is
+green on both OSes.
+
+**Conscious no-ops:**
+
+- Deferred because they predate this PR, as follow-up plan candidates:
+  - `core.autocrlf=true` produces CRLF template files and a `\r` in the version
+    stamp.
+  - The no-op `uv` stub means the scaffold's pre-commit hooks never run in the
+    suite, and no stub call is asserted.
+- A house rule prefers `#!/bin/bash`. Both scripts keep `#!/usr/bin/env bash`,
+  as this plan decided, so a Homebrew bash on `PATH` is still preferred.
+- Low-severity items cut by the review's cap, not actioned:
+  - A project named `tests` nests its package inside `tests/` (predates this
+    PR).
+  - The `identical` job can flake across New Year, because each leg stamps its
+    own LICENSE year.
+  - The test files are committed 0644.
+  - The script uses two in-place-edit idioms.
+  - The two `git clone` lines are near-duplicates.
+  - CI has no concurrency group.
+
+## Retrospective
+
+- The one real regression was predicted in outline but not in detail. The
+  Risks section warned that the rename touches "every file in `template/`", yet
+  the file it missed is under the ignored `template/.claude/`, which every
+  gitignore-aware search skips. Any repo-wide rename here should take its
+  inventory with `git grep` or `git ls-files`, not `rg`.
+- An assertion written against the new spelling can only prove the new
+  spelling is gone. A placeholder check has to look for every spelling that
+  ever existed. This one stayed green because it shared the implementation's
+  blind spot.
+- A claim that a test covers X needs a mutation behind it. The executable-bit
+  check passed with its fix reverted, because no executable carried a
+  placeholder. Reverting each fix in a scratch clone was cheap and settled the
+  question for all six.
+- The macOS port itself went to plan. `openrsync` and the macOS runner caused
+  none of the trouble the Risks section expected, and review found no reason to
+  revisit either spec deviation (the `PROJECT__NAME` spelling or `--source`
+  cloning).
+- `--source` grew more surface than a test seam should: URL handling, HEAD
+  semantics, empty values, and validation. Five of the 13 fixed findings were
+  about it, which bears out the plan's warning to decide whether the flag was
+  desirable before shipping it.

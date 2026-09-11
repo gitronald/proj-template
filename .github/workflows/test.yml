@@ -1,0 +1,56 @@
+name: test
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      # ubuntu-latest ships shellcheck; it is a static check, so one OS suffices.
+      - name: shellcheck
+        run: git ls-files -co --exclude-standard -- '*.sh' | xargs shellcheck
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      # Run under /bin/bash explicitly: on macOS that is bash 3.2, which a
+      # Homebrew bash earlier on the runner's PATH would otherwise hide.
+      - name: portability guard
+        run: /bin/bash tests/portability.test.sh
+      - name: proj-init behavioral tests
+        run: /bin/bash tests/proj-init.test.sh
+        env:
+          MANIFEST_OUT: ${{ runner.temp }}/manifest-${{ matrix.os }}.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: manifest-${{ matrix.os }}
+          path: ${{ runner.temp }}/manifest-${{ matrix.os }}.txt
+
+  # The same name and template version must scaffold byte-identical repos on
+  # Linux and macOS, file modes included.
+  identical:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          pattern: manifest-*
+          merge-multiple: true
+      - name: compare scaffolds
+        run: diff manifest-ubuntu-latest.txt manifest-macos-latest.txt
