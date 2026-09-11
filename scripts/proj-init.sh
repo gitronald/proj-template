@@ -8,10 +8,11 @@
 # Usage: proj-init.sh <path>
 #   path  Target directory (e.g., ~/repos/gdrive). Basename becomes the project name.
 #
-# Targets bash 3.2+ (stock macOS /bin/bash), not POSIX sh. Run under sh, the
-# first bash-only line would fail with a cryptic syntax error; fail with a
-# sentence instead. This must stay above set -u, where an unset BASH_VERSION
-# would itself be the error.
+# Targets bash 3.2+ (stock macOS /bin/bash), not POSIX sh. Under a shell that is
+# not bash at all (dash, zsh), the first bash-only line would fail with a
+# cryptic error; fail with a sentence instead. macOS /bin/sh is bash in POSIX
+# mode, so "sh proj-init.sh" sets BASH_VERSION there and simply runs. Keep this
+# above set -euo pipefail: dash rejects "-o pipefail" before any later check.
 if [ -z "${BASH_VERSION:-}" ]; then
     echo "Error: proj-init.sh requires bash; run it as 'bash proj-init.sh'" >&2
     exit 1
@@ -21,6 +22,9 @@ fi
 # -o pipefail makes a pipeline fail when any stage does, not just the last, so a
 # failing producer can no longer be masked by a successful consumer.
 set -euo pipefail
+# The placeholder pass overwrites existing files ("cat tmp > f"). An inherited
+# noclobber (via an exported SHELLOPTS) would make that redirect fail mid-scaffold.
+set +o noclobber
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 VERSION_FILE="$SCRIPT_DIR/../VERSION"
@@ -47,8 +51,9 @@ show_help() {
     echo "  --source   proj-template repo to clone: a local checkout path or a"
     echo "             git URL, e.g. a fork (default: the GitHub repo)."
     echo "             Only committed changes are cloned."
-    echo "  --branch   Template branch to clone (default: the source's default"
-    echo "             branch, main on GitHub)"
+    echo "  --branch   Template branch to clone (default: the source's HEAD —"
+    echo "             main on GitHub, or whatever branch a local --source"
+    echo "             checkout has checked out)"
     echo "  --deps     Dependency-update automation: dependabot or renovate"
     echo "             (default: dependabot). 'renovate' needs a one-time GitHub"
     echo "             App + secrets; see docs/guides/github-automation.md."
@@ -74,10 +79,13 @@ BRANCH=""
 DEPS=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --license) [ $# -ge 2 ] || { echo "Error: --license requires a value"; exit 1; }; LICENSE="$2"; shift 2 ;;
-        --source)  [ $# -ge 2 ] || { echo "Error: --source requires a value"; exit 1; }; SOURCE="$2"; shift 2 ;;
-        --branch)  [ $# -ge 2 ] || { echo "Error: --branch requires a value"; exit 1; }; BRANCH="$2"; shift 2 ;;
-        --deps)    [ $# -ge 2 ] || { echo "Error: --deps requires a value"; exit 1; }; DEPS="$2"; shift 2 ;;
+        # An empty value is rejected, not read as "not given": empty is how these
+        # variables spell "use the default", so --branch "$UNSET" would otherwise
+        # silently scaffold the default branch.
+        --license) [ -n "${2:-}" ] || { echo "Error: --license requires a value"; exit 1; }; LICENSE="$2"; shift 2 ;;
+        --source)  [ -n "${2:-}" ] || { echo "Error: --source requires a value"; exit 1; }; SOURCE="$2"; shift 2 ;;
+        --branch)  [ -n "${2:-}" ] || { echo "Error: --branch requires a value"; exit 1; }; BRANCH="$2"; shift 2 ;;
+        --deps)    [ -n "${2:-}" ] || { echo "Error: --deps requires a value"; exit 1; }; DEPS="$2"; shift 2 ;;
         --*) echo "Error: unknown option $1"; show_help; exit 1 ;;
         *)
             # Reject a second path instead of silently scaffolding the last one.
@@ -118,16 +126,12 @@ fi
 # Clone rather than copy even for a local --source: a clone carries exactly the
 # committed tree a GitHub scaffold would, where a copy of a checkout's template/
 # would also sweep in gitignored strays (a template/uv.lock, a .venv). A plain
-# path makes git do a local clone, which ignores --depth with a warning; a
-# file:// URL takes the normal transport and honors it.
-CLONE_URL="$REPO_URL"
-if [ -n "$SOURCE" ]; then
-    if [ -d "$SOURCE" ]; then
-        CLONE_URL="file://$(cd "$SOURCE" && pwd)"
-    else
-        CLONE_URL="$SOURCE"
-    fi
-fi
+# path makes git do a local clone, which ignores --depth with a warning;
+# --no-local (below) takes the normal transport and honors it, and git ignores
+# the flag for a URL. Pass the path through as given rather than building a
+# file:// URL from it: git percent-decodes a URL, so a "%41" in the path would
+# name a different directory.
+CLONE_URL="${SOURCE:-$REPO_URL}"
 
 # Choose the dependency-update automation. Dependabot is the zero-setup default;
 # Renovate is opt-in (stronger hardening, but needs a one-time GitHub App + secrets).
@@ -171,11 +175,25 @@ TEMPLATE_TMP=$(mktemp -d)
 trap 'rm -rf "$TEMPLATE_TMP"' EXIT
 # "--" keeps a --source value starting with "-" from being read as a git option.
 if [ -n "$BRANCH" ]; then
-    git clone --quiet --depth 1 --branch "$BRANCH" -- "$CLONE_URL" "$TEMPLATE_TMP/proj-template"
+    git clone --quiet --no-local --depth 1 --branch "$BRANCH" -- "$CLONE_URL" "$TEMPLATE_TMP/proj-template"
 else
-    git clone --quiet --depth 1 -- "$CLONE_URL" "$TEMPLATE_TMP/proj-template"
+    git clone --quiet --no-local --depth 1 -- "$CLONE_URL" "$TEMPLATE_TMP/proj-template"
 fi
 TEMPLATE_DIR="$TEMPLATE_TMP/proj-template/template"
+
+# Check the clone is a proj-template this script can fill in before creating
+# anything. A --source that is not one, a remote whose HEAD names a missing
+# branch (git clones it "empty" and exits 0), or a release that predates the
+# MODULE__NAME placeholders would otherwise fail late, in rsync or uv sync, and
+# leave a half-built DEST that blocks every re-run.
+if [ ! -d "$TEMPLATE_DIR/MODULE__NAME" ]; then
+    echo "Error: ${CLONE_URL}${BRANCH:+ (branch ${BRANCH})} has no template/MODULE__NAME/"
+    echo "It is not a proj-template repo, or is a release older than this script."
+    exit 1
+fi
+# Without --branch the clone takes the source's HEAD, which for a local checkout
+# is whatever it has checked out, so say which commit this scaffold comes from.
+echo "Template: ${CLONE_URL} at $(git -C "$TEMPLATE_TMP/proj-template" rev-parse HEAD)"
 
 # Fails if DEST already exists (atomic guard)
 mkdir "$DEST"
