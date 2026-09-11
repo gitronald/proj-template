@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-11
+
+### Added
+
+- `proj-init.sh --source <repo>` scaffolds from a local proj-template checkout or a fork's git URL
+  instead of the GitHub repo. It still clones, so the output is exactly the source's committed
+  tree — a checkout's gitignored strays (`template/uv.lock`, `.venv`) never leak in. Without
+  `--branch` it clones the source's HEAD: `main` on GitHub, or whatever branch a local checkout
+  has checked out. The script prints the commit it scaffolded from, and refuses a source with no
+  `template/MODULE__NAME/` before creating anything.
+- Tests and CI for the scaffolding scripts: `tests/proj-init.test.sh` scaffolds from the checkout
+  with `gh`, `uv`, and `stanza` stubbed and asserts on the result; `tests/portability.test.sh`
+  fails on constructs that break on macOS (`sed -i`, `\b`, bash 4 syntax); and
+  `.github/workflows/test.yml` runs both on `ubuntu-latest` and `macos-latest`, checks the two
+  scaffolds are byte-identical, and runs `shellcheck`.
+
+### Changed
+
+- Template placeholders are renamed `PROJECT` to `PROJECT__NAME` and `MODULE` to `MODULE__NAME`.
+  Neither can occur inside another identifier, so substitution is a plain literal match with no
+  `\b` word boundaries. `PROJECT__NAME` is still a valid package name, so `template/` keeps
+  resolving as a uv project (`__PROJECT__` would not). Existing scaffolded repos are unaffected.
+
+### Fixed
+
+- `proj-init.sh` runs on stock macOS. Under bash 3.2 `${LICENSE,,}` aborted with a syntax error,
+  and BSD `sed` read the `\b` word boundaries as a literal `b` — so the placeholder pass matched
+  nothing, the script still printed "Done", and the new repo shipped with its placeholders intact.
+  The script now needs only bash 3.2 and POSIX `sed`/`grep`, edits files without `sed -i` while
+  keeping their modes, and exits with a clear error when run under a shell that is not bash, such
+  as `dash`.
+- `proj-init.sh` rejects an empty option value such as `--branch ""` instead of silently falling
+  back to the default, so an unset variable passed as a flag cannot scaffold the wrong branch.
+
 ## [0.9.2] - 2026-09-09
 
 ### Fixed

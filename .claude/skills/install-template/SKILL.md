@@ -18,12 +18,15 @@ this skill describes the *process*, not frozen payloads.
 
 ## Mode 1 — New repo
 
-Run the scaffold script (it clones the template, replaces the `PROJECT` and
-`MODULE` placeholders, fetches a license, sets up git/uv/pre-commit/stanza):
+Run the scaffold script (it clones the template, replaces the `PROJECT__NAME` and
+`MODULE__NAME` placeholders, fetches a license, sets up git/uv/pre-commit/stanza):
 
 ```bash
-scripts/proj-init.sh [--license <key>] [--deps dependabot|renovate] <path>
+scripts/proj-init.sh [--license <key>] [--source <repo>] [--deps dependabot|renovate] <path>
 ```
+
+`--source` clones a local proj-template checkout or a fork instead of the GitHub repo
+(committed changes only).
 
 The basename of `<path>` becomes the project name (dashes map to underscores
 in the Python module name). The script is interactive
@@ -89,9 +92,20 @@ overwrite" below.
 | `.github/workflows/publish.yml` | sync | skip |
 | `.github/dependabot.yml` (or renovate pair) | ensure one automation exists; reconcile each ecosystem (groups, cooldown, `target-branch` — see note); set repo alert toggles (see note) | same |
 | `.planners/` scaffold | create if missing | create if missing |
-| `MODULE/`, `tests/`, `README.md`, `CHANGELOG.md` | never | never |
+| `MODULE__NAME/`, `tests/`, `README.md`, `CHANGELOG.md` | never | never |
 
 Notes:
+
+- **Placeholders are never copied into a target.** `template/` carries
+  `PROJECT__NAME` and `MODULE__NAME` wherever the scaffold substitutes the repo's
+  own names — notably `pyproject.toml`'s `name`, `[project.urls]`,
+  `[project.scripts]`, sdist `only-include`, and `[tool.coverage.run] source`.
+  When a merge row brings in such a line, resolve the placeholder to the target's
+  project name or package directory, and when diffing, treat a placeholder
+  against the target's real name as a match, not a divergence. Repos scaffolded
+  before 0.10.0 used the bare spellings `PROJECT` and `MODULE`; the same rule
+  applies — a bare or double-underscored placeholder left in a target is always
+  a bug, never a customization.
 
 - **Diverging files are a question, not an overwrite.** Read this before
   applying any row. For every `sync`/`copy`/`merge` row, diff the target's
