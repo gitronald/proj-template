@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-11
+
 ### Added
 
 - `proj-init.sh --source <repo>` scaffolds from a local proj-template checkout or a fork's git URL
