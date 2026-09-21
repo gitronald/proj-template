@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The `install-template` skill's upgrade mode names two worktree traps that cost a real upgrade
+  time. Plan edits made after the worktree exists must target the worktree's copy of `plan.md` —
+  the file exists at both paths, so an edit aimed at the repo root lands on the mainline and the
+  follow-up commit reports "nothing to commit" from a clean worktree. And `pre-commit install`
+  run inside a worktree rewrites the *shared* `.git/hooks/pre-commit` with that worktree's venv
+  as `INSTALL_PYTHON`, which exits zero and skips every hook once the worktree is removed; the
+  skill now repairs it right after the verification run instead of at teardown.
+
 ## [0.10.0] - 2026-09-11
 
 ### Added
