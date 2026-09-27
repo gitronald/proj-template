@@ -17,13 +17,15 @@ If you scaffolded your project with `proj-init.sh`, pre-commit is already instal
 
 ```bash
 uv sync --all-groups   # installs pre-commit into the dev dependency group
-uv run pre-commit install   # registers the git hook in .git/hooks/pre-commit
+uv run pre-commit install --hook-type pre-commit --hook-type post-merge   # registers both git hooks
 ```
 
-Verify the hook is registered:
+The `post-merge` hook type carries `planners-index`, which regenerates `.planners/README.md` after a merge. A plain `pre-commit install` registers only `pre-commit`, so that hook would never run.
+
+Verify the hooks are registered:
 
 ```bash
-ls .git/hooks/pre-commit
+ls .git/hooks/pre-commit .git/hooks/post-merge
 ```
 
 ## Usage
