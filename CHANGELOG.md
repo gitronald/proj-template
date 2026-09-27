@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-27
+
+### Added
+
+- `proj-init.sh` checks for `git`, `rsync`, `gh`, `uv`, and `stanza` before creating anything
+  and names every missing tool at once. A missing `gh` or `stanza` used to fail partway
+  through and leave a half-built project directory that blocked the re-run.
+- The README lists the scaffold script's prerequisites and how to set up a checkout of
+  proj-template for development.
+- Dependabot version updates for the proj-template repo's own workflow actions and dev
+  tooling.
+
+### Changed
+
+- CI runs the `shellcheck` pinned in `uv.lock` instead of the one the runner ships, so CI
+  and a local run use the same version.
+- The scaffolded `.pre-commit-config.yaml` sets `default_stages: [pre-commit]`, so a merge
+  runs only the `planners-index` hook. Previously the ruff, pyrefly, and `planners-validate`
+  hooks also ran on the `post-merge` stage and each reported "Skipped".
+- The scaffolded ruff lint hook uses the id `ruff-check` in place of `ruff`, which
+  ruff-pre-commit keeps only as a legacy alias.
+- The proj-template repo has a tooling-only root `pyproject.toml` whose `dev` group supplies
+  `pre-commit` and `shellcheck`, so contributors run `uv sync` instead of installing either
+  machine-wide. It has no `[project]` table; `VERSION` stays the only version source. A root
+  `.python-version` pins the interpreter so `uv sync --locked` resolves the same
+  `requires-python` on every machine.
+
 ## [0.10.1] - 2026-09-27
 
 ### Fixed

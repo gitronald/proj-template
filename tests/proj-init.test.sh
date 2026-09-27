@@ -85,6 +85,17 @@ EOF
 
 chmod +x "$BIN"/*
 
+# Every stub except stanza, for the missing-tool preflight. It is paired with
+# the system directories alone, so a real stanza elsewhere on PATH stays hidden.
+# git and rsync are linked in from wherever this machine keeps them, so one
+# installed outside the system directories is not reported missing too.
+NO_STANZA="$WORK/bin-no-stanza"
+mkdir -p "$NO_STANZA"
+cp "$BIN/gh" "$BIN/uv" "$BIN/planners" "$NO_STANZA/"
+for tool in git rsync; do
+    ln -s "$(command -v "$tool")" "$NO_STANZA/$tool"
+done
+
 export PATH="$BIN:$PATH"
 export STUB_LOG="$WORK/stub.log"
 export STUB_REMOTES="$WORK/remotes"
@@ -151,6 +162,14 @@ runs_clean() {
     "$BASH_UNDER_TEST" "$SCRIPT" "$@" > /dev/null
 }
 
+# In a subshell, so the narrowed PATH does not outlive the check.
+rejects_without_stanza() {
+    (
+        export PATH="$NO_STANZA:/usr/bin:/bin"
+        rejects no-stanza "Error: required tools not found on PATH: stanza" --deps dependabot
+    )
+}
+
 # --- Tests ------------------------------------------------------------------
 
 # shellcheck disable=SC2016  # $BASH_VERSION must expand in the bash under test
@@ -162,6 +181,7 @@ check "invalid name is rejected before anything is created" \
     rejects Bad.Name "Error: 'Bad.Name' does not map to a valid Python module name" --deps dependabot
 check "empty --branch is rejected" rejects empty-branch "Error: --branch requires a value" --branch ""
 check "empty --source is rejected" rejects empty-source "Error: --source requires a value" --source ""
+check "a missing tool is rejected before anything is created" rejects_without_stanza
 
 NOT_TEMPLATE="$WORK/not-a-template"
 git init --quiet "$NOT_TEMPLATE"
@@ -207,6 +227,8 @@ check ".gitattributes unions the planners index" \
     grep -qxF '.planners/README.md merge=union' "$P/.gitattributes"
 check "planners-index hook scaffolded for post-merge" \
     grep -qF 'id: planners-index' "$P/.pre-commit-config.yaml"
+check "hooks default to the pre-commit stage" \
+    grep -qxF 'default_stages: [pre-commit]' "$P/.pre-commit-config.yaml"
 check "post-merge hook type installed" \
     grep -qxF "uv run pre-commit install --hook-type pre-commit --hook-type post-merge" "$STUB_LOG"
 check "dependabot kept" test -f "$P/.github/dependabot.yml"

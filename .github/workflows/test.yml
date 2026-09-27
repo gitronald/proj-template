@@ -15,9 +15,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      # ubuntu-latest ships shellcheck; it is a static check, so one OS suffices.
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
+      # Run the shellcheck pinned in uv.lock rather than the one the runner
+      # ships, so CI and a local run agree. It is a static check, so one OS
+      # suffices.
+      - run: uv sync --locked
       - name: shellcheck
-        run: git ls-files -co --exclude-standard -- '*.sh' | xargs shellcheck
+        run: git ls-files -co --exclude-standard -- '*.sh' | xargs uv run shellcheck
 
   test:
     strategy:

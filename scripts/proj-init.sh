@@ -100,6 +100,21 @@ if [ -z "${DEST:-}" ]; then
     exit 1
 fi
 
+# Check every external tool up front and name all the missing ones at once.
+# Each is first called at a different point below — gh and uv after DEST
+# exists, stanza after the initial commit — so a missing one would otherwise
+# fail late and leave a half-built DEST that blocks every re-run. planners is
+# not listed: the script installs it itself, through uv.
+MISSING_TOOLS=""
+for tool in git rsync gh uv stanza; do
+    command -v "$tool" > /dev/null 2>&1 || MISSING_TOOLS="${MISSING_TOOLS} ${tool}"
+done
+if [ -n "$MISSING_TOOLS" ]; then
+    echo "Error: required tools not found on PATH:${MISSING_TOOLS}"
+    echo "Install them and re-run; see Prerequisites in the proj-template README."
+    exit 1
+fi
+
 # LICENSE is interpolated into the gh API path ("licenses/${LICENSE}"), so
 # restrict it to the shape GitHub's license keys actually take (mit, apache-2.0,
 # bsd-3-clause, cc0-1.0). Without this a value containing "/" or ".." walks the

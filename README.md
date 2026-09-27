@@ -2,6 +2,20 @@
 
 Python project template with uv, ruff, pyrefly, pytest, pre-commit, GitHub Actions CI, and stanza release automation.
 
+## Prerequisites
+
+The scaffold script needs these on your `PATH`, and stops before creating
+anything if one is missing:
+
+- [uv](https://docs.astral.sh/uv/) — installs Python and the project's dependencies
+- [gh](https://cli.github.com/), authenticated (`gh auth login`) — fetches the license and your author name
+- [stanza](https://github.com/gitronald/stanza) — creates the GitHub repo and drives releases
+- `git` and `rsync`
+
+[planners](https://github.com/gitronald/planners) is installed for you as a uv
+tool if it is missing. Everything else a scaffolded project uses — ruff, pyrefly,
+pytest, and pre-commit — comes from its own dev dependency group.
+
 ## Quick Start
 
 Download and run the scaffold script to create a new project:
@@ -64,6 +78,26 @@ To audit drift across repos:
 
 ```bash
 grep -A1 '\[tool.proj-template\]' ~/repos/*/pyproject.toml
+```
+
+## Developing proj-template
+
+Working on the template itself needs only `uv` and `planners`. The root
+`pyproject.toml` is tooling only; its dev group supplies `pre-commit` and
+`shellcheck`:
+
+```bash
+uv sync
+uv run pre-commit install --hook-type pre-commit --hook-type post-merge
+```
+
+Run the checks after changing `scripts/` or `template/`. The behavioral test
+scaffolds from the checkout's HEAD, so commit first:
+
+```bash
+/bin/bash tests/portability.test.sh
+/bin/bash tests/proj-init.test.sh
+git ls-files -co --exclude-standard -- '*.sh' | xargs uv run shellcheck
 ```
 
 ## Future
