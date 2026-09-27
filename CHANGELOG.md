@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `proj-init.sh` checks for `git`, `rsync`, `gh`, `uv`, and `stanza` before creating anything
+  and names every missing tool at once. A missing `gh` or `stanza` used to fail partway
+  through and leave a half-built project directory that blocked the re-run.
+- The README lists the scaffold script's prerequisites and how to set up a checkout of
+  proj-template for development.
+- Dependabot version updates for the proj-template repo's own workflow actions and dev
+  tooling.
+
 ### Changed
+
+- CI runs the `shellcheck` pinned in `uv.lock` instead of the one the runner ships, so CI
+  and a local run use the same version.
 
 - The scaffolded `.pre-commit-config.yaml` sets `default_stages: [pre-commit]`, so a merge
   runs only the `planners-index` hook. Previously the ruff, pyrefly, and `planners-validate`

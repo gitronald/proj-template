@@ -103,7 +103,7 @@ Full mode additionally:
 - The initial commit contains no `.claude/` paths while `.claude/{CLAUDE.md,
   settings.json, settings.local.json, hooks/}` exist on disk — the payload ships
   untracked by design.
-- Pre-commit hooks (ruff format, ruff, pyrefly, planners) passed during the initial
+- Pre-commit hooks (ruff format, ruff check, pyrefly, planners) passed during the initial
   commit — check the script output, don't assume.
 - Only the chosen deps automation remains: by default `dependabot.yml` present,
   `renovate.json` and `workflows/renovate.yml` absent.
