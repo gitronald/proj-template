@@ -1,3 +1,6 @@
+# Hooks run on commit unless they name their own stage; without this every
+# hook would also run (and report "Skipped") on the post-merge stage.
+default_stages: [pre-commit]
 repos:
   - repo: local
     hooks:

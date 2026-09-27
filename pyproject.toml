@@ -1,0 +1,9 @@
+# Development tooling for the proj-template repo itself. This is not a package:
+# the scaffold lives in template/, which has its own pyproject.toml, and the
+# release version lives in VERSION. `uv sync` builds a repo-local .venv from
+# the dev group so hooks and checks need nothing installed outside the repo.
+[dependency-groups]
+dev = [
+    "pre-commit",
+    "shellcheck-py",
+]
