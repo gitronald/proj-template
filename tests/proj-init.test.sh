@@ -207,6 +207,8 @@ check ".gitattributes unions the planners index" \
     grep -qxF '.planners/README.md merge=union' "$P/.gitattributes"
 check "planners-index hook scaffolded for post-merge" \
     grep -qF 'id: planners-index' "$P/.pre-commit-config.yaml"
+check "hooks default to the pre-commit stage" \
+    grep -qxF 'default_stages: [pre-commit]' "$P/.pre-commit-config.yaml"
 check "post-merge hook type installed" \
     grep -qxF "uv run pre-commit install --hook-type pre-commit --hook-type post-merge" "$STUB_LOG"
 check "dependabot kept" test -f "$P/.github/dependabot.yml"
