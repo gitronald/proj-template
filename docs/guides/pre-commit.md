@@ -11,6 +11,12 @@ The `.pre-commit-config.yaml` configures two hooks from [ruff-pre-commit](https:
 
 Both hooks run only on staged files, so they are fast and scoped to what you are committing.
 
+Three local hooks run through `uv run`:
+
+- **pyrefly-check** — type-checks the project when Python files are staged
+- **planners-validate** — validates the frontmatter of staged `.planners/plans/*/plan.md` files
+- **planners-index** — regenerates `.planners/README.md` after a merge (`post-merge` stage)
+
 ## Installation
 
 If you scaffolded your project with `proj-init.sh`, pre-commit is already installed. To set it up manually:

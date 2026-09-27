@@ -27,7 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `planners validate`, matching the other local hooks.
 - `tests/proj-init.test.sh` asserts that a scaffold carries `.gitattributes` and the
   `planners-index` hook, and that `proj-init.sh` installs the `post-merge` hook type.
-
 - The `install-template` skill's upgrade mode names two worktree traps that cost a real upgrade
   time. Plan edits made after the worktree exists must target the worktree's copy of `plan.md` —
   the file exists at both paths, so an edit aimed at the repo root lands on the mainline and the
