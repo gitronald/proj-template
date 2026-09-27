@@ -66,6 +66,15 @@ running it from a tool. If the user chose renovate, finish with the
      PR that those files changed on disk outside the branch.
    - Set the plan `status: active` and fill `branch`, and commit the plan on
      the feature branch so it rides in the PR.
+   - Once the worktree exists, **every later plan edit targets the worktree's
+     copy** (`.worktrees/template-upgrade/.planners/plans/<NNN>-*/plan.md`), not
+     the main checkout's. The plan file exists at both paths, so an absolute-path
+     edit aimed at the repo root silently lands on the mainline; the `git add`
+     that follows stages nothing and the commit reports "nothing to commit"
+     from a *clean* worktree, which reads like the edit never happened rather
+     than like it went somewhere else. Recovering means copying the file across
+     and reverting the mainline, so it is cheaper to keep the worktree prefix on
+     the path from the start.
 
 ### Sync matrix
 
@@ -84,6 +93,7 @@ overwrite" below.
 | `pyproject.toml` `[build-system]`, sdist `only-include`, `[project.urls]`, `[project.scripts]` | merge | skip |
 | `pyproject.toml` `[tool.proj-template]` `version` | stamp the release being applied (see note) | same |
 | `.pre-commit-config.yaml` | sync hooks (keep extra local hooks) | sync hooks (keep extra local hooks) |
+| `.gitattributes` | merge entries (`.planners/README.md merge=union`) | merge entries |
 | `.python-version` | sync | sync unless repo pins older deliberately |
 | `.gitignore` | merge entries | merge entries |
 | `.claude/settings.json`, `.claude/settings.local.json`, `.claude/hooks/lint-typecheck.sh` | copy when absent; when either settings file exists, **ask** — never copy over it (see note); apply in the main checkout when `.claude/` is gitignored (see preflight) | same |
@@ -285,9 +295,26 @@ the target repo:
 uv sync --all-groups
 uv run ruff check . && uv run ruff format --check .
 uv run pyrefly check
-uv run pre-commit install && uv run pre-commit run --all-files
+uv run pre-commit install --hook-type pre-commit --hook-type post-merge
+uv run pre-commit run --all-files
 uv run pytest   # only if the repo has tests; runs with coverage via addopts
 ```
+
+Name both hook types: the synced config carries a `planners-index` hook on the
+`post-merge` stage, and a plain `pre-commit install` registers only
+`pre-commit`, leaving that hook configured but never fired.
+
+`pre-commit install` from inside the worktree writes the **shared**
+`.git/hooks/pre-commit` — worktrees do not get their own hooks directory — and
+bakes that worktree's venv in as `INSTALL_PYTHON`. It works for the rest of the
+upgrade and then dies with the worktree, silently: the generated hook guards
+with `if [ -x "$INSTALL_PYTHON" ]` and exits zero when the path is gone, so
+every later commit in the main checkout skips the hooks with no warning. Repair
+it as soon as the verification run is green, rather than leaving it for
+teardown — from the main checkout, `uv sync && uv run pre-commit install
+--hook-type pre-commit --hook-type post-merge`, then confirm with
+`grep -n 'INSTALL_PYTHON=' .git/hooks/*` that no path points into
+`.worktrees/`. The same applies to the shared `.git/hooks/post-merge`.
 
 Coverage floor on an existing repo: merging `[tool.coverage.*]` brings in
 `fail_under = 50`, which can fail `pytest` in a repo whose tests never reached

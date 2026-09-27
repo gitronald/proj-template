@@ -93,6 +93,7 @@ tests/
 README.md
 pyproject.toml
 .gitignore
+.gitattributes                 # .planners/README.md merge=union (planners index)
 .pre-commit-config.yaml
 .python-version
 ```
