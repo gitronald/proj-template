@@ -21,7 +21,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - CI runs the `shellcheck` pinned in `uv.lock` instead of the one the runner ships, so CI
   and a local run use the same version.
-
 - The scaffolded `.pre-commit-config.yaml` sets `default_stages: [pre-commit]`, so a merge
   runs only the `planners-index` hook. Previously the ruff, pyrefly, and `planners-validate`
   hooks also ran on the `post-merge` stage and each reported "Skipped".
@@ -29,7 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   ruff-pre-commit keeps only as a legacy alias.
 - The proj-template repo has a tooling-only root `pyproject.toml` whose `dev` group supplies
   `pre-commit` and `shellcheck`, so contributors run `uv sync` instead of installing either
-  machine-wide. It has no `[project]` table; `VERSION` stays the only version source.
+  machine-wide. It has no `[project]` table; `VERSION` stays the only version source. A root
+  `.python-version` pins the interpreter so `uv sync --locked` resolves the same
+  `requires-python` on every machine.
 
 ## [0.10.1] - 2026-09-27
 
