@@ -9,13 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
-- Scaffolded repos now carry the planners integration the template repo itself had: a
-  `.gitattributes` marking `.planners/README.md merge=union`, the `planners-index`
-  post-merge hook in `.pre-commit-config.yaml`, and `proj-init.sh` installs the
-  `post-merge` hook stage so that hook actually runs. Previously only the template
-  repo's root had these, so new projects failed `planners install --check`.
+- Scaffolded repos now carry the full planners integration: a `.gitattributes` marking
+  `.planners/README.md merge=union`, the `planners-index` post-merge hook in
+  `.pre-commit-config.yaml`, and `proj-init.sh` installs the `post-merge` hook stage so
+  that hook actually runs. Previously the template shipped neither the attribute nor the
+  hook, so new projects failed `planners install --check`.
+- The `install-template` skill's upgrade mode and the pre-commit guide install both hook
+  types (`pre-commit install --hook-type pre-commit --hook-type post-merge`), and the
+  skill's sync matrix merges `.gitattributes`. A plain `pre-commit install` registered only
+  `pre-commit`, so an upgraded repo got the `planners-index` hook configured but never run.
 
 ### Changed
+
+- The scaffolded `planners-validate` hook runs `uv run planners validate` instead of bare
+  `planners validate`, matching the other local hooks.
+- `tests/proj-init.test.sh` asserts that a scaffold carries `.gitattributes` and the
+  `planners-index` hook, and that `proj-init.sh` installs the `post-merge` hook type.
 
 - The `install-template` skill's upgrade mode names two worktree traps that cost a real upgrade
   time. Plan edits made after the worktree exists must target the worktree's copy of `plan.md` —
