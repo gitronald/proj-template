@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-09-27
+
 ### Changed
 
 - Template pinned versions bumped: `astral-sh/setup-uv` v10.0.1 -> v10.2.0 in both `test.yml`
