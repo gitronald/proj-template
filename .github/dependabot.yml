@@ -1,0 +1,29 @@
+# Dependabot version updates for the proj-template repo itself: the workflow
+# actions in .github/workflows/ and the dev tooling in the root pyproject.toml
+# and uv.lock. It does not cover template/, whose pins ship to scaffolded repos.
+#
+# Dependabot reads this file from the DEFAULT branch only, whatever `target-branch`
+# says — an edit landed on `dev` alone is inert until it reaches the default branch.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    target-branch: dev
+    groups:
+      github-actions:
+        patterns: ["*"]
+    cooldown:
+      default-days: 5
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    target-branch: dev
+    groups:
+      python:
+        patterns: ["*"]
+    cooldown:
+      default-days: 5
+      semver-major-days: 14
