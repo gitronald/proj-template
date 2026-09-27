@@ -85,6 +85,12 @@ EOF
 
 chmod +x "$BIN"/*
 
+# Every stub except stanza, for the missing-tool preflight. It is paired with
+# the system directories alone, so a real stanza elsewhere on PATH stays hidden.
+NO_STANZA="$WORK/bin-no-stanza"
+mkdir -p "$NO_STANZA"
+cp "$BIN/gh" "$BIN/uv" "$BIN/planners" "$NO_STANZA/"
+
 export PATH="$BIN:$PATH"
 export STUB_LOG="$WORK/stub.log"
 export STUB_REMOTES="$WORK/remotes"
@@ -151,6 +157,14 @@ runs_clean() {
     "$BASH_UNDER_TEST" "$SCRIPT" "$@" > /dev/null
 }
 
+# In a subshell, so the narrowed PATH does not outlive the check.
+rejects_without_stanza() {
+    (
+        export PATH="$NO_STANZA:/usr/bin:/bin"
+        rejects no-stanza "Error: required tools not found on PATH: stanza" --deps dependabot
+    )
+}
+
 # --- Tests ------------------------------------------------------------------
 
 # shellcheck disable=SC2016  # $BASH_VERSION must expand in the bash under test
@@ -162,6 +176,7 @@ check "invalid name is rejected before anything is created" \
     rejects Bad.Name "Error: 'Bad.Name' does not map to a valid Python module name" --deps dependabot
 check "empty --branch is rejected" rejects empty-branch "Error: --branch requires a value" --branch ""
 check "empty --source is rejected" rejects empty-source "Error: --source requires a value" --source ""
+check "a missing tool is rejected before anything is created" rejects_without_stanza
 
 NOT_TEMPLATE="$WORK/not-a-template"
 git init --quiet "$NOT_TEMPLATE"
