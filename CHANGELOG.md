@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-09-27
+
 ### Fixed
 
 - Scaffolded repos now carry the full planners integration: a `.gitattributes` marking
