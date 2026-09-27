@@ -30,6 +30,22 @@ makes every write to the payload awkward:
   created-but-never-indexed file is silently invisible — verify new payload
   files with `git ls-files template/.claude` after adding.
 
+## Git hooks in this repo
+
+The root `.pre-commit-config.yaml` carries two planners hooks: `planners-validate`
+(pre-commit) and `planners-index` (post-merge). Registration is per-clone, and the
+root has no project environment to run `pre-commit` from, so both tools come from
+global uv tools and the entries call bare `planners`, not `uv run planners`:
+
+```bash
+uv tool install pre-commit   # once per machine; planners is installed the same way
+pre-commit install --hook-type pre-commit --hook-type post-merge
+planners install --check     # both hooks should report `active`
+```
+
+A fresh clone has neither hook registered until this runs, and nothing warns about
+it — commits and merges simply skip the checks.
+
 ## Running uv in this repo
 
 The repo root has **no `pyproject.toml`** — proj-template ships a scaffold and
