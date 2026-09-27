@@ -62,7 +62,8 @@ EOF
 
 cat > "$BIN/uv" <<'EOF'
 #!/bin/bash
-# Stub: uv sync, uv run pre-commit install, and uv tool install are no-ops.
+# Stub: uv sync, uv run pre-commit install, and uv tool install are no-ops,
+# logged so the checks can assert on the arguments.
 echo "uv $*" >> "$STUB_LOG"
 EOF
 
@@ -202,6 +203,12 @@ check "license key folded to lowercase" grep -qF "gh api licenses/mit " "$STUB_L
 check "license line inserted after readme" grep -qxF 'license = "MIT"' "$P/pyproject.toml"
 check "LICENSE carries year and author" \
     grep -qF "Copyright (c) $(date +%Y) Test Author" "$P/LICENSE"
+check ".gitattributes unions the planners index" \
+    grep -qxF '.planners/README.md merge=union' "$P/.gitattributes"
+check "planners-index hook scaffolded for post-merge" \
+    grep -qF 'id: planners-index' "$P/.pre-commit-config.yaml"
+check "post-merge hook type installed" \
+    grep -qxF "uv run pre-commit install --hook-type pre-commit --hook-type post-merge" "$STUB_LOG"
 check "dependabot kept" test -f "$P/.github/dependabot.yml"
 check "renovate dropped" test ! -e "$P/.github/renovate.json" -a ! -e "$P/.github/workflows/renovate.yml"
 check "initial commit made" initial_commit "$P"
