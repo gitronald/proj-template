@@ -62,6 +62,12 @@ lives in `VERSION`, which is what stanza reads and bumps. Do not add a
 source. The cost is that every `uv run` at the root prints `No requires-python
 value found in the workspace`; that warning is expected.
 
+With no `requires-python`, uv derives one from whichever interpreter it picks,
+and the lock records it. The root `.python-version` is what keeps that stable:
+without it a machine whose default Python differs resolves a different
+`requires-python` and `uv sync --locked` fails with "The lockfile needs to be
+updated". Change the pin and `uv.lock` together.
+
 The scaffolding scripts have a shell suite instead, which CI runs on Linux and
 macOS alongside `shellcheck`. Run it after changing `scripts/` or `template/`:
 
