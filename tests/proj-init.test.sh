@@ -87,9 +87,14 @@ chmod +x "$BIN"/*
 
 # Every stub except stanza, for the missing-tool preflight. It is paired with
 # the system directories alone, so a real stanza elsewhere on PATH stays hidden.
+# git and rsync are linked in from wherever this machine keeps them, so one
+# installed outside the system directories is not reported missing too.
 NO_STANZA="$WORK/bin-no-stanza"
 mkdir -p "$NO_STANZA"
 cp "$BIN/gh" "$BIN/uv" "$BIN/planners" "$NO_STANZA/"
+for tool in git rsync; do
+    ln -s "$(command -v "$tool")" "$NO_STANZA/$tool"
+done
 
 export PATH="$BIN:$PATH"
 export STUB_LOG="$WORK/stub.log"
