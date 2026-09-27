@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The scaffolded `.pre-commit-config.yaml` sets `default_stages: [pre-commit]`, so a merge
+  runs only the `planners-index` hook. Previously the ruff, pyrefly, and `planners-validate`
+  hooks also ran on the `post-merge` stage and each reported "Skipped".
+- The scaffolded ruff lint hook uses the id `ruff-check` in place of `ruff`, which
+  ruff-pre-commit keeps only as a legacy alias.
+- The proj-template repo has a tooling-only root `pyproject.toml` whose `dev` group supplies
+  `pre-commit` and `shellcheck`, so contributors run `uv sync` instead of installing either
+  machine-wide. It has no `[project]` table; `VERSION` stays the only version source.
+
 ## [0.10.1] - 2026-09-27
 
 ### Fixed

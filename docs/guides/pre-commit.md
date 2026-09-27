@@ -7,7 +7,7 @@ Projects created from this template include a [pre-commit](https://pre-commit.co
 The `.pre-commit-config.yaml` configures two hooks from [ruff-pre-commit](https://github.com/astral-sh/ruff-pre-commit):
 
 - **ruff-format** — auto-formats staged Python files
-- **ruff** — lints staged Python files and auto-fixes what it can (`--fix`)
+- **ruff-check** — lints staged Python files and auto-fixes what it can (`--fix`)
 
 Both hooks run only on staged files, so they are fast and scoped to what you are committing.
 
@@ -16,6 +16,8 @@ Three local hooks run through `uv run`:
 - **pyrefly-check** — type-checks the project when Python files are staged
 - **planners-validate** — validates the frontmatter of staged `.planners/plans/*/plan.md` files
 - **planners-index** — regenerates `.planners/README.md` after a merge (`post-merge` stage)
+
+`default_stages: [pre-commit]` keeps every other hook off the `post-merge` stage, so a merge runs only `planners-index`.
 
 ## Installation
 
@@ -48,7 +50,7 @@ To run a specific hook:
 
 ```bash
 uv run pre-commit run ruff-format --all-files
-uv run pre-commit run ruff --all-files
+uv run pre-commit run ruff-check --all-files
 ```
 
 ## Updating hook versions
