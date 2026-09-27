@@ -281,13 +281,16 @@ git init
 uv sync --all-groups
 
 # planners is a global uv tool, not a project dependency — the scaffolded
-# pre-commit hook shells out to `planners` on PATH. Install it if missing.
+# pre-commit and post-merge hooks shell out to `planners` on PATH. Install it
+# if missing.
 if ! command -v planners > /dev/null 2>&1; then
     echo "Installing planners (global uv tool)"
     uv tool install planners
 fi
 
-uv run pre-commit install
+# post-merge carries the planners-index hook (regenerates .planners/README.md
+# after a merge); plain `pre-commit install` would register only pre-commit.
+uv run pre-commit install --hook-type pre-commit --hook-type post-merge
 
 git add -A
 git commit -m "initial commit"

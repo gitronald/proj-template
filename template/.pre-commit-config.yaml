@@ -18,6 +18,15 @@ repos:
     hooks:
       - id: planners-validate
         name: validate plan frontmatter
-        entry: planners validate
+        entry: uv run planners validate
         language: system
         files: ^\.planners/plans/[^/]+/plan\.md$
+  - repo: local
+    hooks:
+      - id: planners-index
+        name: 'regenerate plan index after merge'
+        entry: uv run planners index .
+        language: system
+        stages: [post-merge]
+        always_run: true
+        pass_filenames: false

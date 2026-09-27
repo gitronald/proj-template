@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Scaffolded repos now carry the planners integration the template repo itself had: a
+  `.gitattributes` marking `.planners/README.md merge=union`, the `planners-index`
+  post-merge hook in `.pre-commit-config.yaml`, and `proj-init.sh` installs the
+  `post-merge` hook stage so that hook actually runs. Previously only the template
+  repo's root had these, so new projects failed `planners install --check`.
+
 ### Changed
 
 - The `install-template` skill's upgrade mode names two worktree traps that cost a real upgrade
