@@ -14,12 +14,20 @@ set -u
 # Check the tree actually being worked in. The hook inherits the agent's cwd,
 # which may be a subdirectory, or a git worktree under .worktrees/ with its own
 # pyproject.toml and .venv -- that is what `uv run` must resolve against, not the
-# main checkout. So walk up to the nearest project root, and only fall back to
+# main checkout. Prefer the git toplevel of the cwd (the worktree root inside a
+# worktree, the repo root otherwise): in a uv workspace a member package has its
+# own pyproject.toml, so walking up to the nearest one would stop at the member
+# and lint only its subtree, leaving the rest of the repo unchecked while the
+# hook still passes. Walk up to the nearest project root only when the cwd is
+# outside any repo, or the repo root holds no pyproject.toml, and fall back to
 # CLAUDE_PROJECT_DIR when the cwd is outside any project (a scratch directory).
-root=$PWD
-while [ ! -f "$root/pyproject.toml" ] && [ "$root" != "/" ]; do
-    root=$(dirname "$root")
-done
+root=$(git rev-parse --show-toplevel 2>/dev/null || true)
+if [ -z "$root" ] || [ ! -f "$root/pyproject.toml" ]; then
+    root=$PWD
+    while [ ! -f "$root/pyproject.toml" ] && [ "$root" != "/" ]; do
+        root=$(dirname "$root")
+    done
+fi
 [ -f "$root/pyproject.toml" ] || root=${CLAUDE_PROJECT_DIR:-$PWD}
 cd "$root" || {
     echo "Error: lint-typecheck hook could not enter $root" >&2
