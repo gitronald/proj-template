@@ -108,6 +108,7 @@ done
 export PATH="$BIN:$PATH"
 export STUB_LOG="$WORK/stub.log"
 export STUB_REMOTES="$WORK/remotes"
+HOOK_PATH="$HOOK_BIN:$PATH"
 
 # Isolate git from the machine's config (hooksPath, signing, default branch).
 export GIT_CONFIG_GLOBAL="$WORK/gitconfig"
@@ -184,7 +185,7 @@ rejects_without_stanza() {
 # both sides, since macOS's temp directory sits behind a symlink.
 hook_root() {
     (
-        cd "$1" && PATH="$HOOK_BIN:$PATH" HOOK_LOG="$WORK/hook.log" \
+        cd "$1" && PATH="$HOOK_PATH" HOOK_LOG="$WORK/hook.log" \
             bash "$P/.claude/hooks/lint-typecheck.sh" > /dev/null 2>&1
     ) || return 1
     head -n 1 "$WORK/hook.log"
