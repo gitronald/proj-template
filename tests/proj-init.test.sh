@@ -85,6 +85,15 @@ EOF
 
 chmod +x "$BIN"/*
 
+# A uv for the Stop hook checks: records the directory each call runs in.
+HOOK_BIN="$WORK/bin-hook"
+mkdir -p "$HOOK_BIN"
+cat > "$HOOK_BIN/uv" <<'EOF'
+#!/bin/bash
+pwd -P >> "$HOOK_LOG"
+EOF
+chmod +x "$HOOK_BIN/uv"
+
 # Every stub except stanza, for the missing-tool preflight. It is paired with
 # the system directories alone, so a real stanza elsewhere on PATH stays hidden.
 # git and rsync are linked in from wherever this machine keeps them, so one
@@ -170,6 +179,23 @@ rejects_without_stanza() {
     )
 }
 
+# hook_root <dir>: run the scaffolded Stop hook from <dir> with a uv stub that
+# records the directory it was called in, and print that directory. pwd -P on
+# both sides, since macOS's temp directory sits behind a symlink.
+hook_root() {
+    (
+        cd "$1" && PATH="$HOOK_BIN:$PATH" HOOK_LOG="$WORK/hook.log" \
+            bash "$P/.claude/hooks/lint-typecheck.sh" > /dev/null 2>&1
+    ) || return 1
+    head -n 1 "$WORK/hook.log"
+    rm "$WORK/hook.log"
+}
+
+# hook_runs_from <dir> <expected root>
+hook_runs_from() {
+    [ "$(hook_root "$1")" = "$(cd "$2" && pwd -P)" ]
+}
+
 # --- Tests ------------------------------------------------------------------
 
 # shellcheck disable=SC2016  # $BASH_VERSION must expand in the bash under test
@@ -217,6 +243,21 @@ check "CLAUDE_PROJECT_DIR intact in .claude/settings.json" \
 check "CLAUDE_PROJECT_DIR intact in the Stop hook" \
     grep -qF CLAUDE_PROJECT_DIR "$P/.claude/hooks/lint-typecheck.sh"
 check "Stop hook is still executable" test -x "$P/.claude/hooks/lint-typecheck.sh"
+
+# A uv workspace member has its own pyproject.toml; the hook must still check
+# the whole repo. A worktree under .worktrees/ is checked as its own tree.
+mkdir -p "$P/packages/member/src"
+printf '[project]\nname = "member"\n' > "$P/packages/member/pyproject.toml"
+check "Stop hook runs from the repo root inside a workspace member" \
+    hook_runs_from "$P/packages/member/src" "$P"
+git -C "$P" worktree add --quiet "$P/.worktrees/wt" -b wt
+check "Stop hook runs from the worktree root inside a worktree" \
+    hook_runs_from "$P/.worktrees/wt/template_test" "$P/.worktrees/wt"
+git -C "$P" worktree remove "$P/.worktrees/wt"
+git -C "$P" branch --quiet -D wt
+mv "$P/packages" "$WORK/hook-member"
+check "Stop hook walks up to the nearest project outside a repo" \
+    hook_runs_from "$WORK/hook-member/member/src" "$WORK/hook-member/member"
 check "[tool.proj-template] stamped with VERSION $expected_version" \
     version_stamped "$P" "$expected_version"
 check "license key folded to lowercase" grep -qF "gh api licenses/mit " "$STUB_LOG"
