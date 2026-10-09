@@ -125,3 +125,38 @@ after a failed hook without re-checking `git status`.
 3. Skill text for items 2, 4, and 5.
 4. CHANGELOG `[Unreleased]` entry naming the hook replacement as a silent
    upgrade under the diverging-files rule.
+
+## Log
+
+- **2026-10-09T12:42:07-07:00** — Items 1, 3, 4, and 5 implemented; item 2 held.
+  - Item 1: the Stop hook prefers `git rev-parse --show-toplevel` and keeps the walk-up as
+    the fallback (`8254768`). `tests/proj-init.test.sh` now runs the scaffolded hook with a
+    `uv` stub that records its directory, from a workspace member, from a worktree, and from
+    a member outside any repo (`b26eb7d`, `32a464b`). A manual probe confirmed the new check
+    is meaningful: the previous hook resolved to the member, the new one to the repo root.
+    Suite: all checks passed; `shellcheck` clean.
+  - Item 3: probed ruff 0.16.6 on a Markdown file with an unformatted Python fence; it
+    reports "1 file would be reformatted", and `extend-exclude = ["*.md"]` silences it.
+  - Item 4: dev pin `ruff>=0.16,<0.17` (`b667807`); install-skill note under "Verify, then
+    enable the hook gate", plus the same rule in `docs/guides/pre-commit.md`, whose
+    `autoupdate` instructions would otherwise leave the pin behind (`570a2b7`).
+  - Item 5: install-skill note under "Commit, PR, and close the plan" (`570a2b7`).
+  - Item 2 did **not** reproduce. pyrefly 1.0.0 and 1.3.2 both checked a file under
+    `<repo>/.worktrees/wt/` with the template's current config, with a bare
+    `project-includes = ["."]`, and with only `preset = "strict"`; running the template's
+    own config from this repo's worktree also matched files. The `**/.worktrees` spelling
+    did not blind it either. No change made to `[tool.pyrefly]` or the pyrefly skill note.
+  - CHANGELOG `[Unreleased]` entry added, naming the hook replacement as a silent upgrade.
+
+## Handoff
+
+State: every commit is on `feature/workspace-and-worktree-tooling`; see the PR.
+
+Open questions:
+
+1. Item 2 (pyrefly hidden-path heuristics) did not reproduce on pyrefly 1.0.0 or 1.3.2
+   (see Log). Ship the `disable-project-excludes-heuristics` config anyway as a guard, or
+   drop item 2 until the downstream case is reproduced (which pyrefly version, which
+   config)? Waits on the user.
+
+Not verified: CI on macOS for the new hook checks (the suite ran on Linux only).

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The scaffolded Stop hook (`.claude/hooks/lint-typecheck.sh`) checks from the git toplevel
+  of the session's directory, which is the worktree root inside a worktree. It used to stop
+  at the nearest `pyproject.toml`, so in a uv workspace a session inside a member package
+  linted only that package and passed while CI failed on the rest of the repo. The hook is
+  template-owned plumbing, so an upgrade replaces an older copy without asking.
+- The scaffolded `dev` group pins `ruff>=0.16,<0.17`, the same minor as the
+  `ruff-pre-commit` hook, so the commit hook and CI apply one rule set. The install-template
+  skill and the pre-commit guide say to keep the two in step.
+- The scaffolded `[tool.ruff]` sets `extend-exclude = ["*.md"]`, so ruff 0.16 no longer
+  reformats Python fences in READMEs, changelogs, and plans.
+- The install-template skill says to commit annotation chunks with `--no-verify` and gate on
+  `pre-commit run --all-files`, since the whole-tree pyrefly hook fails every partial chunk.
+
 ## [0.11.1] - 2026-09-27
 
 ### Changed
