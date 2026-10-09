@@ -148,15 +148,23 @@ after a failed hook without re-checking `git status`.
     did not blind it either. No change made to `[tool.pyrefly]` or the pyrefly skill note.
   - CHANGELOG `[Unreleased]` entry added, naming the hook replacement as a silent upgrade.
 
+- **2026-10-09T12:59:13-07:00** — Item 2 shipped as a guard, on the user's answer to
+  question 1 (`069d343`). `[tool.pyrefly]` sets `disable-project-excludes-heuristics = true`
+  with `project-excludes = ["**/__pycache__", "**/.venv", "**/.git", ".worktrees/**"]`; the
+  install skill's pyrefly note names the `No Python files matched` symptom. Probed on
+  pyrefly 1.0.0 and 1.3.2: both accept the key; a main-checkout run reports only its own
+  file (the nested `.worktrees/wt` file is excluded), and a run inside the worktree still
+  checks its own file. CHANGELOG entry added. CI on PR #47 (before this commit) passed on
+  Linux and macOS, plus shellcheck.
+
 ## Handoff
 
-State: every commit is on `feature/workspace-and-worktree-tooling`; see the PR.
+State: all five items committed on `feature/workspace-and-worktree-tooling`; PR #47 is a
+draft. Next step is `/planners close`.
 
-Open questions:
+Questions:
 
-1. Item 2 (pyrefly hidden-path heuristics) did not reproduce on pyrefly 1.0.0 or 1.3.2
-   (see Log). Ship the `disable-project-excludes-heuristics` config anyway as a guard, or
-   drop item 2 until the downstream case is reproduced (which pyrefly version, which
-   config)? Waits on the user.
+1. Item 2 did not reproduce; ship it as a guard or drop it? **Answered 2026-10-09: ship it**
+   (see Log).
 
-Not verified: CI on macOS for the new hook checks (the suite ran on Linux only).
+Not verified: the original item 2 failure itself, since it never reproduced.
