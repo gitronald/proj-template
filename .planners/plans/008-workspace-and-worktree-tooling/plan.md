@@ -1,8 +1,8 @@
 ---
 id: 8
 slug: workspace-and-worktree-tooling
-status: draft
-branch:
+status: active
+branch: feature/workspace-and-worktree-tooling
 created: 2026-09-26T00:32:54-07:00
 concluded:
 pr:
