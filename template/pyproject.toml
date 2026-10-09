@@ -78,7 +78,13 @@ select = [
 preset = "strict"
 python-version = "3.11"
 project-includes = ["."]
-project-excludes = ["**/__pycache__", "**/.venv"]
+# pyrefly's default exclude heuristics skip hidden path components, matched
+# against the absolute path, which can blind it inside a worktree under
+# .worktrees/. Turn them off and list the excludes explicitly. Keep the
+# worktree exclude config-relative (.worktrees/**): it drops nested worktrees
+# from a main-checkout run without matching the worktree's own path.
+disable-project-excludes-heuristics = true
+project-excludes = ["**/__pycache__", "**/.venv", "**/.git", ".worktrees/**"]
 
 # tests/ stays type-checked (imports, undefined names, type mismatches),
 # but the implicit-any check is relaxed there so unannotated pytest fixture
