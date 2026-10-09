@@ -61,7 +61,15 @@ To update ruff-pre-commit to the latest release:
 uv run pre-commit autoupdate
 ```
 
-Then commit the updated `.pre-commit-config.yaml`.
+The hook installs its own ruff at the pinned `rev`, while CI and the Stop hook run
+the ruff that `uv.lock` resolved, so keep the two on the same minor. When the rev
+moves to a new minor, move the `ruff>=X.Y,<X.Z` pin in the `dev` group with it and
+run `uv lock`. In the other direction, Dependabot bumps the lock and nothing bumps
+the rev: after `uv sync`, compare `uv run ruff --version` with the `rev` and move
+the rev when they differ.
+
+Then commit the updated `.pre-commit-config.yaml` (and `pyproject.toml` and
+`uv.lock`, when the pin moved).
 
 ## Ruff configuration
 
