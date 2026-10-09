@@ -5,7 +5,7 @@ status: active
 branch: feature/workspace-and-worktree-tooling
 created: 2026-09-26T00:32:54-07:00
 concluded:
-pr:
+pr: https://github.com/gitronald/proj-template/pull/47
 ---
 
 # Make the hook, pyrefly, and ruff config workspace- and worktree-safe
