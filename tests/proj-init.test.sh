@@ -85,6 +85,15 @@ EOF
 
 chmod +x "$BIN"/*
 
+# A uv for the Stop hook checks: records the directory each call runs in.
+HOOK_BIN="$WORK/bin-hook"
+mkdir -p "$HOOK_BIN"
+cat > "$HOOK_BIN/uv" <<'EOF'
+#!/bin/bash
+pwd -P >> "$HOOK_LOG"
+EOF
+chmod +x "$HOOK_BIN/uv"
+
 # Every stub except stanza, for the missing-tool preflight. It is paired with
 # the system directories alone, so a real stanza elsewhere on PATH stays hidden.
 # git and rsync are linked in from wherever this machine keeps them, so one
@@ -99,6 +108,7 @@ done
 export PATH="$BIN:$PATH"
 export STUB_LOG="$WORK/stub.log"
 export STUB_REMOTES="$WORK/remotes"
+HOOK_PATH="$HOOK_BIN:$PATH"
 
 # Isolate git from the machine's config (hooksPath, signing, default branch).
 export GIT_CONFIG_GLOBAL="$WORK/gitconfig"
@@ -170,6 +180,23 @@ rejects_without_stanza() {
     )
 }
 
+# hook_root <dir>: run the scaffolded Stop hook from <dir> with a uv stub that
+# records the directory it was called in, and print that directory. pwd -P on
+# both sides, since macOS's temp directory sits behind a symlink.
+hook_root() {
+    (
+        cd "$1" && PATH="$HOOK_PATH" HOOK_LOG="$WORK/hook.log" \
+            bash "$P/.claude/hooks/lint-typecheck.sh" > /dev/null 2>&1
+    ) || return 1
+    head -n 1 "$WORK/hook.log"
+    rm "$WORK/hook.log"
+}
+
+# hook_runs_from <dir> <expected root>
+hook_runs_from() {
+    [ "$(hook_root "$1")" = "$(cd "$2" && pwd -P)" ]
+}
+
 # --- Tests ------------------------------------------------------------------
 
 # shellcheck disable=SC2016  # $BASH_VERSION must expand in the bash under test
@@ -217,6 +244,34 @@ check "CLAUDE_PROJECT_DIR intact in .claude/settings.json" \
 check "CLAUDE_PROJECT_DIR intact in the Stop hook" \
     grep -qF CLAUDE_PROJECT_DIR "$P/.claude/hooks/lint-typecheck.sh"
 check "Stop hook is still executable" test -x "$P/.claude/hooks/lint-typecheck.sh"
+
+# hook_repo <dir> <root pyproject.toml body>: a git repo holding a root
+# pyproject.toml and a nested project at <dir>/packages/member.
+hook_repo() {
+    mkdir -p "$1/packages/member/src"
+    git init --quiet "$1"
+    printf '%b' "$2" > "$1/pyproject.toml"
+    printf '[project]\nname = "member"\n' > "$1/packages/member/pyproject.toml"
+}
+
+# A uv workspace member has its own pyproject.toml; the hook must still check
+# the whole workspace. A nested project that is not a workspace member, a
+# worktree under .worktrees/, and a project outside any repo keep their own root.
+hook_repo "$WORK/hook-ws" '[project]\nname = "ws"\n\n[tool.uv.workspace]\nmembers = ["packages/*"]\n'
+check "Stop hook runs from the workspace root inside a workspace member" \
+    hook_runs_from "$WORK/hook-ws/packages/member/src" "$WORK/hook-ws"
+hook_repo "$WORK/hook-mono" '[project]\nname = "mono"\n'
+check "Stop hook runs from a nested project that is not a workspace member" \
+    hook_runs_from "$WORK/hook-mono/packages/member/src" "$WORK/hook-mono/packages/member"
+git -C "$P" worktree add --quiet "$P/.worktrees/wt" -b wt
+check "Stop hook runs from the worktree root inside a worktree" \
+    hook_runs_from "$P/.worktrees/wt/template_test" "$P/.worktrees/wt"
+git -C "$P" worktree remove "$P/.worktrees/wt"
+git -C "$P" branch --quiet -D wt
+mkdir -p "$WORK/hook-plain/member/src"
+printf '[project]\nname = "member"\n' > "$WORK/hook-plain/member/pyproject.toml"
+check "Stop hook walks up to the nearest project outside a repo" \
+    hook_runs_from "$WORK/hook-plain/member/src" "$WORK/hook-plain/member"
 check "[tool.proj-template] stamped with VERSION $expected_version" \
     version_stamped "$P" "$expected_version"
 check "license key folded to lowercase" grep -qF "gh api licenses/mit " "$STUB_LOG"

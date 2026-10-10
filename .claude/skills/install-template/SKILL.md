@@ -300,6 +300,13 @@ uv run pre-commit run --all-files
 uv run pytest   # only if the repo has tests; runs with coverage via addopts
 ```
 
+After `uv sync`, compare `uv run ruff --version` with the `ruff-pre-commit`
+`rev` in `.pre-commit-config.yaml`. The commit hook installs its own ruff at
+that rev, while CI and the Stop hook use the locked one, so a mismatch lets a
+commit pass the hook and then fail `ruff format --check` in CI. Move the rev to
+the locked version when they differ: Dependabot's `uv` ecosystem bumps the
+lock, and nothing bumps the hook rev.
+
 Name both hook types: the synced config carries a `planners-index` hook on the
 `post-merge` stage, and a plain `pre-commit install` registers only
 `pre-commit`, leaving that hook configured but never fired.
@@ -343,7 +350,17 @@ why green checks are a hard requirement before this lands.
 
 Commit in logical chunks (e.g. tooling config, CI, gitignore, code fixes),
 following the repo's commit conventions, and append Log entries to the plan as
-decisions land (what was adapted, what was excluded and why). Then:
+decisions land (what was adapted, what was excluded and why).
+
+The `pyrefly-check` commit hook checks the whole tree (`pass_filenames:
+false`), and pre-commit stashes unstaged changes before it runs, so while
+annotations land in chunks the hook sees a half-annotated tree and fails every
+chunk. A failed hook also leaves the chunk's files staged, and the next commit
+swallows them. Commit the intermediate chunks with `--no-verify`, gate on
+`uv run pre-commit run --all-files` over the final tree, and check
+`git status` before every commit that follows a failed hook.
+
+Then:
 
 1. Push the branch (`git push -u origin feature/template-upgrade`) and open a
    PR into `dev` summarizing synced/adapted/skipped per the sync matrix.
