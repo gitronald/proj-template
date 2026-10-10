@@ -245,20 +245,33 @@ check "CLAUDE_PROJECT_DIR intact in the Stop hook" \
     grep -qF CLAUDE_PROJECT_DIR "$P/.claude/hooks/lint-typecheck.sh"
 check "Stop hook is still executable" test -x "$P/.claude/hooks/lint-typecheck.sh"
 
+# hook_repo <dir> <root pyproject.toml body>: a git repo holding a root
+# pyproject.toml and a nested project at <dir>/packages/member.
+hook_repo() {
+    mkdir -p "$1/packages/member/src"
+    git init --quiet "$1"
+    printf '%b' "$2" > "$1/pyproject.toml"
+    printf '[project]\nname = "member"\n' > "$1/packages/member/pyproject.toml"
+}
+
 # A uv workspace member has its own pyproject.toml; the hook must still check
-# the whole repo. A worktree under .worktrees/ is checked as its own tree.
-mkdir -p "$P/packages/member/src"
-printf '[project]\nname = "member"\n' > "$P/packages/member/pyproject.toml"
-check "Stop hook runs from the repo root inside a workspace member" \
-    hook_runs_from "$P/packages/member/src" "$P"
+# the whole workspace. A nested project that is not a workspace member, a
+# worktree under .worktrees/, and a project outside any repo keep their own root.
+hook_repo "$WORK/hook-ws" '[project]\nname = "ws"\n\n[tool.uv.workspace]\nmembers = ["packages/*"]\n'
+check "Stop hook runs from the workspace root inside a workspace member" \
+    hook_runs_from "$WORK/hook-ws/packages/member/src" "$WORK/hook-ws"
+hook_repo "$WORK/hook-mono" '[project]\nname = "mono"\n'
+check "Stop hook runs from a nested project that is not a workspace member" \
+    hook_runs_from "$WORK/hook-mono/packages/member/src" "$WORK/hook-mono/packages/member"
 git -C "$P" worktree add --quiet "$P/.worktrees/wt" -b wt
 check "Stop hook runs from the worktree root inside a worktree" \
     hook_runs_from "$P/.worktrees/wt/template_test" "$P/.worktrees/wt"
 git -C "$P" worktree remove "$P/.worktrees/wt"
 git -C "$P" branch --quiet -D wt
-mv "$P/packages" "$WORK/hook-member"
+mkdir -p "$WORK/hook-plain/member/src"
+printf '[project]\nname = "member"\n' > "$WORK/hook-plain/member/pyproject.toml"
 check "Stop hook walks up to the nearest project outside a repo" \
-    hook_runs_from "$WORK/hook-member/member/src" "$WORK/hook-member/member"
+    hook_runs_from "$WORK/hook-plain/member/src" "$WORK/hook-plain/member"
 check "[tool.proj-template] stamped with VERSION $expected_version" \
     version_stamped "$P" "$expected_version"
 check "license key folded to lowercase" grep -qF "gh api licenses/mit " "$STUB_LOG"
