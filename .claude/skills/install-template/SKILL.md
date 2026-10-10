@@ -228,11 +228,7 @@ Notes:
   scope what remains out with `project-excludes` or
   `[[tool.pyrefly.sub-config]]` relaxations on the legacy paths (e.g. vendored
   themes, generated config) rather than weakening the global preset — new code
-  stays strict. A `No Python files matched` result inside a worktree is not an
-  empty project: pyrefly's default exclude heuristics skip hidden path
-  components such as `.worktrees/`. Carry the template's
-  `disable-project-excludes-heuristics = true` and its explicit
-  `project-excludes` forward.
+  stays strict.
 - **Existing CI workflows** (deploy, docs, etc.) are repo features — leave them.
 - **Action pinning**: workflows ship with actions pinned to commit SHAs with a
   `# vX.Y.Z` comment (e.g. `actions/checkout@3d3c42e…  # v7.0.1`), so a

@@ -19,9 +19,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   skill and the pre-commit guide say to keep the two in step.
 - The scaffolded `[tool.ruff]` sets `extend-exclude = ["*.md"]`, so ruff 0.16 no longer
   reformats Python fences in READMEs, changelogs, and plans.
-- The scaffolded `[tool.pyrefly]` sets `disable-project-excludes-heuristics = true` and lists
-  its excludes explicitly, including a config-relative `.worktrees/**`, so a hidden path
-  component such as `.worktrees/` cannot exclude the whole project from pyrefly.
 - The install-template skill says to commit annotation chunks with `--no-verify` and gate on
   `pre-commit run --all-files`, since the whole-tree pyrefly hook fails every partial chunk.
 
