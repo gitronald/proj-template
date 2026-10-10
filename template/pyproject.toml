@@ -53,11 +53,17 @@ dev = [
     "pyrefly>=1.0.0",
     "pytest>=9.0.3",
     "pytest-cov",
-    "ruff>=0.15",
+    # Same minor as the ruff-pre-commit rev in .pre-commit-config.yaml, so the
+    # commit hook and `uv run ruff` (CI, the Stop hook) apply one rule set.
+    # Bump the two together.
+    "ruff>=0.16,<0.17",
 ]
 
 [tool.ruff]
 target-version = "py311"
+# ruff 0.16 formats Python fences inside Markdown; keep it off prose (READMEs,
+# changelogs, plans). Drop this line to have fenced code formatted.
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = [
