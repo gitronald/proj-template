@@ -1,10 +1,10 @@
 ---
 id: 8
 slug: workspace-and-worktree-tooling
-status: active
+status: done
 branch: feature/workspace-and-worktree-tooling
 created: 2026-09-26T00:32:54-07:00
-concluded:
+concluded: 2026-10-09T21:31:55-07:00
 pr: https://github.com/gitronald/proj-template/pull/47
 ---
 
@@ -157,14 +157,51 @@ after a failed hook without re-checking `git status`.
   checks its own file. CHANGELOG entry added. CI on PR #47 (before this commit) passed on
   Linux and macOS, plus shellcheck.
 
+- **2026-10-09T21:32:42-07:00** — Close: review gate (`/code-review`, medium), fixes,
+  checks.
+  - Review follow-up: two finders (correctness; reuse and docs) gave six candidates; three
+    verifiers left two. Posted to PR #47.
+    - CONFIRMED, `template/pyproject.toml`: `disable-project-excludes-heuristics = true`
+      dropped pyrefly's default skipping of other virtualenvs, hidden directories, and
+      `node_modules`. Reproduced on pyrefly 1.3.2: 1 error under the old config, 5 under
+      the new (`venv/`, `.tox/`, `.ruff_cache/`, `node_modules/`). The heuristics left on
+      still checked a file inside `.worktrees/wt/`. Actioned on the user's choice: item 2
+      reverted (`364f41b`), CHANGELOG entry and skill note removed.
+    - PLAUSIBLE, Stop hook: preferring the git toplevel made a nested project that is not
+      a workspace member lint from the repo root. Actioned on the user's choice: the hook
+      walks to the nearest project and switches to the toplevel only when its
+      `pyproject.toml` declares `[tool.uv.workspace]` (`68f157f`). The tests now build a
+      workspace repo and a non-workspace repo of their own, so the scaffold (and the CI
+      manifest compare) is untouched. A probe shows the original hook fails the workspace
+      check and this PR's first version fails the non-member check.
+    - Conscious no-ops: a stale `hook.log` in the test helper (REJECTED: the uv stub exits
+      0, so a failed call never writes the log); `**/.git` redundancy and hook
+      simplification (confidence 20-25, moot after the revert and the rewrite).
+  - Checks: `tests/portability.test.sh` and `tests/proj-init.test.sh` pass, `shellcheck`
+    clean on every tracked script.
+
 ## Handoff
 
-State: all five items committed on `feature/workspace-and-worktree-tooling`; PR #47 is a
-draft. Next step is `/planners close`.
+Closed. All five items are resolved: 1, 3, 4, and 5 shipped; 2 was reverted.
 
 Questions:
 
-1. Item 2 did not reproduce; ship it as a guard or drop it? **Answered 2026-10-09: ship it**
-   (see Log).
+1. Item 2 did not reproduce; ship it as a guard or drop it? Answered 2026-10-09: ship it.
+   Superseded the same day after the review showed the regression: reverted, by the user's
+   choice.
 
-Not verified: the original item 2 failure itself, since it never reproduced.
+Not verified: the downstream pyrefly blindness that motivated item 2. It did not reproduce
+on pyrefly 1.0.0 or 1.3.2; a repo that hits it should record its pyrefly version and config.
+
+## Retrospective
+
+- The plan's items came from one downstream upgrade and were written as findings, not
+  hypotheses. Item 2 was not, and a probe before implementing caught it; shipping it
+  anyway "as a guard" put a real regression in the PR for a failure nobody could trigger.
+- A config flag that turns off a tool's defaults needs a probe of what those defaults
+  covered, not only of the case it targets. The review found the cost in one run.
+- The first hook fix overcorrected: "prefer the toplevel" fixed workspaces and broke
+  nested projects. Keying it on `[tool.uv.workspace]` names the actual condition.
+- Behavioral tests that record where the hook ran (a uv stub logging `pwd -P`) were cheap
+  and made each regression a failing check; build their fixtures outside the scaffold so
+  the cross-platform manifest stays unchanged.
