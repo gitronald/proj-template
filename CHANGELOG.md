@@ -11,11 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- The scaffolded Stop hook (`.claude/hooks/lint-typecheck.sh`) checks from the git toplevel
-  of the session's directory, which is the worktree root inside a worktree. It used to stop
-  at the nearest `pyproject.toml`, so in a uv workspace a session inside a member package
-  linted only that package and passed while CI failed on the rest of the repo. The hook is
-  template-owned plumbing, so an upgrade replaces an older copy without asking.
+- The scaffolded Stop hook (`.claude/hooks/lint-typecheck.sh`) checks the whole uv
+  workspace from inside a member package. It still walks up to the nearest
+  `pyproject.toml`, but when the git toplevel of the session's directory (the worktree root
+  inside a worktree) declares `[tool.uv.workspace]`, it checks from there instead. It used to
+  stop at the member, so it linted only that package and passed while CI failed on the rest
+  of the repo. A nested project that is not a workspace member keeps its own root. The hook
+  is template-owned plumbing, so an upgrade replaces an older copy without asking.
 - The scaffolded `dev` group pins `ruff>=0.16,<0.17`, the same minor as the
   `ruff-pre-commit` hook, so the commit hook and CI apply one rule set. The install-template
   skill and the pre-commit guide say to keep the two in step.
