@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-10-10
+
 ### Changed
 
 - The scaffolded Stop hook (`.claude/hooks/lint-typecheck.sh`) checks from the git toplevel
