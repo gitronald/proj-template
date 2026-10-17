@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The scaffolded `test.yml` keeps one single-line comment, on `UV_PYTHON`, and drops the one
+  on the repeated `--python`. The full rationale for both stays in the install-template skill.
+
 ## [0.11.2] - 2026-10-10
 
 ### Changed
