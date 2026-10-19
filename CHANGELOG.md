@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.5] - 2026-10-19
+
+### Removed
+
+- The template no longer ships `.claude/settings.local.json`. Its permission lists duplicated
+  the global `~/.claude/settings.json` baseline. `.claude/settings.json` still carries the
+  `Stop` lint and type-check hook.
+- The install-template skill no longer treats a target's `settings.local.json` as
+  template-managed. An upgrade leaves the file alone, because it holds the user's own grants.
+  This includes a copy seeded by templates 0.8.5 through 0.11.4. For `settings.json`, the
+  skill merges in the `Stop` hook and keeps everything else the repo has.
+
+### Fixed
+
+- The install-template skill's close-out pulls the base branch before it deletes the local
+  upgrade branch. `git branch -d` checks against the local base, so it refused a branch
+  merged on GitHub until the merge was pulled.
+
 ## [0.11.4] - 2026-10-19
 
 ### Changed

@@ -51,7 +51,7 @@ running it from a tool. If the user chose renovate, finish with the
    first and add `.worktrees/` if it isn't ignored. Do all tracked upgrade
    work inside the worktree. The exception is gitignored payload: when the
    target ignores `.claude/`, the worktree has no copy of `.claude/CLAUDE.md`,
-   `settings.json`, `settings.local.json`, or `hooks/`, and anything written
+   `settings.json`, or `hooks/`, and anything written
    there vanishes when the worktree is removed. Apply the `.claude/*` rows in
    the main checkout instead, and note in the PR that those files changed on
    disk outside the branch.
@@ -84,7 +84,8 @@ overwrite" below.
 | `.gitattributes` | merge entries (`.planners/README.md merge=union`) | merge entries |
 | `.python-version` | sync | sync unless repo pins older deliberately |
 | `.gitignore` | merge entries | merge entries |
-| `.claude/settings.json`, `.claude/settings.local.json`, `.claude/hooks/lint-typecheck.sh` | copy when absent; when either settings file exists, **ask** — never copy over it (see note); apply in the main checkout when `.claude/` is gitignored (see preflight) | same |
+| `.claude/settings.json`, `.claude/hooks/lint-typecheck.sh` | copy when absent; when `settings.json` exists, merge the `Stop` hook in and **ask** about anything else that differs — never copy over it (see note); apply in the main checkout when `.claude/` is gitignored (see preflight) | same |
+| `.claude/settings.local.json` (not shipped) | never — leave a target's copy alone (see note) | same |
 | `.claude/CLAUDE.md` | relocate if in an old spot; never overwrite its content, except the `## Development` tooling bullets (see note) | same |
 | `.github/workflows/test.yml` | sync (full Python matrix, `UV_PYTHON` env pin **and** `--python` on `uv sync` — see note, SHA-pinned actions) | adapt: single Python from `.python-version`; drop pytest step if no tests; SHA-pinned actions |
 | `.github/workflows/publish.yml` | sync | skip |
@@ -143,37 +144,21 @@ Notes:
   it at scaffold time), so never copy that string into a target — resolve it to
   the release being applied, and treat a `TEMPLATE_VERSION` or `unknown` value
   found in a repo as "never stamped".
-- **Claude settings are always a question, never a silent copy.** The
-  `.claude/settings.json` / `.claude/settings.local.json` row is exempt from the
-  "diverges but holds nothing the template lacks — replace silently" path above.
-  `settings.local.json` is where Claude Code records the permission grants a user
-  accepts in that repo, so a target's copy is *expected* to diverge and to grow
-  with use; replacing it silently revokes grants the user chose, and the loss is
-  invisible until a familiar command starts prompting again. Whenever either file
-  differs from the template, put it in the ask-first class and fold it into the
-  same batched round as everything else.
-
-  State what adopting the template's version *would* change, per file, as three
-  explicit lists — the question is uninformative without them:
-  - **added** — entries the template has and the repo lacks. This is the actual
-    upgrade; it is the part that is normally safe to take.
-  - **removed** — entries the repo has and the template lacks. These are the
-    repo's own accumulated or deliberate grants, so default to keeping them and
-    say so; only a straight replace drops them.
-  - **moved between lists** — an entry present in both files but under a
-    different key. Name each one with its direction, because either direction
-    changes what runs without a prompt: `ask`/`deny` -> `allow` broadens (the
-    template allows `Bash(git push:*)`, which a repo may have deliberately kept
-    on `ask`), and `allow` -> `ask`/`deny` tightens, which can stall a workflow
-    the repo depends on. A move never rides along with the additions — it needs
-    its own yes.
-
-  Offer **merge** (take the additions, keep the repo's extras, apply only the
-  moves the user accepts) as the default, with **replace** and **keep** as the
-  alternatives. Hook definitions in `settings.json` are not part of this: a
-  changed `command` or `timeout` there is template-owned plumbing and still
-  replaces silently under the general rule — only a hook the repo added or
-  edited itself is a question.
+- **Claude settings are never a silent copy.** The template's
+  `.claude/settings.json` carries only the `Stop` hook; the permission baseline
+  lives in each user's global `~/.claude/settings.json`, not in the template.
+  The template's `Stop` hook entry is template-owned plumbing: add it when
+  missing, and a changed `command` or `timeout` replaces silently under the
+  general rule. Everything else in a target's `settings.json` — a
+  `permissions` block (templates 0.5.0 through 0.8.4 shipped one), other hooks, a
+  hook the repo edited itself — belongs to the repo. Keep it, and ask before
+  removing any of it, folded into the same batched round as everything else.
+- **`settings.local.json` is not template-managed.** The template stopped
+  shipping it in 0.11.5. It is where Claude Code records the permission grants
+  a user accepts in that repo, so a target's copy — including one templates
+  0.8.5 through 0.11.4 seeded — is the user's own: never replace, trim, or delete it during
+  an upgrade. When it duplicates the global baseline, say so in the PR and
+  leave the trimming to the owner.
 - **Relocate misplaced files; never duplicate.** The template moves files
   between versions, so before applying a row check whether the target already
   has that file in an *old/wrong* location (e.g. `CLAUDE.md` at the repo root
@@ -200,10 +185,8 @@ Notes:
   inside a wholly-ignored directory (`.claude/`). Whichever way a repo already
   leans, follow it: don't untrack files it commits, and don't start committing
   machine-local ones. `.claude/settings.local.json` is machine-local in *every*
-  target repo — it carries the permission allow/deny/ask lists, so it stays
-  untracked there no matter what else the repo commits. proj-template itself is
-  the one exception: it tracks its copy, since that is the payload targets are
-  upgraded from.
+  repo — it carries the user's own permission grants, so it stays untracked
+  no matter what else the repo commits.
 - **`.gitignore` merge**: add any template entries the repo lacks (notably
   `.claude/`, `.worktrees/`, `.env` block with `!.env.example`); keep all
   repo-specific entries (build output dirs, caches, data).
@@ -355,9 +338,11 @@ Then:
    owner's answers.
 2. If the user wants to review before merging, stop after opening the PR.
    Otherwise, from the main checkout: merge without `--delete-branch`, remove
-   the worktree, delete the branch on the remote and locally, and pull. Then
-   check `.git/hooks/*` for an embedded worktree venv path and re-install
-   hooks from the main checkout if found.
+   the worktree, delete the remote branch, pull the base, and only then
+   delete the local branch with `git branch -d` (it checks against the local
+   base, so it refuses until the merge is pulled). Then check
+   `.git/hooks/*` for an embedded worktree venv path and re-install hooks
+   from the main checkout if found.
 
 Report what was synced, what was adapted for the repo type, and what was
 deliberately skipped — and note when `.claude/` changes are on-disk only.

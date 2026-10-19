@@ -244,6 +244,7 @@ check "CLAUDE_PROJECT_DIR intact in .claude/settings.json" \
 check "CLAUDE_PROJECT_DIR intact in the Stop hook" \
     grep -qF CLAUDE_PROJECT_DIR "$P/.claude/hooks/lint-typecheck.sh"
 check "Stop hook is still executable" test -x "$P/.claude/hooks/lint-typecheck.sh"
+check "no .claude/settings.local.json shipped" test ! -e "$P/.claude/settings.local.json"
 
 # hook_repo <dir> <root pyproject.toml body>: a git repo holding a root
 # pyproject.toml and a nested project at <dir>/packages/member.
