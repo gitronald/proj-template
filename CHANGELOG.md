@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - The scaffolded `test.yml` keeps one single-line comment, on `UV_PYTHON`, and drops the one
   on the repeated `--python`. The full rationale for both stays in the install-template skill.
+- The scaffolded workflows pin `astral-sh/setup-uv` v10.3.0, `actions/upload-artifact`
+  v7.0.2, `actions/download-artifact` v8.0.2, `actions/create-github-app-token` v3.3.0, and
+  `renovatebot/github-action` v46.3.8, each by commit SHA.
+- The scaffolded `ruff-pre-commit` hook moves to v0.16.10, still within the `ruff<0.17`
+  pin, and the `dev` group raises its floors to `pyrefly>=1.3.2` and `pytest>=9.1.1`.
 
 ## [0.11.2] - 2026-10-10
 
