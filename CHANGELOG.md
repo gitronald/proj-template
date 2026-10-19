@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - The scaffolded `test.yml` keeps one single-line comment, on `UV_PYTHON`, and drops the one
   on the repeated `--python`. The full rationale for both stays in the install-template skill.
+- The scaffolded `renovate.yml`, `publish.yml`, `dependabot.yml`, and
+  `.pre-commit-config.yaml` cut their multi-line comments to one line each, pointing to the
+  guides in `docs/guides/` for the rationale.
 - The scaffolded workflows pin `astral-sh/setup-uv` v10.3.0, `actions/upload-artifact`
   v7.0.2, `actions/download-artifact` v8.0.2, `actions/create-github-app-token` v3.3.0, and
   `renovatebot/github-action` v46.3.8, each by commit SHA.

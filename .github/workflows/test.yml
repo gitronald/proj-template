@@ -16,9 +16,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
-      # Run the shellcheck pinned in uv.lock rather than the one the runner
-      # ships, so CI and a local run agree. It is a static check, so one OS
-      # suffices.
+      # Use the uv.lock shellcheck, not the runner's, so CI matches local runs
       - run: uv sync --locked
       - name: shellcheck
         run: git ls-files -co --exclude-standard -- '*.sh' | xargs uv run shellcheck
@@ -33,8 +31,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      # Run under /bin/bash explicitly: on macOS that is bash 3.2, which a
-      # Homebrew bash earlier on the runner's PATH would otherwise hide.
+      # /bin/bash is 3.2 on macOS; a Homebrew bash on PATH would hide it
       - name: portability guard
         run: /bin/bash tests/portability.test.sh
       - name: proj-init behavioral tests
@@ -46,8 +43,7 @@ jobs:
           name: manifest-${{ matrix.os }}
           path: ${{ runner.temp }}/manifest-${{ matrix.os }}.txt
 
-  # The same name and template version must scaffold byte-identical repos on
-  # Linux and macOS, file modes included.
+  # Linux and macOS must scaffold byte-identical repos, file modes included
   identical:
     needs: test
     runs-on: ubuntu-latest

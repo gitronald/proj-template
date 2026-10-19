@@ -1,8 +1,5 @@
-# Dependabot version updates. Rationale and setup:
+# Read from the default branch only; dev edits are inert until merged. Setup:
 # https://github.com/gitronald/proj-template/blob/main/docs/guides/github-automation.md
-#
-# Dependabot reads this file from the DEFAULT branch only, whatever `target-branch`
-# says — an edit landed on `dev` alone is inert until it reaches the default branch.
 version: 2
 updates:
   - package-ecosystem: github-actions
