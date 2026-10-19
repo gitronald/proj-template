@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.4] - 2026-10-19
+
 ### Changed
 
 - The install-template skill's upgrade mode no longer writes a `template-upgrade` plan in
