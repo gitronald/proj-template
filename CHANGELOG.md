@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.3] - 2026-10-19
+
 ### Changed
 
 - The scaffolded `test.yml` keeps one single-line comment, on `UV_PYTHON`, and drops the one
