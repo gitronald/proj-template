@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The install-template skill's upgrade mode no longer writes a `template-upgrade` plan in
+  the target repo. The PR body records the repo's classification, the action per sync-matrix
+  row, the owner's answers, and what was skipped. A plan is written only when the upgrade
+  spans sessions or the user asks, through `/planners`. The sync matrix still scaffolds
+  `.planners/` in a repo that lacks it.
+
 ## [0.11.3] - 2026-10-19
 
 ### Changed

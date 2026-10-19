@@ -45,36 +45,24 @@ running it from a tool. If the user chose renovate, finish with the
    - **app/site**: run in place, never published (Pelican/Flask sites, analysis
      repos, dashboards). Marker: no build backend, or files like
      `pelicanconf.py`, `app.py`, `tasks.py`.
-3. Plan the upgrade in the target repo's own plan system, the same way
-   `/planners add` + `/planners implement` would:
-   - If `.planners/` is missing, scaffold it first — it's part of the upgrade
-     anyway (see the sync matrix).
-   - Create the plan (`planners add template-upgrade`, next free `NNN`) and
-     write the spec into it: the repo classification, the sync decisions per
-     matrix row, and what will be deliberately skipped. Keep it free of
-     machine-specific paths.
-   - Open a worktree instead of switching the main checkout: branch
-     `feature/template-upgrade` off `dev` (or the repo's default working
-     branch) at `.worktrees/template-upgrade`. Check the target's
-     `.gitignore` first and add `.worktrees/` if it isn't ignored.
-     Do all tracked upgrade work inside the worktree. The exception is
-     gitignored payload: when the target ignores `.claude/`, the worktree
-     has no copy of `.claude/CLAUDE.md`, `settings.json`, `settings.local.json`,
-     or `hooks/`, and
-     anything written there vanishes when the worktree is removed. Apply
-     the `.claude/*` rows in the main checkout instead, and note in the
-     PR that those files changed on disk outside the branch.
-   - Set the plan `status: active` and fill `branch`, and commit the plan on
-     the feature branch so it rides in the PR.
-   - Once the worktree exists, **every later plan edit targets the worktree's
-     copy** (`.worktrees/template-upgrade/.planners/plans/<NNN>-*/plan.md`), not
-     the main checkout's. The plan file exists at both paths, so an absolute-path
-     edit aimed at the repo root silently lands on the mainline; the `git add`
-     that follows stages nothing and the commit reports "nothing to commit"
-     from a *clean* worktree, which reads like the edit never happened rather
-     than like it went somewhere else. Recovering means copying the file across
-     and reverting the mainline, so it is cheaper to keep the worktree prefix on
-     the path from the start.
+3. Open a worktree instead of switching the main checkout: branch
+   `feature/template-upgrade` off `dev` (or the repo's default working
+   branch) at `.worktrees/template-upgrade`. Check the target's `.gitignore`
+   first and add `.worktrees/` if it isn't ignored. Do all tracked upgrade
+   work inside the worktree. The exception is gitignored payload: when the
+   target ignores `.claude/`, the worktree has no copy of `.claude/CLAUDE.md`,
+   `settings.json`, `settings.local.json`, or `hooks/`, and anything written
+   there vanishes when the worktree is removed. Apply the `.claude/*` rows in
+   the main checkout instead, and note in the PR that those files changed on
+   disk outside the branch.
+4. The upgrade writes no plan of its own. This skill is the process, and the
+   PR body is the record of what it decided for this repo: the
+   classification, the action taken per matrix row, the owner's answers to
+   any diverging-file questions, and what was deliberately skipped. Keep it
+   free of machine-specific paths. Write a plan only when the upgrade will
+   span sessions or the user asks for one; then follow `/planners`, which
+   adds and activates it on the mainline before the branch exists, and edit
+   the worktree's copy of the plan from then on.
 
 ### Sync matrix
 
@@ -139,7 +127,7 @@ Notes:
   a round holds at most four questions): **replace** with the template version,
   **merge** the template's change while keeping the repo's customization, or
   **keep** the repo's file as-is. Show the specific conflicting lines in the
-  question so the choice is informed, and record each answer in the plan's Log
+  question so the choice is informed, and record each answer in the PR body
   with the reason, so the next upgrade doesn't re-litigate it.
 - **The `[tool.proj-template]` stamp is exempt from the question above, and is
   written last.** It records which template release the repo carries, so it is
@@ -346,11 +334,10 @@ The
 stop, so a repo with failing checks would gate every future session; that is
 why green checks are a hard requirement before this lands.
 
-### Commit, PR, and close the plan
+### Commit, PR, and clean up
 
 Commit in logical chunks (e.g. tooling config, CI, gitignore, code fixes),
-following the repo's commit conventions, and append Log entries to the plan as
-decisions land (what was adapted, what was excluded and why).
+following the repo's commit conventions.
 
 The `pyrefly-check` commit hook checks the whole tree (`pass_filenames:
 false`), and pre-commit stashes unstaged changes before it runs, so while
@@ -363,14 +350,14 @@ swallows them. Commit the intermediate chunks with `--no-verify`, gate on
 Then:
 
 1. Push the branch (`git push -u origin feature/template-upgrade`) and open a
-   PR into `dev` summarizing synced/adapted/skipped per the sync matrix.
-2. Close the plan the way `/planners close` does: on merge, set
-   `status: done`, fill `concluded` from the merge commit timestamp and `pr`
-   with the full PR URL, regenerate the index (`planners index .`), and remove
-   the worktree (after removing, check `.git/hooks/pre-commit` for an embedded
-   worktree venv path and re-install hooks from the main checkout if found).
-   If the user wants to review before merging, stop after opening the PR and
-   leave the plan `active`.
+   PR into `dev` whose body carries the record from preflight step 4:
+   classification, synced/adapted/skipped per the sync matrix, and the
+   owner's answers.
+2. If the user wants to review before merging, stop after opening the PR.
+   Otherwise, from the main checkout: merge without `--delete-branch`, remove
+   the worktree, delete the branch on the remote and locally, and pull. Then
+   check `.git/hooks/*` for an embedded worktree venv path and re-install
+   hooks from the main checkout if found.
 
 Report what was synced, what was adapted for the repo type, and what was
 deliberately skipped — and note when `.claude/` changes are on-disk only.
