@@ -101,7 +101,7 @@ Full mode additionally:
 
 - `LICENSE` carries the license name, author, and current year.
 - The initial commit contains no `.claude/` paths while `.claude/{CLAUDE.md,
-  settings.json, settings.local.json, hooks/}` exist on disk — the payload ships
+  settings.json, hooks/}` exist on disk and `settings.local.json` does not — the payload ships
   untracked by design.
 - Pre-commit hooks (ruff format, ruff check, pyrefly, planners) passed during the initial
   commit — check the script output, don't assume.
