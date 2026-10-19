@@ -355,9 +355,11 @@ Then:
    owner's answers.
 2. If the user wants to review before merging, stop after opening the PR.
    Otherwise, from the main checkout: merge without `--delete-branch`, remove
-   the worktree, delete the branch on the remote and locally, and pull. Then
-   check `.git/hooks/*` for an embedded worktree venv path and re-install
-   hooks from the main checkout if found.
+   the worktree, delete the remote branch, pull the base, and only then
+   delete the local branch with `git branch -d` (it checks against the local
+   base, so it refuses until the merge is pulled). Then check
+   `.git/hooks/*` for an embedded worktree venv path and re-install hooks
+   from the main checkout if found.
 
 Report what was synced, what was adapted for the repo type, and what was
 deliberately skipped — and note when `.claude/` changes are on-disk only.
