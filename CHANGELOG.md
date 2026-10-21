@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the emSign root certificates, whose intermediates were revoked after a key compromise
   (certifi GHSA-6q48-6c7w-9gw2).
 
+### Changed
+
+- The scaffolded `pyproject.toml` cuts its multi-line comments to one line each, two for the
+  sdist `only-include` note. The repo's own `pyproject.toml` does the same.
+
 ## [0.11.5] - 2026-10-19
 
 ### Removed
