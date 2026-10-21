@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The template's publish workflow pins `pypa/gh-action-pypi-publish` v1.14.3, which fixes
   GHSA-5xjx-3w67-w9x9. The fix upgrades the action's bundled `certifi` and `sigstore` to drop
   the emSign root certificates, whose intermediates were revoked after a key compromise
-  (certifi GHSA-6q48-6c7w-9gw2).
+  (certifi GHSA-6q48-6c7w-9gw2). The TestPyPI example in the trusted-publishers guide pins the
+  same release.
 
 ### Changed
 
