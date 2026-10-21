@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.7] - 2026-10-21
+
+### Changed
+
+- The install-template skill refreshes a target's "Before finishing a task" check list in
+  `.claude/CLAUDE.md` along with the `## Development` tooling bullets. The list names the
+  checks the `Stop` hook runs, so an upgrade that brings the current hook also brings the
+  `ruff format --check` step that lists from before 0.8.2 lack.
+
 ## [0.11.6] - 2026-10-21
 
 ### Security
