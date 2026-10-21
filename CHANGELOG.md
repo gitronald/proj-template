@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.7] - 2026-10-21
+
 ### Changed
 
 - The install-template skill refreshes a target's "Before finishing a task" check list in
