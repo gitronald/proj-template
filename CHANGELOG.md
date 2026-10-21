@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.6] - 2026-10-21
+
+### Security
+
+- The template's publish workflow pins `pypa/gh-action-pypi-publish` v1.14.3, which fixes
+  GHSA-5xjx-3w67-w9x9. The fix upgrades the action's bundled `certifi` and `sigstore` to drop
+  the emSign root certificates, whose intermediates were revoked after a key compromise
+  (certifi GHSA-6q48-6c7w-9gw2). The TestPyPI example in the trusted-publishers guide pins the
+  same release.
+
+### Changed
+
+- The scaffolded `pyproject.toml` cuts its multi-line comments to one line each, two for the
+  sdist `only-include` note. The repo's own `pyproject.toml` does the same.
+- The scaffolded `[tool.ruff]` narrows `extend-exclude` from `*.md` to `.planners/` and
+  `CHANGELOG.md`. ruff now formats Python fences in the README and `docs/`, and leaves plans
+  and the changelog alone, since they quote code as it was.
+- The scaffolded `dev` group pins `ruff>=0.17,<0.18`, and the `ruff-pre-commit` hook moves to
+  v0.17.1 to match. The template sets `select` and `target-version`, so 0.17's new defaults
+  for both do not apply; imports with trailing pragma comments may be reformatted.
+
 ## [0.11.5] - 2026-10-19
 
 ### Removed

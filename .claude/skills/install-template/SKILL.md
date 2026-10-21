@@ -305,7 +305,8 @@ package, point it at the directory that holds the tested modules.
 Run the autofixers before reading lint output: `uv run ruff format .` then
 `uv run ruff check --fix .` clear most errors on their own, so only study what
 survives them (typically long string literals and idioms needing a targeted
-`# noqa`). Fix the rest at the source (annotate or exclude for pyrefly) — do
+`# noqa`). `ruff format` also reformats Python fences in the README and `docs/`;
+plans and the changelog are excluded. Fix the rest at the source (annotate or exclude for pyrefly) — do
 not commit with red checks. If the lint/format/annotation fixes touch a script
 that generates output (site pages, reports, build artifacts), prove the
 behavior is unchanged: copy the pre-upgrade version from git to a sibling path
