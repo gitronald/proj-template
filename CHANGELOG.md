@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - The scaffolded `pyproject.toml` cuts its multi-line comments to one line each, two for the
   sdist `only-include` note. The repo's own `pyproject.toml` does the same.
+- The scaffolded `[tool.ruff]` narrows `extend-exclude` from `*.md` to `.planners/` and
+  `CHANGELOG.md`. ruff now formats Python fences in the README and `docs/`, and leaves plans
+  and the changelog alone, since they quote code as it was.
 
 ## [0.11.5] - 2026-10-19
 

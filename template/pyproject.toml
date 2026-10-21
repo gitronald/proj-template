@@ -47,8 +47,8 @@ dev = [
 
 [tool.ruff]
 target-version = "py311"
-# Keep ruff 0.16's Markdown fence formatting off prose; drop this line to format fences.
-extend-exclude = ["*.md"]
+# ruff 0.16 formats Python fences in Markdown; keep it off plans and the changelog.
+extend-exclude = [".planners/", "CHANGELOG.md"]
 
 [tool.ruff.lint]
 select = [

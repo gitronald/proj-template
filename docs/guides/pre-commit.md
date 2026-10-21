@@ -80,3 +80,7 @@ Ruff settings are defined in `pyproject.toml` under `[tool.ruff]` and `[tool.ruf
 - **W** — pycodestyle warnings
 - **I** — isort (import sorting)
 - **UP** — pyupgrade (modern Python idioms)
+
+`ruff format` also formats Python code fences in Markdown, and the `ruff-format` hook runs on
+`.md` files. `extend-exclude = [".planners/", "CHANGELOG.md"]` keeps it off plans and the
+changelog, which quote code as it was; README and `docs/` fences are formatted.
