@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.6] - 2026-10-21
+
 ### Security
 
 - The template's publish workflow pins `pypa/gh-action-pypi-publish` v1.14.3, which fixes
