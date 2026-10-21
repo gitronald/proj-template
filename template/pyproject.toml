@@ -42,12 +42,12 @@ dev = [
     "pytest>=9.1.1",
     "pytest-cov",
     # Same minor as the ruff-pre-commit rev in .pre-commit-config.yaml; bump the two together.
-    "ruff>=0.16,<0.17",
+    "ruff>=0.17,<0.18",
 ]
 
 [tool.ruff]
 target-version = "py311"
-# ruff 0.16 formats Python fences in Markdown; keep it off plans and the changelog.
+# ruff formats Python fences in Markdown; keep it off plans and the changelog.
 extend-exclude = [".planners/", "CHANGELOG.md"]
 
 [tool.ruff.lint]

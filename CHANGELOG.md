@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The scaffolded `[tool.ruff]` narrows `extend-exclude` from `*.md` to `.planners/` and
   `CHANGELOG.md`. ruff now formats Python fences in the README and `docs/`, and leaves plans
   and the changelog alone, since they quote code as it was.
+- The scaffolded `dev` group pins `ruff>=0.17,<0.18`, and the `ruff-pre-commit` hook moves to
+  v0.17.1 to match. The template sets `select` and `target-version`, so 0.17's new defaults
+  for both do not apply; imports with trailing pragma comments may be reformatted.
 
 ## [0.11.5] - 2026-10-19
 
