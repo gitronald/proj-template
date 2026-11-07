@@ -36,8 +36,8 @@ jobs:
       # /bin/bash is 3.2 on macOS; a Homebrew bash on PATH would hide it
       - name: portability guard
         run: /bin/bash tests/portability.test.sh
-      - name: proj-init behavioral tests
-        run: /bin/bash tests/proj-init.test.sh
+      - name: init.sh behavioral tests
+        run: /bin/bash tests/init.test.sh
         env:
           MANIFEST_OUT: ${{ runner.temp }}/manifest-${{ matrix.os }}.txt
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2

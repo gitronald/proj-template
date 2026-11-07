@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
-# Scaffold a new Python project from proj-template.
+# Scaffold a new Python project from repotemplates.
 #
 # Copies the template, replaces PROJECT__NAME placeholders with the given name and
 # MODULE__NAME placeholders with its module form (dashes become underscores),
 # initializes git, installs dependencies, and makes the initial commit.
 #
-# Usage: proj-init.sh <path>
+# Usage: init.sh <path>
 #   path  Target directory (e.g., ~/repos/gdrive). Basename becomes the project name.
 #
 # Targets bash 3.2+ (stock macOS /bin/bash), not POSIX sh. Under a shell that is
 # not bash at all (dash, zsh), the first bash-only line would fail with a
 # cryptic error; fail with a sentence instead. macOS /bin/sh is bash in POSIX
-# mode, so "sh proj-init.sh" sets BASH_VERSION there and simply runs. Keep this
+# mode, so "sh init.sh" sets BASH_VERSION there and simply runs. Keep this
 # above set -euo pipefail: dash rejects "-o pipefail" before any later check.
 if [ -z "${BASH_VERSION:-}" ]; then
-    echo "Error: proj-init.sh requires bash; run it as 'bash proj-init.sh'" >&2
+    echo "Error: init.sh requires bash; run it as 'bash init.sh'" >&2
     exit 1
 fi
 
@@ -28,7 +28,7 @@ set +o noclobber
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 VERSION_FILE="$SCRIPT_DIR/../VERSION"
-REPO_URL="https://github.com/gitronald/proj-template.git"
+REPO_URL="https://github.com/gitronald/repotemplates.git"
 
 # Escape sed's replacement-side metacharacters (\ / &) in a value before
 # interpolating it into an s/// expression. Without this, a "/" breaks the
@@ -41,14 +41,14 @@ sed_escape() {
 }
 
 show_help() {
-    echo "Usage: proj-init.sh [--license <key>] [--source <repo>] [--branch <name>] [--deps <tool>] <path>"
+    echo "Usage: init.sh [--license <key>] [--source <repo>] [--branch <name>] [--deps <tool>] <path>"
     echo ""
     echo "  path     Target directory (e.g., ~/repos/gdrive)"
     echo "           Basename becomes the project name; dashes become"
     echo "           underscores in the Python module name."
     echo "  --license  License key (default: mit)"
     echo "             Run 'gh api licenses --jq .[].key' for options."
-    echo "  --source   proj-template repo to clone: a local checkout path or a"
+    echo "  --source   repotemplates repo to clone: a local checkout path or a"
     echo "             git URL, e.g. a fork (default: the GitHub repo)."
     echo "             Only committed changes are cloned."
     echo "  --branch   Template branch to clone (default: the source's HEAD —"
@@ -66,9 +66,9 @@ fi
 
 if [ "${1:-}" = "-v" ] || [ "${1:-}" = "--version" ]; then
     if [ -f "$VERSION_FILE" ]; then
-        echo "proj-init $(cat "$VERSION_FILE")"
+        echo "repotemplates init $(cat "$VERSION_FILE")"
     else
-        echo "proj-init (version unknown — run from local clone for version info)"
+        echo "repotemplates init (version unknown — run from local clone for version info)"
     fi
     exit 0
 fi
@@ -111,7 +111,7 @@ for tool in git rsync gh uv stanza; do
 done
 if [ -n "$MISSING_TOOLS" ]; then
     echo "Error: required tools not found on PATH:${MISSING_TOOLS}"
-    echo "Install them and re-run; see Prerequisites in the proj-template README."
+    echo "Install them and re-run; see Prerequisites in the repotemplates README."
     exit 1
 fi
 
@@ -187,28 +187,29 @@ echo "Scaffolding ${NAME} at ${DEST}"
 
 # Clone template to a temp directory
 TEMPLATE_TMP=$(mktemp -d)
+TEMPLATE_CLONE="$TEMPLATE_TMP/repotemplates"
 trap 'rm -rf "$TEMPLATE_TMP"' EXIT
 # "--" keeps a --source value starting with "-" from being read as a git option.
 if [ -n "$BRANCH" ]; then
-    git clone --quiet --no-local --depth 1 --branch "$BRANCH" -- "$CLONE_URL" "$TEMPLATE_TMP/proj-template"
+    git clone --quiet --no-local --depth 1 --branch "$BRANCH" -- "$CLONE_URL" "$TEMPLATE_CLONE"
 else
-    git clone --quiet --no-local --depth 1 -- "$CLONE_URL" "$TEMPLATE_TMP/proj-template"
+    git clone --quiet --no-local --depth 1 -- "$CLONE_URL" "$TEMPLATE_CLONE"
 fi
-TEMPLATE_DIR="$TEMPLATE_TMP/proj-template/template"
+TEMPLATE_DIR="$TEMPLATE_CLONE/template"
 
-# Check the clone is a proj-template this script can fill in before creating
-# anything. A --source that is not one, a remote whose HEAD names a missing
-# branch (git clones it "empty" and exits 0), or a release that predates the
+# Check the clone is a repotemplates checkout this script can fill in before
+# creating anything. A --source that is not one, a remote whose HEAD names a
+# missing branch (git clones it "empty" and exits 0), or a release that predates the
 # MODULE__NAME placeholders would otherwise fail late, in rsync or uv sync, and
 # leave a half-built DEST that blocks every re-run.
 if [ ! -d "$TEMPLATE_DIR/MODULE__NAME" ]; then
     echo "Error: ${CLONE_URL}${BRANCH:+ (branch ${BRANCH})} has no template/MODULE__NAME/"
-    echo "It is not a proj-template repo, or is a release older than this script."
+    echo "It is not a repotemplates repo, or is a release older than this script."
     exit 1
 fi
 # Without --branch the clone takes the source's HEAD, which for a local checkout
 # is whatever it has checked out, so say which commit this scaffold comes from.
-echo "Template: ${CLONE_URL} at $(git -C "$TEMPLATE_TMP/proj-template" rev-parse HEAD)"
+echo "Template: ${CLONE_URL} at $(git -C "$TEMPLATE_CLONE" rev-parse HEAD)"
 
 # Fails if DEST already exists (atomic guard)
 mkdir "$DEST"
@@ -256,11 +257,11 @@ while IFS= read -r f; do
     rm -f "$f.tmp"
 done <<< "$placeholder_files"
 
-# Stamp [tool.proj-template] with the release actually scaffolded. Read VERSION
+# Stamp [tool.repotemplates] with the release actually scaffolded. Read VERSION
 # from the clone, not $VERSION_FILE: the clone reflects --branch, which can
 # differ from the local checkout's VERSION, and is the only copy present when
 # this script runs from outside a clone.
-TEMPLATE_VERSION="$(cat "$TEMPLATE_TMP/proj-template/VERSION" 2>/dev/null || true)"
+TEMPLATE_VERSION="$(cat "$TEMPLATE_CLONE/VERSION" 2>/dev/null || true)"
 if [ -z "$TEMPLATE_VERSION" ]; then
     echo "Warning: template VERSION not found; stamping as 'unknown'"
     TEMPLATE_VERSION="unknown"
@@ -318,12 +319,12 @@ git push -u origin dev
 echo ""
 echo "Done. Project ready at ${DEST}"
 echo "  cd ${DEST}"
-echo "  scaffolded from proj-template ${TEMPLATE_VERSION}"
+echo "  scaffolded from repotemplates ${TEMPLATE_VERSION}"
 
 if [ "$DEPS" = "renovate" ]; then
     echo ""
     echo "Renovate selected — one-time setup before it runs:"
     echo "  - Create/install a GitHub App, then add the RENOVATE_CLIENT_ID and"
     echo "    RENOVATE_APP_PRIVATE_KEY repo secrets."
-    echo "  - See the Setup section of docs/guides/github-automation.md in proj-template."
+    echo "  - See the Setup section of docs/guides/github-automation.md in repotemplates."
 fi

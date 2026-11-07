@@ -21,7 +21,7 @@ Three local hooks run through `uv run`:
 
 ## Installation
 
-If you scaffolded your project with `proj-init.sh`, pre-commit is already installed. To set it up manually:
+If you scaffolded your project with `init.sh`, pre-commit is already installed. To set it up manually:
 
 ```bash
 uv sync --all-groups   # installs pre-commit into the dev dependency group

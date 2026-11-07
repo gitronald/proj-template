@@ -1,5 +1,5 @@
 #!/bin/bash
-# Behavioral tests for scripts/proj-init.sh.
+# Behavioral tests for scripts/init.sh.
 #
 # Scaffolds from this checkout (--source) into a temp directory with gh, uv,
 # stanza, and planners stubbed on PATH, so nothing touches the network or
@@ -15,13 +15,13 @@
 # The script under test runs under /bin/bash — 3.2 on macOS — rather than
 # whatever bash is first on PATH, since that is what a stock Mac has.
 #
-# Usage: tests/proj-init.test.sh
+# Usage: tests/init.test.sh
 #   MANIFEST_OUT=<file>  also write a checksum manifest of the scaffolded tree,
 #                        so CI can compare the Linux and macOS output.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
-SCRIPT="$ROOT/scripts/proj-init.sh"
+SCRIPT="$ROOT/scripts/init.sh"
 BASH_UNDER_TEST="${BASH_UNDER_TEST:-/bin/bash}"
 
 if [ -n "$(git -C "$ROOT" status --porcelain -- scripts template VERSION)" ]; then
@@ -50,7 +50,7 @@ mkdir -p "$BIN" "$WORK/remotes"
 
 cat > "$BIN/gh" <<'EOF'
 #!/bin/bash
-# Stub: answers the three gh api calls proj-init.sh makes.
+# Stub: answers the three gh api calls init.sh makes.
 echo "gh $*" >> "$STUB_LOG"
 case "$*" in
     "api user "*) echo "Test Author" ;;
@@ -69,7 +69,7 @@ EOF
 
 cat > "$BIN/planners" <<'EOF'
 #!/bin/bash
-# Stub: present on PATH so proj-init.sh skips installing it.
+# Stub: present on PATH so init.sh skips installing it.
 echo "planners $*" >> "$STUB_LOG"
 EOF
 
@@ -119,7 +119,7 @@ git config --global init.defaultBranch main
 
 # --- Helpers ----------------------------------------------------------------
 
-# scaffold <name> <extra proj-init args...>; output goes to $WORK/<name>.log.
+# scaffold <name> <extra init.sh args...>; output goes to $WORK/<name>.log.
 # A --source among the extra args overrides this checkout. stdin is /dev/null so
 # a scaffold without --deps never waits on the interactive prompt.
 scaffold() {
@@ -129,7 +129,7 @@ scaffold() {
         < /dev/null > "$WORK/$name.log" 2>&1
 }
 
-# rejects <name> <expected error text> <extra proj-init args...>: the scaffold
+# rejects <name> <expected error text> <extra init.sh args...>: the scaffold
 # fails, prints that error — so an unrelated early failure cannot take the
 # credit — and leaves nothing at $WORK/<name>.
 rejects() {
@@ -153,7 +153,7 @@ no_placeholder_paths() {
 }
 
 version_stamped() {
-    grep -A1 -F '[tool.proj-template]' "$1/pyproject.toml" | grep -qxF "version = \"$2\""
+    grep -A1 -F '[tool.repotemplates]' "$1/pyproject.toml" | grep -qxF "version = \"$2\""
 }
 
 initial_commit() {
@@ -200,7 +200,7 @@ hook_runs_from() {
 # --- Tests ------------------------------------------------------------------
 
 # shellcheck disable=SC2016  # $BASH_VERSION must expand in the bash under test
-echo "proj-init.sh under $("$BASH_UNDER_TEST" -c 'echo "bash $BASH_VERSION"')"
+echo "init.sh under $("$BASH_UNDER_TEST" -c 'echo "bash $BASH_VERSION"')"
 
 check "--help runs clean" runs_clean --help
 check "--version runs clean" runs_clean --version
@@ -273,7 +273,7 @@ mkdir -p "$WORK/hook-plain/member/src"
 printf '[project]\nname = "member"\n' > "$WORK/hook-plain/member/pyproject.toml"
 check "Stop hook walks up to the nearest project outside a repo" \
     hook_runs_from "$WORK/hook-plain/member/src" "$WORK/hook-plain/member"
-check "[tool.proj-template] stamped with VERSION $expected_version" \
+check "[tool.repotemplates] stamped with VERSION $expected_version" \
     version_stamped "$P" "$expected_version"
 check "license key folded to lowercase" grep -qF "gh api licenses/mit " "$STUB_LOG"
 check "license line inserted after readme" grep -qxF 'license = "MIT"' "$P/pyproject.toml"

@@ -1,4 +1,4 @@
-# proj-template
+# repotemplates
 
 This file provides guidance to [Claude Code](claude.ai/code).
 
@@ -54,7 +54,7 @@ machine-wide.
 ## Running uv in this repo
 
 The root `pyproject.toml` is **tooling only** — a `dev` dependency group
-(`pre-commit`, `shellcheck-py`) and no `[project]` table. proj-template ships a
+(`pre-commit`, `shellcheck-py`) and no `[project]` table. repotemplates ships a
 scaffold and shell scripts, not a Python package of its own, so there is no
 Python test, lint, or type-check suite at the root, and the release version
 lives in `VERSION`, which is what stanza reads and bumps. Do not add a
@@ -73,7 +73,7 @@ macOS alongside `shellcheck`. Run it after changing `scripts/` or `template/`:
 
 ```bash
 /bin/bash tests/portability.test.sh
-/bin/bash tests/proj-init.test.sh
+/bin/bash tests/init.test.sh
 git ls-files -co --exclude-standard -- '*.sh' | xargs uv run shellcheck
 ```
 
@@ -88,5 +88,5 @@ project by walking up from the working directory to the nearest
 `uv run --no-project` for one-off Python; when a dependency audit genuinely
 needs the resolved set, exporting from `template/` is fine — just delete the
 lock afterward. `/template/uv.lock` is gitignored so a stray one cannot be
-committed, which matters because `proj-init.sh` rsyncs `template/` into every
+committed, which matters because `init.sh` rsyncs `template/` into every
 new project excluding only `__pycache__`.

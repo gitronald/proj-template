@@ -1,6 +1,6 @@
 ---
 name: install-renovatabot
-description: Enroll a scaffolded repo in this template's self-hosted Renovate — push the GitHub App secrets from a local .env, normalize Dependabot so only Renovate opens PRs, and trigger the first run. Use when the user wants to "enroll a repo in Renovate", "set up Renovate secrets", or activate Renovate after scaffolding with `proj-init.sh --deps renovate`.
+description: Enroll a scaffolded repo in this template's self-hosted Renovate — push the GitHub App secrets from a local .env, normalize Dependabot so only Renovate opens PRs, and trigger the first run. Use when the user wants to "enroll a repo in Renovate", "set up Renovate secrets", or activate Renovate after scaffolding with `init.sh --deps renovate`.
 ---
 
 # Install renovatabot
@@ -13,7 +13,7 @@ App credentials from `${RENOVATE_CONFIG_DIR:-~/.config/renovatabot}/.env` and on
 ## When to use
 
 The user asks to enroll/activate Renovate on a repo, set up the Renovate App secrets, or
-finish Renovate setup after scaffolding a project with `proj-init.sh --deps renovate`.
+finish Renovate setup after scaffolding a project with `init.sh --deps renovate`.
 
 ## Preconditions
 
