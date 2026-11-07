@@ -1,0 +1,136 @@
+---
+id: 10
+slug: rename-to-repotemplates
+status: draft
+branch:
+created: 2026-11-06T20:59:46-08:00
+concluded:
+pr:
+---
+
+# Rename the repo to repotemplates
+
+## Plan
+
+### Goal
+
+Rename this repo from `proj-template` to `repotemplates`, on GitHub, in its own
+files, and in the template payload it writes into generated repos, then carry the
+rename to the repos that reference it. Plan 011 grows the repo from one template
+to several, and the new name describes that: a set of repository templates, not
+one project template.
+
+### Name check (2026-11-06)
+
+PyPI's JSON API, `curl -s -o /dev/null -w '%{http_code}' https://pypi.org/pypi/<name>/json`:
+
+| Name | Result |
+|---|---|
+| `repotemplates` | 404, free |
+| `repo-templates` | 404, free |
+| `repotemplate` | 404, but see below |
+| `repo-template` | 200, another author's project |
+| `proj-template` | 200, another author's project |
+
+`proj-template` on PyPI is a different project by another author, so this repo
+could never publish under its current name. That is a second reason for the
+rename.
+
+`repotemplate` is not a real option even though it returns 404. Before PyPI creates
+a project it removes `-`, `_`, and `.` from the name and maps look-alike characters,
+and it refuses a name that then collides with an existing project. Without its
+hyphen, `repo-template` becomes `repotemplate`, so that name is blocked.
+`repotemplates` reduces to nothing that exists. Not verified by an upload; the
+first real upload settles it.
+
+GitHub: `gh repo view OWNER/repotemplates` and `OWNER/repotemplate` both fail to
+resolve, so both names are free under the owner account.
+
+### Decision: plural
+
+Use `repotemplates`. The repo will hold several templates (plan 011), the singular
+form is blocked on PyPI, and the plural keeps the GitHub, directory, PyPI, and
+stamp names identical.
+
+A 404 does not reserve the name. Only an upload does, and the repo is not a Python
+package today (the root `pyproject.toml` is tooling only, with no `[project]`
+table). See open question 1.
+
+### What changes in this repo
+
+- **GitHub**: `gh repo rename repotemplates`. GitHub redirects the old URL for
+  clones, fetches, and web links, so nothing breaks right away. Never create a new
+  repo named `proj-template` under the same account afterwards, because that
+  removes the redirect.
+- **Local clone**: rename the directory and run `git remote set-url origin` to the
+  new URL. Any tooling that finds the clone by its directory name needs
+  updating at the same time.
+- **Docs and agent files**: `README.md` title and body, `.claude/CLAUDE.md`,
+  `docs/guides/*`, and the `install-template`, `test-proj-init`, and
+  `install-renovatabot` skills.
+- **Scripts and tests**: `scripts/proj-init.sh` (usage text, `--source` default,
+  messages), `tests/proj-init.test.sh`, and `tests/portability.test.sh`.
+- **Template payload**: the guide URLs in `template/.github/dependabot.yml`,
+  `renovate.json`, and `workflows/renovate.yml`, and the stamp table in
+  `template/pyproject.toml`.
+- **Changelog**: an `[Unreleased]` entry naming the rename and the stamp migration.
+- **Left as written**: earlier plans and released changelog sections. They are a
+  record of the repo under its old name.
+
+Find every remaining reference with `git grep -n -e proj-template -e proj_template`
+and sort out the historical ones by hand.
+
+### The template stamp
+
+Generated repos carry `[tool.proj-template] version = "X.Y.Z"` in
+`pyproject.toml`. Tools outside this repo read that table to find out which
+release a repo was built from. The rename moves it to `[tool.repotemplates]`:
+
+1. Readers accept both tables, preferring `[tool.repotemplates]`. This ships
+   first, in the repos that hold the readers, **before** any generated repo can
+   carry the new table.
+2. This repo's release writes `[tool.repotemplates]`. `install-template`'s upgrade
+   mode replaces an existing `[tool.proj-template]` table with the new one,
+   keeping its version until the upgrade's last step bumps it, as it does today.
+3. Once no clone still carries the old table, readers drop it (open question 3).
+
+### Downstream repos
+
+The repos that reference this one are not named here. Find them by searching the
+local clones (each clone's tracked files, with `git grep -lI -e proj-template -e
+proj_template`), and keep the list of repos in the workspace's own tracking,
+outside this repo.
+
+A search on 2026-11-06 found tracked references in about 37 clones, of these
+kinds:
+
+| Kind | Action |
+|---|---|
+| `[tool.proj-template]` stamp in `pyproject.toml` | migrate during the next template upgrade (stamp step 2) |
+| Guide URLs in `.github/dependabot.yml` and `renovate.json` comments | updated by the same upgrade; the redirect covers the gap |
+| Tooling code that reads the stamp table, or finds this repo's clone by name | update first (stamp step 1), with tests |
+| Agent skills and global rules that name the repo | update with the code |
+| Released changelog lines and closed plan files | leave as written |
+
+### Order
+
+1. Readers in other repos accept both stamp tables, and are released.
+2. On a branch here: rename every reference in this repo, write the new stamp, and
+   add the upgrade-mode migration to `install-template`. Run the shell suite and
+   `shellcheck`.
+3. Rename the GitHub repo, the local directory, and the remote URL, and update
+   any tooling that finds the clone by name, all at once.
+4. Merge, and cut a minor release with stanza (the stamp table changes).
+5. The fleet moves to the new stamp in its regular template upgrade pass.
+6. Later: remove the old-table fallback from the readers.
+
+### Open questions
+
+1. Claim `repotemplates` on PyPI, and when? Only an upload reserves it. Upload a
+   real package (plan 011 could add a small `uvx repotemplates init` CLI), not a
+   placeholder, since PyPI can give unused names to someone else.
+2. Rename `scripts/proj-init.sh` and the `test-proj-init` skill too
+   (e.g. `scripts/init.sh` and `test-init`)? This fits with plan 011's
+   `--template` flag, so it may land there instead.
+3. How long does the old-table fallback stay: until the fleet has moved, or for
+   a fixed number of releases?
