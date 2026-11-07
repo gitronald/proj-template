@@ -1,8 +1,8 @@
 ---
 id: 10
 slug: rename-to-repotemplates
-status: draft
-branch:
+status: active
+branch: feature/010-rename-to-repotemplates
 created: 2026-11-06T20:59:46-08:00
 concluded:
 pr:
@@ -138,3 +138,8 @@ kinds:
 ## Log
 
 - **2026-11-06T21:04:34-08:00** — Name confirmed by the owner: repotemplates (plural), as the Decision section proposes.
+- **2026-11-06T21:12:52-08:00** — Activated.
+  - Branch: `feature/010-rename-to-repotemplates`
+  - Base: `dev` at `429f066`
+  - Worktree: `.worktrees/010-rename-to-repotemplates`
+  - PR: pending
