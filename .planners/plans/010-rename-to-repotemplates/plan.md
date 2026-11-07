@@ -151,6 +151,7 @@ kinds:
     - Checks on caa3011 and 12b89ef: `tests/portability.test.sh` passed, `tests/init.test.sh` passed (including `[tool.repotemplates] stamped with VERSION 0.11.8a0`), and shellcheck over every tracked `.sh` was clean.
 - **2026-11-06T21:24:10-08:00** — PR opened: https://github.com/gitronald/repotemplates/pull/58
 - **2026-11-06T21:24:24-08:00** — Implemented: 6 commits ahead of `dev`.
+- **2026-11-06T21:30:09-08:00** — Local clone directory renamed to repotemplates by the owner. Repaired the plan worktree's link with git worktree repair, rebuilt the root and worktree venvs with uv venv --clear and uv sync (both held the old path in their shebangs), and reinstalled the pre-commit and post-merge hooks from the main checkout, since their INSTALL_PYTHON pointed at the old venv and they had stopped running. planners install --check reports both hooks active.
 
 ## Handoff
 
