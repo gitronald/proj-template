@@ -5,7 +5,7 @@ status: active
 branch: feature/010-rename-to-repotemplates
 created: 2026-11-06T20:59:46-08:00
 concluded:
-pr:
+pr: https://github.com/gitronald/proj-template/pull/58
 ---
 
 # Rename the repo to repotemplates
@@ -143,3 +143,4 @@ kinds:
   - Base: `dev` at `429f066`
   - Worktree: `.worktrees/010-rename-to-repotemplates`
   - PR: pending
+- **2026-11-06T21:19:40-08:00** — PR opened: https://github.com/gitronald/proj-template/pull/58
