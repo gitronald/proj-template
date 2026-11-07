@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-06
+
 ### Changed
 
 - The repo is renamed from `proj-template` to `repotemplates`, which fits the several
