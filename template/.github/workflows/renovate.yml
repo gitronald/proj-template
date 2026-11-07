@@ -1,7 +1,7 @@
 name: Renovate
 
 # Self-hosted Renovate; App secrets setup:
-# https://github.com/gitronald/proj-template/blob/main/docs/guides/github-automation.md
+# https://github.com/gitronald/repotemplates/blob/main/docs/guides/github-automation.md
 
 on:
   schedule:

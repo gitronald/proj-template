@@ -1,6 +1,6 @@
 ---
 name: install-template
-description: Scaffold a new repo from proj-template or upgrade an existing repo to the latest template standard (uv, ruff, pyrefly, pre-commit, Claude hooks, GitHub Actions, planners, stanza). Use whenever the user wants to create a new project from the template, "install the template", bring a repo "up to standard", sync a repo with proj-template, or retrofit the template's tooling onto an existing package, app, or site — even if they only name one piece of it (e.g. "add the lint hooks from the template").
+description: Scaffold a new repo from repotemplates or upgrade an existing repo to the latest template standard (uv, ruff, pyrefly, pre-commit, Claude hooks, GitHub Actions, planners, stanza). Use whenever the user wants to create a new project from the template, "install the template", bring a repo "up to standard", sync a repo with repotemplates, or retrofit the template's tooling onto an existing package, app, or site — even if they only name one piece of it (e.g. "add the lint hooks from the template").
 ---
 
 # Install template
@@ -12,7 +12,7 @@ Two modes. Pick by whether the target path already exists as a repo:
   file by file, adapting to what the repo is.
 
 The template source of truth is the `template/` directory of this repo
-(proj-template). Always read the current contents of `template/` rather than
+(repotemplates). Always read the current contents of `template/` rather than
 relying on this document for exact file contents — the template evolves and
 this skill describes the *process*, not frozen payloads.
 
@@ -22,10 +22,10 @@ Run the scaffold script (it clones the template, replaces the `PROJECT__NAME` an
 `MODULE__NAME` placeholders, fetches a license, sets up git/uv/pre-commit/stanza):
 
 ```bash
-scripts/proj-init.sh [--license <key>] [--source <repo>] [--deps dependabot|renovate] <path>
+scripts/init.sh [--license <key>] [--source <repo>] [--deps dependabot|renovate] <path>
 ```
 
-`--source` clones a local proj-template checkout or a fork instead of the GitHub repo
+`--source` clones a local repotemplates checkout or a fork instead of the GitHub repo
 (committed changes only).
 
 The basename of `<path>` becomes the project name (dashes map to underscores
@@ -79,7 +79,7 @@ overwrite" below.
 | `pyproject.toml` dev group (`ruff`, `pyrefly`, `pre-commit`) | merge | merge |
 | `pyproject.toml` dev group (`pytest`, `pytest-cov`), `[tool.pytest.ini_options]` (`addopts` uses bare `--cov`; drop a repo's `--cov=<pkg>` since `run.source` names it), `[tool.coverage.*]` (set `run.source` to the repo's package) | merge | only if `tests/` exists |
 | `pyproject.toml` `[build-system]`, sdist `only-include`, `[project.urls]`, `[project.scripts]` | merge | skip |
-| `pyproject.toml` `[tool.proj-template]` `version` | stamp the release being applied (see note) | same |
+| `pyproject.toml` `[tool.repotemplates]` `version` (formerly `[tool.proj-template]`) | stamp the release being applied; rename an old `[tool.proj-template]` table (see notes) | same |
 | `.pre-commit-config.yaml` | sync hooks (keep extra local hooks) | sync hooks (keep extra local hooks) |
 | `.gitattributes` | merge entries (`.planners/README.md merge=union`) | merge entries |
 | `.python-version` | sync | sync unless repo pins older deliberately |
@@ -130,7 +130,7 @@ Notes:
   **keep** the repo's file as-is. Show the specific conflicting lines in the
   question so the choice is informed, and record each answer in the PR body
   with the reason, so the next upgrade doesn't re-litigate it.
-- **The `[tool.proj-template]` stamp is exempt from the question above, and is
+- **The `[tool.repotemplates]` stamp is exempt from the question above, and is
   written last.** It records which template release the repo carries, so it is
   never a merge and never a customization to preserve: overwrite whatever
   version is there, and add the table (after `[project.scripts]`) when a repo
@@ -140,10 +140,18 @@ Notes:
   template, stamp the older release the repo still matches, or leave the stamp
   untouched and say so in the report. A stamp that overstates is worse than an
   absent one, since it makes the next upgrade skip the repo. The template ships
-  the literal `TEMPLATE_VERSION` placeholder there (`proj-init.sh` substitutes
+  the literal `TEMPLATE_VERSION` placeholder there (`init.sh` substitutes
   it at scaffold time), so never copy that string into a target — resolve it to
   the release being applied, and treat a `TEMPLATE_VERSION` or `unknown` value
   found in a repo as "never stamped".
+- **A `[tool.proj-template]` table is the old name of the stamp.** Releases
+  before 0.12.0, when the repo was named proj-template, wrote the stamp there.
+  Read the repo's current version from it as you would from the new table. Then,
+  at the start of the upgrade, rename the header to `[tool.repotemplates]` and
+  its comment line to the template's, keeping the old `version` value. The
+  stamp-last rule above still decides whether and when that value moves. Never
+  leave both tables in a repo, and never add `[tool.proj-template]` to one that
+  lacks it.
 - **Claude settings are never a silent copy.** The template's
   `.claude/settings.json` carries only the `Stop` hook; the permission baseline
   lives in each user's global `~/.claude/settings.json`, not in the template.
@@ -257,7 +265,7 @@ Notes:
   tree they will merge into. A repo upgraded from an older template revision will
   not have the key; add it per ecosystem — but only once the repo actually has a
   `dev` branch (`git rev-parse --verify origin/dev`). A scaffolded repo always
-  does, since `proj-init.sh` creates and pushes `dev`; an older or non-template
+  does, since `init.sh` creates and pushes `dev`; an older or non-template
   repo may not, and pointing Dependabot at a missing branch stops its updates.
   Two follow-ons: `dependabot.yml` is read from the **default** branch, so this
   edit is inert until it reaches `main`; and with `target-branch` set, that

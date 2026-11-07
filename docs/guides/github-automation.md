@@ -6,10 +6,10 @@ packaging. This guide is the canonical reference for what ships and why; the con
 point back here.
 
 > **The back-links are absolute GitHub URLs on purpose.** `docs/` lives at the root of
-> proj-template, not inside `template/`, so a scaffolded repo receives the config files but
+> repotemplates, not inside `template/`, so a scaffolded repo receives the config files but
 > no local copy of this guide — a relative link would dangle everywhere it actually gets
 > read. `dependabot.yml` carries the URL in a header comment and `renovate.json` in its
-> `description` field, both pinned to `main` on `gitronald/proj-template`. The consequence
+> `description` field, both pinned to `main` on `gitronald/repotemplates`. The consequence
 > for editors: keep the config comments thin — a pointer plus anything that bites at edit
 > time — and put the rationale here, where it can be revised once instead of in every
 > derived repo. If this guide is ever moved or renamed, grep `template/.github/` for the
@@ -36,14 +36,14 @@ for the full setup — the PyPI publisher, the `pypi` environment, and the `PUBL
 
 ## Dependency updates — Dependabot or Renovate
 
-Dependency-update automation is a **choice made when scaffolding** (`proj-init.sh --deps`):
+Dependency-update automation is a **choice made when scaffolding** (`init.sh --deps`):
 
 - **`dependabot` (default)** — GitHub-native, zero setup. Ships `.github/dependabot.yml`.
 - **`renovate` (opt-in)** — self-hosted Renovate with stronger supply-chain hardening, but it
   needs a one-time GitHub App + per-repo secrets before it runs. Ships `.github/renovate.json`
   and `.github/workflows/renovate.yml`.
 
-`proj-init.sh` keeps only the chosen tool's files and removes the other, so a scaffolded repo runs
+`init.sh` keeps only the chosen tool's files and removes the other, so a scaffolded repo runs
 exactly one updater. This section is the decision record for both; the shipped config files point
 back here.
 
