@@ -1,16 +1,16 @@
 ---
-name: test-proj-init
-description: End-to-end test of scripts/proj-init.sh — scaffold a dash-named project, verify placeholder substitution, build, CLI, tests, and GitHub repo state, then report. Use whenever the user wants to test proj-init or the scaffold ("test the template", "rerun the proj-init test", "does the scaffold still work?"), after any change to scripts/proj-init.sh or template/ files, or before releasing proj-template. Also covers the cheap local-only placeholder check that creates no GitHub repo.
+name: test-init
+description: End-to-end test of scripts/init.sh — scaffold a dash-named project, verify placeholder substitution, build, CLI, tests, and GitHub repo state, then report. Use whenever the user wants to test init.sh (formerly proj-init.sh) or the scaffold ("test the template", "rerun the init test", "test proj-init", "does the scaffold still work?"), after any change to scripts/init.sh or template/ files, or before releasing repotemplates. Also covers the cheap local-only placeholder check that creates no GitHub repo.
 ---
 
-# Test proj-init
+# Test init.sh
 
-Verifies `scripts/proj-init.sh` actually scaffolds a working project. Start with the
+Verifies `scripts/init.sh` actually scaffolds a working project. Start with the
 automated suite, which CI also runs on Linux and macOS:
 
 ```bash
 /bin/bash tests/portability.test.sh   # banned GNU-isms / bash 4 syntax
-/bin/bash tests/proj-init.test.sh     # real script, --source this checkout, gh/uv/stanza stubbed
+/bin/bash tests/init.test.sh     # real script, --source this checkout, gh/uv/stanza stubbed
 ```
 
 It covers placeholders (bare spellings included), renames, `CLAUDE_PROJECT_DIR`,
@@ -23,7 +23,7 @@ does not prove the scaffold *builds*. The two modes below do:
   initial commit, `stanza init` (creates a real **private** GitHub repo), and branch
   pushes. Use after script changes and before releases.
 
-Default to **full** when the user says "test proj-init" without qualification, and say
+Default to **full** when the user says "test init.sh" (or the older "test proj-init") without qualification, and say
 up front that a private repo will be created (default name: `template-test`).
 
 ## Why a dashed test name
@@ -41,7 +41,7 @@ regresses, so it proves much less.
   clones GitHub, so pass `--branch dev` to test dev and push first
   (`git log origin/<branch>..<branch>` is empty). With `--source <this checkout>` it
   clones the local repo instead, which picks up unpushed commits — but uncommitted
-  edits are invisible either way; commit them first (`tests/proj-init.test.sh`
+  edits are invisible either way; commit them first (`tests/init.test.sh`
   refuses to run until you do). Without `--branch`, a local `--source` is cloned at
   whatever branch it has checked out.
 - Full mode: the target repo name must be free — `gh repo view <owner>/template-test`
@@ -62,23 +62,23 @@ Full mode:
 
 ```bash
 mkdir -p <scratchpad>/runN && cd <scratchpad>/runN
-bash <repo>/scripts/proj-init.sh --branch dev template-test
+bash <repo>/scripts/init.sh --branch dev template-test
 ```
 
 Local mode: the full script still ends in `stanza init` and a push, so run it with the
-stubs from `tests/proj-init.test.sh` on `PATH` but without the `uv` stub (copy the
+stubs from `tests/init.test.sh` on `PATH` but without the `uv` stub (copy the
 `gh`, `stanza`, and `planners` stubs and their env), then in the result run
 `uv sync --all-groups`, `uv run template-test`, `uv run pytest`:
 
 ```bash
-bash <repo>/scripts/proj-init.sh --source <repo> --deps dependabot template-test
+bash <repo>/scripts/init.sh --source <repo> --deps dependabot template-test
 ```
 
 Running the real script — not a replay of its lines — keeps the test honest when the
 script changes.
 
 Also exercise the validation path once:
-`bash scripts/proj-init.sh <scratchpad>/Bad.Name` must print an `Error:` line and exit 1
+`bash scripts/init.sh <scratchpad>/Bad.Name` must print an `Error:` line and exit 1
 before creating anything.
 
 ## Verify

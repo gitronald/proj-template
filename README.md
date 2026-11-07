@@ -1,4 +1,4 @@
-# proj-template
+# repotemplates
 
 Python project template with uv, ruff, pyrefly, pytest, pre-commit, GitHub Actions CI, and stanza release automation.
 
@@ -21,21 +21,21 @@ pytest, and pre-commit — comes from its own dev dependency group.
 Download and run the scaffold script to create a new project:
 
 ```bash
-curl -s https://raw.githubusercontent.com/gitronald/proj-template/main/scripts/proj-init.sh | bash -s <path>
+curl -s https://raw.githubusercontent.com/gitronald/repotemplates/main/scripts/init.sh | bash -s <path>
 ```
 
 Or add an alias to your `.bashrc` or `.zshrc`:
 
 ```bash
-alias proj-init='curl -s https://raw.githubusercontent.com/gitronald/proj-template/main/scripts/proj-init.sh | bash -s'
+alias repo-init='curl -s https://raw.githubusercontent.com/gitronald/repotemplates/main/scripts/init.sh | bash -s'
 ```
 
 Then create a new project:
 
 ```bash
-proj-init ~/repos/myproject
-proj-init --license apache-2.0 ~/repos/myproject
-proj-init --source ~/repos/proj-template ~/repos/myproject   # scaffold from a local checkout or fork
+repo-init ~/repos/myproject
+repo-init --license apache-2.0 ~/repos/myproject
+repo-init --source ~/repos/repotemplates ~/repos/myproject   # scaffold from a local checkout or fork
 ```
 
 `--source` still clones, so it scaffolds the source's committed tree: unpushed
@@ -48,7 +48,7 @@ The script targets bash 3.2+, so it runs on stock macOS as well as Linux.
 ## What it does
 
 1. Clones the template repo and replaces placeholders: `PROJECT__NAME` becomes your project name, and `MODULE__NAME` becomes its Python module name (dashes become underscores)
-2. Stamps the template release it used into `[tool.proj-template]` in the new repo's `pyproject.toml`, so you can later tell which template version a repo carries (see [Template version stamp](#template-version-stamp))
+2. Stamps the template release it used into `[tool.repotemplates]` in the new repo's `pyproject.toml`, so you can later tell which template version a repo carries (see [Template version stamp](#template-version-stamp))
 3. Fetches a LICENSE file from GitHub's API (default: MIT)
 4. Initializes a git repo on a `dev` branch
 5. Installs dependencies with `uv sync`
@@ -60,7 +60,7 @@ The script targets bash 3.2+, so it runs on stock macOS as well as Linux.
 Every scaffolded repo records the template release it came from:
 
 ```toml
-[tool.proj-template]
+[tool.repotemplates]
 version = "0.9.0"   # whichever release scaffolded it, not a version to match
 ```
 
@@ -74,13 +74,19 @@ The table is inert to anyone installing your package: build backends translate
 only `[project]`, so it never reaches the wheel or the PyPI metadata. It does
 appear in the sdist, which carries `pyproject.toml` unconditionally.
 
+Before the rename to `repotemplates` (0.12.0), the table was
+`[tool.proj-template]`, with the same `version` key. A repo not yet upgraded past
+that release still carries the old table, and the next `install-template` upgrade
+renames it. Tools that read the stamp should accept both, preferring
+`[tool.repotemplates]`.
+
 To audit drift across repos:
 
 ```bash
-grep -A1 '\[tool.proj-template\]' ~/repos/*/pyproject.toml
+grep -A1 -e '\[tool.repotemplates\]' -e '\[tool.proj-template\]' ~/repos/*/pyproject.toml
 ```
 
-## Developing proj-template
+## Developing repotemplates
 
 Working on the template itself needs only `uv` and `planners`. The root
 `pyproject.toml` is tooling only; its dev group supplies `pre-commit` and
@@ -96,7 +102,7 @@ scaffolds from the checkout's HEAD, so commit first:
 
 ```bash
 /bin/bash tests/portability.test.sh
-/bin/bash tests/proj-init.test.sh
+/bin/bash tests/init.test.sh
 git ls-files -co --exclude-standard -- '*.sh' | xargs uv run shellcheck
 ```
 
