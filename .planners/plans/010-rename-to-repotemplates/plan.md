@@ -165,11 +165,11 @@ State on 2026-11-06:
 - **GitHub:** renamed to `repotemplates`, and `origin` in the local clone points
   at the new URL. The old URL redirects. Never create a new `proj-template` repo
   under the same account, because that breaks the redirect.
-- **Local clone directory:** still named `proj-template`. Rename it outside a
-  session that runs inside it, run `git worktree repair` afterwards (this plan's
-  worktree records the old path), and rename the workspace's registry row for
-  the clone at the same time. Tooling that finds the clone by its directory name
-  breaks until that tooling is updated.
+- **Local clone directory:** renamed to `repotemplates`. The worktree link,
+  both venvs, and the git hooks are repaired (see Log). Not done here: the
+  workspace's registry row for the clone, which lives outside this repo. Tooling
+  that finds the clone by its directory name breaks until that row and that
+  tooling are updated.
 
 Open questions:
 
@@ -184,8 +184,8 @@ Remaining order:
 1. Review and merge PR #58, then cut the minor release with stanza (expected
    0.12.0; the README and the install-template skill name that version). Waits
    on the owner.
-2. Rename the local clone directory and the registry row (above). Waits on the
-   owner.
+2. Rename the workspace's registry row for the clone (the directory is
+   renamed). Waits on the owner, outside this repo.
 3. Update the stamp readers and the clone-name lookups in other repos, before the
    fleet's next template upgrade pass. Tracked outside this repo.
 4. The fleet moves to the new table in that pass.
