@@ -134,3 +134,7 @@ kinds:
    `--template` flag, so it may land there instead.
 3. How long does the old-table fallback stay: until the fleet has moved, or for
    a fixed number of releases?
+
+## Log
+
+- **2026-11-06T21:04:34-08:00** — Name confirmed by the owner: repotemplates (plural), as the Decision section proposes.
