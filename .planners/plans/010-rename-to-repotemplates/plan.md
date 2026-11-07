@@ -152,6 +152,8 @@ kinds:
 - **2026-11-06T21:24:10-08:00** — PR opened: https://github.com/gitronald/repotemplates/pull/58
 - **2026-11-06T21:24:24-08:00** — Implemented: 6 commits ahead of `dev`.
 - **2026-11-06T21:30:09-08:00** — Local clone directory renamed to repotemplates by the owner. Repaired the plan worktree's link with git worktree repair, rebuilt the root and worktree venvs with uv venv --clear and uv sync (both held the old path in their shebangs), and reinstalled the pre-commit and post-merge hooks from the main checkout, since their INSTALL_PYTHON pointed at the old venv and they had stopped running. planners install --check reports both hooks active.
+- **2026-11-06T21:33:22-08:00** — Review gate run at medium on PR #58; CI green on shellcheck and the Linux and macOS test jobs.
+  - Review follow-up: 13 candidates from two finders. Actioned: one TEMPLATE_CLONE variable for the clone path in scripts/init.sh, a reworded clone-check comment, and a realigned comment column in the test-init skill; the existing init test covers the clone path through the VERSION stamp check. Conscious no-ops: 0.12.0 named before release (a minor bump from 0.11.x), the rename guidance repeated for different readers in CHANGELOG, README, and the skill, the legacy proj-init trigger phrases kept in the test-init description, and the init.sh --version prefix change (no consumer found). Portability test, init test, and shellcheck pass after the fix.
 
 ## Handoff
 
