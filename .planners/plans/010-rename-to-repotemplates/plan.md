@@ -144,3 +144,8 @@ kinds:
   - Worktree: `.worktrees/010-rename-to-repotemplates`
   - PR: pending
 - **2026-11-06T21:19:40-08:00** — PR opened: https://github.com/gitronald/proj-template/pull/58
+- **2026-11-06T21:20:29-08:00** — Owner decisions on the order and open question 2.
+    - Order: this repo's rename lands first. The update to the stamp readers in other repos follows it, tracked in the workspace's own planning outside this repo, and has to ship before the fleet's next template upgrade pass. That pass is the first time a generated repo carries `[tool.repotemplates]`, because the install-template migration renames the table only during an upgrade.
+    - The GitHub rename (order step 3) happens in this session, before the merge. The redirect keeps the old URL working in the meantime.
+    - Question 2 answered: rename now. `scripts/proj-init.sh` is now `scripts/init.sh`, `tests/proj-init.test.sh` is `tests/init.test.sh`, and the `test-proj-init` skill is `test-init`. The README alias is `repo-init`.
+    - Checks on caa3011 and 12b89ef: `tests/portability.test.sh` passed, `tests/init.test.sh` passed (including `[tool.repotemplates] stamped with VERSION 0.11.8a0`), and shellcheck over every tracked `.sh` was clean.
