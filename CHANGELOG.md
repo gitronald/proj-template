@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The repo is renamed from `proj-template` to `repotemplates`, which fits the several
+  templates it is growing to hold. GitHub redirects the old URL for clones, fetches, and web
+  links. The template's Dependabot and Renovate comments link the guides at the new URL.
+- Scaffolded repos record the template release in `[tool.repotemplates]` instead of
+  `[tool.proj-template]`; the `version` key is unchanged. The install-template skill renames
+  an old `[tool.proj-template]` table during an upgrade, so a repo never carries both. Tools
+  that read the stamp should accept either table until the fleet has moved.
+- The scaffold script is renamed from `scripts/proj-init.sh` to `scripts/init.sh`, its test
+  from `tests/proj-init.test.sh` to `tests/init.test.sh`, and the `test-proj-init` skill to
+  `test-init`. The README's suggested alias is now `repo-init`. An alias or bookmark that
+  fetches `scripts/proj-init.sh` from `main` stops working once this release merges: point it
+  at `https://raw.githubusercontent.com/gitronald/repotemplates/main/scripts/init.sh`.
+
 ## [0.11.7] - 2026-10-21
 
 ### Changed
