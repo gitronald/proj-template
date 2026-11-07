@@ -150,3 +150,40 @@ kinds:
     - Question 2 answered: rename now. `scripts/proj-init.sh` is now `scripts/init.sh`, `tests/proj-init.test.sh` is `tests/init.test.sh`, and the `test-proj-init` skill is `test-init`. The README alias is `repo-init`.
     - Checks on caa3011 and 12b89ef: `tests/portability.test.sh` passed, `tests/init.test.sh` passed (including `[tool.repotemplates] stamped with VERSION 0.11.8a0`), and shellcheck over every tracked `.sh` was clean.
 - **2026-11-06T21:24:10-08:00** — PR opened: https://github.com/gitronald/repotemplates/pull/58
+
+## Handoff
+
+State on 2026-11-06:
+
+- **In this repo (PR #58):** done and pushed. Every reference is renamed, the
+  stamp is `[tool.repotemplates]`, the install-template skill renames an old
+  `[tool.proj-template]` table during an upgrade, the scaffold script, its test,
+  and the test skill are renamed (question 2), and there is an `[Unreleased]`
+  changelog entry. The shell suite and shellcheck passed (see Log).
+- **GitHub:** renamed to `repotemplates`, and `origin` in the local clone points
+  at the new URL. The old URL redirects. Never create a new `proj-template` repo
+  under the same account, because that breaks the redirect.
+- **Local clone directory:** still named `proj-template`. Rename it outside a
+  session that runs inside it, run `git worktree repair` afterwards (this plan's
+  worktree records the old path), and rename the workspace's registry row for
+  the clone at the same time. Tooling that finds the clone by its directory name
+  breaks until that tooling is updated.
+
+Open questions:
+
+1. PyPI claim: still open.
+2. Rename the scaffold script and test skill: **answered 2026-11-06**, renamed in
+   this plan.
+3. How long the old-table fallback stays: still open. It belongs with the reader
+   update, outside this repo.
+
+Remaining order:
+
+1. Review and merge PR #58, then cut the minor release with stanza (expected
+   0.12.0; the README and the install-template skill name that version). Waits
+   on the owner.
+2. Rename the local clone directory and the registry row (above). Waits on the
+   owner.
+3. Update the stamp readers and the clone-name lookups in other repos, before the
+   fleet's next template upgrade pass. Tracked outside this repo.
+4. The fleet moves to the new table in that pass.
