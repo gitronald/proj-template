@@ -1,10 +1,10 @@
 ---
 id: 10
 slug: rename-to-repotemplates
-status: implemented
+status: done
 branch: feature/010-rename-to-repotemplates
 created: 2026-11-06T20:59:46-08:00
-concluded:
+concluded: 2026-11-06T21:32:57-08:00
 pr: https://github.com/gitronald/repotemplates/pull/58
 ---
 
@@ -159,11 +159,12 @@ kinds:
 
 State on 2026-11-06:
 
-- **In this repo (PR #58):** done and pushed. Every reference is renamed, the
-  stamp is `[tool.repotemplates]`, the install-template skill renames an old
-  `[tool.proj-template]` table during an upgrade, the scaffold script, its test,
-  and the test skill are renamed (question 2), and there is an `[Unreleased]`
-  changelog entry. The shell suite and shellcheck passed (see Log).
+- **In this repo (PR #58):** reviewed and merged into `dev` when this plan closed.
+  Every reference is renamed, the stamp is `[tool.repotemplates]`, the
+  install-template skill renames an old `[tool.proj-template]` table during an
+  upgrade, the scaffold script, its test, and the test skill are renamed
+  (question 2), and there is an `[Unreleased]` changelog entry. The shell suite
+  and shellcheck passed after the review fixes (see Log).
 - **GitHub:** renamed to `repotemplates`, and `origin` in the local clone points
   at the new URL. The old URL redirects. Never create a new `proj-template` repo
   under the same account, because that breaks the redirect.
@@ -175,19 +176,37 @@ State on 2026-11-06:
 
 Open questions:
 
-1. PyPI claim: still open.
+1. PyPI claim: **handed to plan 011** (2026-11-06), which may add the small
+   `uvx repotemplates init` CLI whose upload would claim the name. Not verified:
+   that PyPI accepts `repotemplates`; only the first upload settles it.
 2. Rename the scaffold script and test skill: **answered 2026-11-06**, renamed in
    this plan.
-3. How long the old-table fallback stays: still open. It belongs with the reader
-   update, outside this repo.
+3. How long the old-table fallback stays: **handed to the stamp-reader update**
+   (2026-11-06), tracked in the workspace's planning outside this repo.
 
 Remaining order:
 
-1. Review and merge PR #58, then cut the minor release with stanza (expected
-   0.12.0; the README and the install-template skill name that version). Waits
-   on the owner.
+1. Cut the minor release with stanza (expected 0.12.0; the README and the
+   install-template skill name that version). Waits on the owner.
 2. Rename the workspace's registry row for the clone (the directory is
    renamed). Waits on the owner, outside this repo.
 3. Update the stamp readers and the clone-name lookups in other repos, before the
    fleet's next template upgrade pass. Tracked outside this repo.
 4. The fleet moves to the new table in that pass.
+
+## Retrospective
+
+- The rename went as planned in this repo, with one change of scope: open question 2
+  was answered "now", so the scaffold script, its test, and the test skill were
+  renamed here instead of waiting for plan 011.
+- The order moved: the original plan had the stamp readers ship first, but the owner
+  put this repo first, because a generated repo only carries the new table after an
+  upgrade pass. That keeps the reader update off the critical path for this merge.
+- Renaming the local clone directory broke more than the remote URL: the worktree
+  link, both venvs (their shebangs held the old path), and the git hooks (their
+  `INSTALL_PYTHON` pointed at the old venv, so they stopped running without a
+  warning). A rename checklist should include all four.
+- A search-and-replace rename leaves the old name's grammar behind ("a
+  repotemplates this script can fill in"), and a path repeated five times got five
+  edits instead of one variable. The review caught both, and it is worth reading
+  the replaced lines as prose, not only grepping for leftovers.
