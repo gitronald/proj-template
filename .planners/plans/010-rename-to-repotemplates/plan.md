@@ -5,7 +5,7 @@ status: active
 branch: feature/010-rename-to-repotemplates
 created: 2026-11-06T20:59:46-08:00
 concluded:
-pr: https://github.com/gitronald/proj-template/pull/58
+pr: https://github.com/gitronald/repotemplates/pull/58
 ---
 
 # Rename the repo to repotemplates
@@ -149,3 +149,4 @@ kinds:
     - The GitHub rename (order step 3) happens in this session, before the merge. The redirect keeps the old URL working in the meantime.
     - Question 2 answered: rename now. `scripts/proj-init.sh` is now `scripts/init.sh`, `tests/proj-init.test.sh` is `tests/init.test.sh`, and the `test-proj-init` skill is `test-init`. The README alias is `repo-init`.
     - Checks on caa3011 and 12b89ef: `tests/portability.test.sh` passed, `tests/init.test.sh` passed (including `[tool.repotemplates] stamped with VERSION 0.11.8a0`), and shellcheck over every tracked `.sh` was clean.
+- **2026-11-06T21:24:10-08:00** — PR opened: https://github.com/gitronald/repotemplates/pull/58
