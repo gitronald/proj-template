@@ -187,18 +187,19 @@ echo "Scaffolding ${NAME} at ${DEST}"
 
 # Clone template to a temp directory
 TEMPLATE_TMP=$(mktemp -d)
+TEMPLATE_CLONE="$TEMPLATE_TMP/repotemplates"
 trap 'rm -rf "$TEMPLATE_TMP"' EXIT
 # "--" keeps a --source value starting with "-" from being read as a git option.
 if [ -n "$BRANCH" ]; then
-    git clone --quiet --no-local --depth 1 --branch "$BRANCH" -- "$CLONE_URL" "$TEMPLATE_TMP/repotemplates"
+    git clone --quiet --no-local --depth 1 --branch "$BRANCH" -- "$CLONE_URL" "$TEMPLATE_CLONE"
 else
-    git clone --quiet --no-local --depth 1 -- "$CLONE_URL" "$TEMPLATE_TMP/repotemplates"
+    git clone --quiet --no-local --depth 1 -- "$CLONE_URL" "$TEMPLATE_CLONE"
 fi
-TEMPLATE_DIR="$TEMPLATE_TMP/repotemplates/template"
+TEMPLATE_DIR="$TEMPLATE_CLONE/template"
 
-# Check the clone is a repotemplates this script can fill in before creating
-# anything. A --source that is not one, a remote whose HEAD names a missing
-# branch (git clones it "empty" and exits 0), or a release that predates the
+# Check the clone is a repotemplates checkout this script can fill in before
+# creating anything. A --source that is not one, a remote whose HEAD names a
+# missing branch (git clones it "empty" and exits 0), or a release that predates the
 # MODULE__NAME placeholders would otherwise fail late, in rsync or uv sync, and
 # leave a half-built DEST that blocks every re-run.
 if [ ! -d "$TEMPLATE_DIR/MODULE__NAME" ]; then
@@ -208,7 +209,7 @@ if [ ! -d "$TEMPLATE_DIR/MODULE__NAME" ]; then
 fi
 # Without --branch the clone takes the source's HEAD, which for a local checkout
 # is whatever it has checked out, so say which commit this scaffold comes from.
-echo "Template: ${CLONE_URL} at $(git -C "$TEMPLATE_TMP/repotemplates" rev-parse HEAD)"
+echo "Template: ${CLONE_URL} at $(git -C "$TEMPLATE_CLONE" rev-parse HEAD)"
 
 # Fails if DEST already exists (atomic guard)
 mkdir "$DEST"
@@ -260,7 +261,7 @@ done <<< "$placeholder_files"
 # from the clone, not $VERSION_FILE: the clone reflects --branch, which can
 # differ from the local checkout's VERSION, and is the only copy present when
 # this script runs from outside a clone.
-TEMPLATE_VERSION="$(cat "$TEMPLATE_TMP/repotemplates/VERSION" 2>/dev/null || true)"
+TEMPLATE_VERSION="$(cat "$TEMPLATE_CLONE/VERSION" 2>/dev/null || true)"
 if [ -z "$TEMPLATE_VERSION" ]; then
     echo "Warning: template VERSION not found; stamping as 'unknown'"
     TEMPLATE_VERSION="unknown"

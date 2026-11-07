@@ -10,7 +10,7 @@ automated suite, which CI also runs on Linux and macOS:
 
 ```bash
 /bin/bash tests/portability.test.sh   # banned GNU-isms / bash 4 syntax
-/bin/bash tests/init.test.sh     # real script, --source this checkout, gh/uv/stanza stubbed
+/bin/bash tests/init.test.sh          # real script, --source this checkout, gh/uv/stanza stubbed
 ```
 
 It covers placeholders (bare spellings included), renames, `CLAUDE_PROJECT_DIR`,
