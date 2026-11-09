@@ -1,8 +1,8 @@
 ---
 id: 12
 slug: uv-tool-cli
-status: draft
-branch:
+status: active
+branch: feature/012-uv-tool-cli
 created: 2026-11-09T15:21:39-08:00
 concluded:
 pr:
@@ -136,3 +136,11 @@ Steps a to d are the first deliverable. Step e can follow in a later release.
 - Changing what the template ships. This plan only makes it checkable.
 - Running upgrades across many repos. A fleet pass uses `check` but lives with
   whoever runs the fleet.
+
+## Log
+
+- **2026-11-09T15:25:30-08:00** — Activated.
+  - Branch: `feature/012-uv-tool-cli`
+  - Base: `dev` at `d0da62c`
+  - Worktree: `.worktrees/012-uv-tool-cli`
+  - PR: pending
