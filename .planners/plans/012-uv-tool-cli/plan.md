@@ -1,7 +1,7 @@
 ---
 id: 12
 slug: uv-tool-cli
-status: active
+status: implemented
 branch: feature/012-uv-tool-cli
 created: 2026-11-09T15:21:39-08:00
 concluded:
@@ -154,6 +154,7 @@ Steps a to d are the first deliverable. Step e can follow in a later release.
   - The wheel takes `template/` through hatchling `force-include`, which bypasses VCS ignores, so `.claude/` ships. CI checks that the wheel's template is exactly the tracked files.
   - Checks at 43c6349: ruff check and format, pyrefly (strict), and pytest (37 passed) on Python 3.14 and 3.11. Also the shell suite (portability, init behavioral, shellcheck), the wheel-content diff, and `uv tool install .` into a scratch tool dir, with the installed binary run against a real repo.
   - Trial run with `--repos-dir` over a local repos directory: 27 stamped clones in 0.3 s, all stamped 0.11.7 (behind 0.12.0). Four carry a one-off hook script or hook block, and the settings git state is split between tracked and ignored.
+- **2026-11-09T15:36:50-08:00** — Implemented: 8 commits ahead of `dev`.
 
 ## Handoff
 
