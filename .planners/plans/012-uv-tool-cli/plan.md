@@ -154,3 +154,32 @@ Steps a to d are the first deliverable. Step e can follow in a later release.
   - The wheel takes `template/` through hatchling `force-include`, which bypasses VCS ignores, so `.claude/` ships. CI checks that the wheel's template is exactly the tracked files.
   - Checks at 43c6349: ruff check and format, pyrefly (strict), and pytest (37 passed) on Python 3.14 and 3.11. Also the shell suite (portability, init behavioral, shellcheck), the wheel-content diff, and `uv tool install .` into a scratch tool dir, with the installed binary run against a real repo.
   - Trial run with `--repos-dir` over a local repos directory: 27 stamped clones in 0.3 s, all stamped 0.11.7 (behind 0.12.0). Four carry a one-off hook script or hook block, and the settings git state is split between tracked and ignored.
+
+## Handoff
+
+State (2026-11-09): steps a to d are committed and pushed on `feature/012-uv-tool-cli`
+(PR #60). Nothing is uncommitted.
+
+Open questions:
+
+1. `init`: port `scripts/init.sh` or call it? Open. Blocks step e only.
+2. Before or after plan 011? Answered 2026-11-09: this plan first (see Log).
+3. Distribution? Answered 2026-11-09: PyPI, via the gated `publish.yml`.
+4. `repotemplates upgrade` as a command? Open. Not needed for a to d.
+5. File classes beyond the Claude hooks? Open. Each needs its own comparison
+   rule and an `absent by design` case (e.g. `renovate.yml` under Dependabot).
+
+Not verified:
+
+- The new `python` CI job and `publish.yml` have not run on GitHub until this PR's
+  checks do. The publish job cannot run until the owner sets up PyPI.
+
+Remaining, in order:
+
+1. The owner adds the PyPI pending publisher (project `repotemplates`, workflow
+   `publish.yml`, environment `pypi`), creates the `pypi` environment, and sets
+   `PUBLISH_ENABLED`. Waits on the owner.
+2. Step f's skill half: the `install-template` preflight reads
+   `repotemplates check --json`. Better after the first PyPI release, so the skill
+   can install the tool by name.
+3. Step e (`init`), after question 1 is answered.
