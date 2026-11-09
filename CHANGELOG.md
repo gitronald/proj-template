@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- A `repotemplates` command line, installable as a uv tool. `repotemplates check`
+  reports a repo's template stamp and how its Claude hook scripts and the hook
+  entries in `.claude/settings.json` compare with the template: current, an earlier
+  release by number, a one-off, or missing, plus whether each Claude settings file is
+  tracked, ignored, or untracked. `--repos-dir` checks every clone under a directory
+  as one table, `--json` and `--markdown` change the output, and the exit status is 0
+  when everything is current and 1 when anything differs. The package ships the
+  template and a manifest of every release's files, so it needs no clone.
+- A publish workflow for the package, off until the `PUBLISH_ENABLED` repository
+  variable is `true`.
+
 ## [0.12.0] - 2026-11-06
 
 ### Changed

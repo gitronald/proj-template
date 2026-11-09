@@ -53,22 +53,52 @@ machine-wide.
 
 ## Running uv in this repo
 
-The root `pyproject.toml` is **tooling only** — a `dev` dependency group
-(`pre-commit`, `shellcheck-py`) and no `[project]` table. repotemplates ships a
-scaffold and shell scripts, not a Python package of its own, so there is no
-Python test, lint, or type-check suite at the root, and the release version
-lives in `VERSION`, which is what stanza reads and bumps. Do not add a
-`[project]` table: it would need a `version`, giving the repo a second version
-source. The cost is that every `uv run` at the root prints `No requires-python
-value found in the workspace`; that warning is expected.
+The root `pyproject.toml` is the `repotemplates` package: the CLI under
+`src/repotemplates/` (`check`, `version`), with `template/` shipped inside the
+wheel as package data. The version is still `VERSION` alone: hatchling reads it
+(`[tool.hatch.version]`), and stanza bumps it, so there is no second version
+source. An editable install's metadata keeps the version from its last
+`uv sync`; `repotemplates version` in a checkout reads `VERSION` directly.
 
-With no `requires-python`, uv derives one from whichever interpreter it picks,
-and the lock records it. The root `.python-version` is what keeps that stable:
-without it a machine whose default Python differs resolves a different
-`requires-python` and `uv sync --locked` fails with "The lockfile needs to be
-updated". Change the pin and `uv.lock` together.
+Run the Python checks after changing `src/`, `tests/`, or `scripts/*.py`:
 
-The scaffolding scripts have a shell suite instead, which CI runs on Linux and
+```bash
+uv run ruff check . && uv run ruff format --check .
+uv run pyrefly check
+uv run pytest
+```
+
+The wheel takes `template/` through hatchling's `force-include`, which bypasses
+VCS ignores (it must: `template/.gitignore` ignores `.claude/`). It also ships
+any stray untracked file under `template/`, such as a `template/uv.lock` or
+`template/.venv`, so build releases from a clean tree; CI does, and checks that
+the wheel's template is exactly the tracked files.
+
+### Release manifest
+
+`src/repotemplates/data/manifest.json` records the digest of every
+template-owned file at every release tag, so `check` can name the release a
+consumer's copy matches. It lists the tags older than `VERSION`: an install
+fingerprints the template it ships at run time, so a release never needs an
+entry for itself, and `main`'s CI passes once the release is tagged.
+
+After each release, once stanza has pushed the tag, regenerate it on `dev` and
+commit:
+
+```bash
+git fetch --tags
+uv run python scripts/build_manifest.py
+```
+
+`tests/test_manifest.py` fails while the manifest lacks a tag older than
+`VERSION`, so after stanza's post-release bump a skipped
+regeneration turns `dev`'s CI red until it is done, and stanza will not bump a
+red `dev`.
+
+The root `.python-version` keeps the lock stable across machines whose default
+Python differs. Change the pin and `uv.lock` together.
+
+The scaffolding scripts have a shell suite, which CI runs on Linux and
 macOS alongside `shellcheck`. Run it after changing `scripts/` or `template/`:
 
 ```bash

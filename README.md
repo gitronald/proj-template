@@ -80,17 +80,53 @@ that release still carries the old table, and the next `install-template` upgrad
 renames it. Tools that read the stamp should accept both, preferring
 `[tool.repotemplates]`.
 
-To audit drift across repos:
+To audit drift across repos, use `repotemplates check` (below).
+
+## Checking a repo against the template
+
+The `repotemplates` command compares a repo with the template. It is read-only:
+it never edits a repo.
 
 ```bash
-grep -A1 -e '\[tool.repotemplates\]' -e '\[tool.proj-template\]' ~/repos/*/pyproject.toml
+uv tool install repotemplates            # or run it once: uvx repotemplates check
+repotemplates check                      # the repo in the current directory
+repotemplates check path/to/repo --json  # one JSON object, for scripts
+repotemplates check --repos-dir ~/repos  # every stamped clone, as one table
+repotemplates version
 ```
+
+Until it is on PyPI, install it from a release tag:
+`uv tool install git+https://github.com/gitronald/repotemplates@vX.Y.Z`.
+
+For each repo it reports:
+
+- **The stamp**: `latest`, `behind` or `ahead` of the newest release the tool
+  knows, `alpha`, `unknown`, or `missing`. Both `[tool.repotemplates]` and the
+  older `[tool.proj-template]` are read.
+- **Each template-owned file**: `current` (matches the template this release
+  ships), `matches vX.Y.Z` (an earlier release), `one-off` (matches no release),
+  `missing`, or `retired` (a file the template no longer ships, still present).
+  Claude hook scripts (`.claude/hooks/*.sh`) are compared by exact content, and
+  the `hooks` block of `.claude/settings.json` as normalized JSON, other keys
+  ignored.
+- **Git state of the Claude settings files**: tracked, ignored, untracked, or
+  absent. An ignored file never reaches a fresh clone or a cloud session; the
+  template ignores `.claude/` by default, so this is information, not drift.
+
+It exits 0 when the stamp is the latest and every file is current, 1 when
+anything differs, and 2 on a usage error. `--markdown` prints Markdown tables.
+With `--repos-dir`, `--json` prints an array, and `*-archive` repos and repos
+with no stamp are skipped unless `--include-archived` or `--all` is given.
+
+The tool carries the template and a manifest of every release's files, so it
+needs no clone and no network.
 
 ## Developing repotemplates
 
 Working on the template itself needs only `uv` and `planners`. The root
-`pyproject.toml` is tooling only; its dev group supplies `pre-commit` and
-`shellcheck`:
+`pyproject.toml` is the `repotemplates` CLI package (`src/repotemplates/`), and
+its dev group supplies `pre-commit`, `shellcheck`, `pytest`, `ruff`, and
+`pyrefly`:
 
 ```bash
 uv sync
@@ -105,6 +141,17 @@ scaffolds from the checkout's HEAD, so commit first:
 /bin/bash tests/init.test.sh
 git ls-files -co --exclude-standard -- '*.sh' | xargs uv run shellcheck
 ```
+
+Run the Python checks after changing the CLI:
+
+```bash
+uv run ruff check . && uv run ruff format --check .
+uv run pyrefly check
+uv run pytest
+```
+
+After each release, regenerate the release manifest on `dev` and commit it:
+`uv run python scripts/build_manifest.py`. CI fails until it lists the new tag.
 
 ## Future
 
