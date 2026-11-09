@@ -5,7 +5,7 @@ status: active
 branch: feature/012-uv-tool-cli
 created: 2026-11-09T15:21:39-08:00
 concluded:
-pr:
+pr: https://github.com/gitronald/repotemplates/pull/60
 ---
 
 # Package repotemplates as a uv tool for init and template checks
@@ -144,3 +144,4 @@ Steps a to d are the first deliverable. Step e can follow in a later release.
   - Base: `dev` at `d0da62c`
   - Worktree: `.worktrees/012-uv-tool-cli`
   - PR: pending
+- **2026-11-09T15:35:09-08:00** — PR opened: https://github.com/gitronald/repotemplates/pull/60
