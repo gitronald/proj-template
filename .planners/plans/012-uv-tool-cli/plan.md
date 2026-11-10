@@ -155,6 +155,10 @@ Steps a to d are the first deliverable. Step e can follow in a later release.
   - Checks at 43c6349: ruff check and format, pyrefly (strict), and pytest (37 passed) on Python 3.14 and 3.11. Also the shell suite (portability, init behavioral, shellcheck), the wheel-content diff, and `uv tool install .` into a scratch tool dir, with the installed binary run against a real repo.
   - Trial run with `--repos-dir` over a local repos directory: 27 stamped clones in 0.3 s, all stamped 0.11.7 (behind 0.12.0). Four carry a one-off hook script or hook block, and the settings git state is split between tracked and ignored.
 - **2026-11-09T15:36:50-08:00** — Implemented: 8 commits ahead of `dev`.
+- **2026-11-09T16:06:01-08:00** — Review gate: /code-review at medium on PR #60 (two sonnet finders, two sonnet verifiers); review not posted to the PR. CI green before the fixes.
+  - Review follow-up: four findings fixed in 8e47068, each with a regression test that fails on the old code: a non-table or version-less stamp table crashed `read_stamp` (now `unreadable`); an unreadable consumer file aborted a whole `--repos-dir` run (now `unreadable` for that file); a missing `git` binary crashed `check` (now `no git`); and an empty fleet exited 0 (now 1; README updated). Gate after the fixes: ruff check and format, pyrefly, pytest 41 passed.
+  - Conscious no-ops: per-file git forks and per-repo fingerprinting of the shipped template are real but immaterial at one hook script and about 30 repos; a non-repo directory nested in another repo reports the parent's git state, which is defensible. Rejected: an sdist-built wheel missing template/.claude (a `uv build` via the sdist ships all 22 tracked template files), and two test-helper duplicates that act as independent oracles. Dropped as by design: CRLF hook copies hash as one-off.
+  - Handed to plan 013: open questions 1, 4, and 5, step e (`init`), the skill half of step f, and the PyPI setup.
 
 ## Handoff
 
