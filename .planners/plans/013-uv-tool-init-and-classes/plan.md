@@ -162,6 +162,15 @@ Not verified at 012's close, and checked here:
   - A real `upgrade` (not a dry run) was run once against a local consumer clone to test the prerelease refusal. It refused, and `git status` in that clone showed nothing changed. All later runs used temp copies or `--dry-run`.
   - Fleet dry run (27 repos): 27 writes (25 `dependabot.yml` matching 0.11.7, plus one repo's Renovate pair), and 15 repos would end current. The skips are the judgment rows: 11 customized `test.yml`, 6 missing `publish.yml` (to go in `omit`), 3 customized hook entries, and a few one-offs.
   - b: the `install-template` preflight reads `{cli} check <path> --json`, and the sync matrix opens with `{cli} upgrade` and maps each skip reason to its row. The `publish.yml` app row adds "list it in `omit`", and the stamp note keeps `omit` across restamps. This used the installed tool rather than waiting on a, since the skill stub already requires it.
+- **2026-11-09T22:05:20-08:00** — Review gate (/code-review, medium) on PR #61: 8 findings verified, all fixed in 0d24df4 and 72bdf4e, each with a regression test. The review is posted on the PR.
+  - The ignore waiver now asks git (`ls-files --cached --ignored` with the rule and the template's later negations), so a tracked `.env.example` no longer waives `.env.*`, and `*.egg-info/` is waived at any depth.
+  - `upgrade` computes the stamped `pyproject.toml` in the plan. An unparseable one is a skip, not a traceback after other writes. `set_stamp` treats `[[array]]` headers as table boundaries.
+  - A comment after an action pin counts as its version only when it is one (`@v4 # keep` reads `v4`).
+  - `repotemplates init` refuses while the checkout's `template/` holds untracked files, which `--template-dir` would copy into the new repo.
+  - Cleanups: `manifest.file_path` replaces two copies, `check.RAISABLE_PINS` feeds `STALE_PINS` and upgrade, and `_ignore_report` reuses `git_state`'s answer.
+  - Conscious no-ops: no FileNotFoundError guard in `classes._git` (its only caller checks for git first), no batched `check-attr` (the template ships one attribute rule), and `Pin` and `GITATTRIBUTES` stay exported.
+  - Checked: ruff, ruff format, pyrefly (0 errors), pytest (95 passed), portability, `init.test.sh`, shellcheck, and `build_manifest.py --check`.
+  - Step a: the owner set up the PyPI pending publisher and set `PUBLISH_ENABLED=true`. GitHub creates the `pypi` environment on the first publish job, as it did for planners and pkgskills. The first publishing release, 0.13.0, follows this merge.
 
 ## Handoff
 
