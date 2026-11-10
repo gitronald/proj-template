@@ -2,7 +2,7 @@
 
 | # | Plan | Status | Concluded | PR |
 |---|---|---|---|---|
-| 013 | [Add init, upgrade, more file classes, and packaged skills to the repotemplates CLI](plans/013-uv-tool-init-and-classes/plan.md) | draft | — | — |
+| 013 | [Add init, upgrade, more file classes, and packaged skills to the repotemplates CLI](plans/013-uv-tool-init-and-classes/plan.md) | active | — | — |
 | 011 | [Ship multiple templates: python-package, bash, and python-workspace](plans/011-multiple-templates/plan.md) | draft | — | — |
 | 009 | [Offer CodeQL default setup on public repos](plans/009-codeql-default-setup/plan.md) | draft | — | — |
 | 012 | [Package repotemplates as a uv tool for init and template checks](plans/012-uv-tool-cli/plan.md) | done | 2026-11-09 16:05 PT | [#60](https://github.com/gitronald/repotemplates/pull/60) |

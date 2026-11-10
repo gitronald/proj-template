@@ -1,8 +1,8 @@
 ---
 id: 13
 slug: uv-tool-init-and-classes
-status: draft
-branch:
+status: active
+branch: feature/013-uv-tool-init-and-classes
 created: 2026-11-09T16:05:37-08:00
 concluded:
 pr:
@@ -130,6 +130,14 @@ Not verified at 012's close, and checked here:
 - Plan 011 (multiple templates). When it lands, it changes
   `paths.template_root()` and teaches `read_stamp` the stamp's `template` key;
   that work belongs to 011.
+
+## Log
+
+- **2026-11-09T18:36:16-08:00** — Activated.
+  - Branch: `feature/013-uv-tool-init-and-classes`
+  - Base: `dev` at `7b679da`
+  - Worktree: `.worktrees/013-uv-tool-init-and-classes`
+  - PR: pending
 
 ## Handoff
 
