@@ -1,11 +1,11 @@
 ---
 id: 12
 slug: uv-tool-cli
-status: active
+status: done
 branch: feature/012-uv-tool-cli
 created: 2026-11-09T15:21:39-08:00
-concluded:
-pr:
+concluded: 2026-11-09T16:05:26-08:00
+pr: https://github.com/gitronald/repotemplates/pull/60
 ---
 
 # Package repotemplates as a uv tool for init and template checks
@@ -144,3 +144,57 @@ Steps a to d are the first deliverable. Step e can follow in a later release.
   - Base: `dev` at `d0da62c`
   - Worktree: `.worktrees/012-uv-tool-cli`
   - PR: pending
+- **2026-11-09T15:35:09-08:00** — PR opened: https://github.com/gitronald/repotemplates/pull/60
+- **2026-11-09T15:35:32-08:00** — Steps a to d built and pushed; step e (init) and the skill half of step f are left for a later release, as the plan allows.
+  - Question 3 answered 2026-11-09: publish to PyPI, so `uv tool install repotemplates` and `uvx repotemplates` work. The name was free on 2026-11-09 (`pypi.org/pypi/repotemplates/json` and `repo-templates` both 404). `.github/workflows/publish.yml` is the template's gated workflow; it does nothing until the owner adds the PyPI pending publisher and sets `PUBLISH_ENABLED`.
+  - Question 2 answered 2026-11-09: this plan went first. The template's location is resolved in one function, `paths.template_root()`, so plan 011 changes that function and teaches `read_stamp` the stamp's `template` key.
+  - Deviation from step b: the manifest lists the release tags older than `VERSION`, and an install fingerprints the template it ships at run time. A release therefore never needs an entry for itself, which stanza's bump commit could not supply. The planned test that the manifest "covers the current template/" would fail whenever dev adds a file no release has shipped, so it became a freshness test: the committed manifest must equal one regenerated from the tags. It fails on dev after each release until `scripts/build_manifest.py` is rerun, and passes on main at the release itself. stanza 1.5.0 has no hook to run the script from, so that test is the wiring; CLAUDE.md and the README name the step.
+  - `current` means the file matches the template the install ships. `absent by design` is not implemented: neither of the first two file classes has an optional file. Git state of the Claude files is reported but does not count as drift, since `template/.gitignore` ignores `.claude/` by design.
+  - The CLI uses argparse and has no runtime dependencies. Single-repo `--json` prints an object, `--repos-dir --json` an array.
+  - The wheel takes `template/` through hatchling `force-include`, which bypasses VCS ignores, so `.claude/` ships. CI checks that the wheel's template is exactly the tracked files.
+  - Checks at 43c6349: ruff check and format, pyrefly (strict), and pytest (37 passed) on Python 3.14 and 3.11. Also the shell suite (portability, init behavioral, shellcheck), the wheel-content diff, and `uv tool install .` into a scratch tool dir, with the installed binary run against a real repo.
+  - Trial run with `--repos-dir` over a local repos directory: 27 stamped clones in 0.3 s, all stamped 0.11.7 (behind 0.12.0). Four carry a one-off hook script or hook block, and the settings git state is split between tracked and ignored.
+- **2026-11-09T15:36:50-08:00** — Implemented: 8 commits ahead of `dev`.
+- **2026-11-09T16:06:01-08:00** — Review gate: /code-review at medium on PR #60 (two sonnet finders, two sonnet verifiers); review not posted to the PR. CI green before the fixes.
+  - Review follow-up: four findings fixed in 8e47068, each with a regression test that fails on the old code: a non-table or version-less stamp table crashed `read_stamp` (now `unreadable`); an unreadable consumer file aborted a whole `--repos-dir` run (now `unreadable` for that file); a missing `git` binary crashed `check` (now `no git`); and an empty fleet exited 0 (now 1; README updated). Gate after the fixes: ruff check and format, pyrefly, pytest 41 passed.
+  - Conscious no-ops: per-file git forks and per-repo fingerprinting of the shipped template are real but immaterial at one hook script and about 30 repos; a non-repo directory nested in another repo reports the parent's git state, which is defensible. Rejected: an sdist-built wheel missing template/.claude (a `uv build` via the sdist ships all 22 tracked template files), and two test-helper duplicates that act as independent oracles. Dropped as by design: CRLF hook copies hash as one-off.
+  - Handed to plan 013: open questions 1, 4, and 5, step e (`init`), the skill half of step f, and the PyPI setup.
+
+## Handoff
+
+State (2026-11-09, at close): steps a to d, with the review fixes from the close,
+go in with the merge of PR #60. Nothing is uncommitted.
+
+Open questions:
+
+1. `init`: port `scripts/init.sh` or call it? Handed to plan 013 (2026-11-09).
+2. Before or after plan 011? Answered 2026-11-09: this plan first (see Log).
+3. Distribution? Answered 2026-11-09: PyPI, via the gated `publish.yml`.
+4. `repotemplates upgrade` as a command? Handed to plan 013 (2026-11-09).
+5. File classes beyond the Claude hooks? Handed to plan 013 (2026-11-09).
+
+Not verified:
+
+- `publish.yml` has not run on GitHub. It cannot until the owner sets up PyPI,
+  which is plan 013's step a. The `python` CI job has run, green on PR #60.
+
+Remaining: none in this plan. Step e (`init`), the skill half of step f, and the
+PyPI setup moved to plan 013.
+
+## Retrospective
+
+- Steps a to d shipped as planned. The one design change was the manifest: it
+  lists only tags older than `VERSION`, and the installed template is
+  fingerprinted at run time, so a release never needs an entry for itself. That
+  turned the planned coverage test into a freshness test, which doubles as the
+  release-step reminder stanza has no hook for.
+- Routing every template lookup through `paths.template_root()` made the
+  question of ordering against plan 011 cheap: 011 changes one function.
+- The review found only robustness gaps on malformed or unusual consumer repos
+  (non-table stamps, unreadable files, no git, an empty fleet). Fixture repos
+  built from plain strings made each a two-line regression test. Next time, add
+  a "hostile repo" fixture up front for any command that reads other people's
+  trees.
+- Checking the wheel's template against `git ls-files` in CI was worth it:
+  `force-include` bypasses VCS ignores, and the sdist route was the open risk
+  until it was probed at the close.
