@@ -114,7 +114,8 @@ For each repo it reports:
   template ignores `.claude/` by default, so this is information, not drift.
 
 It exits 0 when the stamp is the latest and every file is current, 1 when
-anything differs, and 2 on a usage error. `--markdown` prints Markdown tables.
+anything differs or `--repos-dir` finds no repo to check, and 2 on a usage
+error. `--markdown` prints Markdown tables.
 With `--repos-dir`, `--json` prints an array, and `*-archive` repos and repos
 with no stamp are skipped unless `--include-archived` or `--all` is given.
 

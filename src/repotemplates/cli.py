@@ -90,7 +90,8 @@ def _check(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             print(json.dumps([r.to_dict() for r in reports], indent=2))
         else:
             print(render_fleet(reports, markdown=args.markdown))
-        return 0 if all(r.current for r in reports) else 1
+        # An empty fleet is not a current one: exit 1, so a wrong path fails a script
+        return 0 if reports and all(r.current for r in reports) else 1
 
     report = check_repo(target, template, manifest, installed)
     if args.json:

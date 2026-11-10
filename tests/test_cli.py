@@ -89,3 +89,11 @@ def test_usage_errors_exit_2(
     with pytest.raises(SystemExit) as exc:
         main(argv)
     assert exc.value.code == 2
+
+
+def test_empty_fleet_exits_1(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "empty").mkdir()
+    assert main(["check", "--repos-dir", str(tmp_path / "empty")]) == 1
+    assert "no repos to check" in capsys.readouterr().out

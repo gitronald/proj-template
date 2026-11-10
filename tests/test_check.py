@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from pathlib import Path
 
+import pytest
 from conftest import HOOK, NEW_HOOKS, OLD_HOOK, OLD_HOOKS, RETIRED, RETIRED_HOOK, write
 
 from repotemplates.check import (
@@ -228,3 +230,46 @@ def test_hooks_value_shape_is_compared(
     changed = {"Stop": [*NEW_HOOKS["Stop"], {"matcher": "x"}]}
     files = by_path(run(make_repo("more-hooks", hooks=changed), template, manifest))
     assert files[SETTINGS_HOOKS].status == "one-off"
+
+
+def test_malformed_stamp_table(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    cases = {
+        "not-a-table": '[tool]\nrepotemplates = "0.2.0"\n',
+        "no-version": "[tool.repotemplates]\nother = 1\n",
+        "number-version": "[tool.proj-template]\nversion = 2\n",
+        "tool-not-a-table": 'tool = "x"\n',
+    }
+    for name, text in cases.items():
+        repo = make_repo(name, version=None)
+        write(repo, "pyproject.toml", text)
+        assert run(repo, template, manifest).stamp.status == "unreadable", name
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads a mode 000 file")
+def test_unreadable_hook_file(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = make_repo("locked")
+    (repo / HOOK).chmod(0)
+    try:
+        assert by_path(run(repo, template, manifest))[HOOK].status == "unreadable"
+        reports = check_fleet(repo.parent, template, manifest, "0.2.0")
+        assert [r.name for r in reports] == ["locked"]
+    finally:
+        (repo / HOOK).chmod(0o644)
+
+
+def test_git_not_on_path(
+    make_repo: MakeRepo,
+    template: Path,
+    manifest: Manifest,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    repo = make_repo("gitless")
+    monkeypatch.setenv("PATH", str(tmp_path / "empty-bin"))
+    report = run(repo, template, manifest)
+    assert report.settings[".claude/settings.json"] == "no git"
+    assert {f.git for f in report.files} == {"no git"}

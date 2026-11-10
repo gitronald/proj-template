@@ -95,15 +95,20 @@ def read_stamp(repo: Path, latest: str | None) -> StampReport:
         return StampReport(None, None, "missing", latest)
     try:
         data = tomllib.loads(pyproject.read_text())
-    except (tomllib.TOMLDecodeError, UnicodeDecodeError):
+    except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
         return StampReport(None, None, "unreadable", latest)
     tool = data.get("tool", {})
+    if not isinstance(tool, dict):
+        return StampReport(None, None, "unreadable", latest)
     for table in STAMP_TABLES:
-        value = tool.get(table, {}).get("version") if isinstance(tool, dict) else None
-        if isinstance(value, str):
-            return StampReport(
-                value, f"tool.{table}", _stamp_status(value, latest), latest
-            )
+        if table not in tool:
+            continue
+        # A stamp table with no string version is malformed, not missing
+        section = tool[table]
+        value = section.get("version") if isinstance(section, dict) else None
+        if not isinstance(value, str):
+            return StampReport(None, f"tool.{table}", "unreadable", latest)
+        return StampReport(value, f"tool.{table}", _stamp_status(value, latest), latest)
     return StampReport(None, None, "missing", latest)
 
 
@@ -120,7 +125,11 @@ def _stamp_status(value: str, latest: str | None) -> str:
 
 
 def _git(repo: Path, *args: str) -> int:
-    return subprocess.run(["git", *args], cwd=repo, capture_output=True).returncode
+    try:
+        return subprocess.run(["git", *args], cwd=repo, capture_output=True).returncode
+    except FileNotFoundError:
+        # No git on PATH: every query fails, so git_state reports "no git"
+        return 127
 
 
 def git_state(repo: Path, path: str) -> str:
@@ -146,7 +155,10 @@ def _file_path(key: str) -> str:
 
 def _repo_digest(repo: Path, key: str) -> tuple[str | None, bool]:
     """The repo's digest for ``key``, and whether the file could be read."""
-    raw = DirSource(repo).read(_file_path(key))
+    try:
+        raw = DirSource(repo).read(_file_path(key))
+    except OSError:
+        return None, False
     if raw is None:
         return None, True
     if key != SETTINGS_HOOKS:
