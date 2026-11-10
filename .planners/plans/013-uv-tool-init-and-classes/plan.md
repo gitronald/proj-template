@@ -145,6 +145,10 @@ Not verified at 012's close, and checked here:
   - `repotemplates path template|scripts` names the shipped directories. The wheel ships `scripts/init.sh` and `scripts/renovatabot-enroll.sh`, which step d needs too. CI checks the wheel carries both scripts and both skill bodies.
   - The bodies read `{cli} path template` and `{cli} path scripts`; the Renovate guide is linked by URL. Mode 1 of `install-template` still names `scripts/init.sh` until d lands.
   - Checked: ruff, pyrefly, and pytest (51 passed), plus a wheel built and run with `uv run --isolated --with <wheel>`, where `path scripts` resolved inside site-packages.
+- **2026-11-09T18:49:37-08:00** — Step d done (commits for `init.sh --template-dir` and `repotemplates init`). Question 1's answer stands: `init` calls the shipped bash script.
+  - `init.sh` gains `--template-dir <dir>`, which copies a plain template directory instead of cloning, and `--template-version <v>` (default: a `VERSION` file beside the directory). Neither combines with `--source` or `--branch`, and the script rejects a directory with no `MODULE__NAME/`.
+  - `repotemplates init <path> [--license] [--deps]` runs the shipped `init.sh` on the shipped template with `--template-version` set to the installed release. `install-template`'s Mode 1 now runs `{cli} init`; a checkout or fork still scaffolds through its own `scripts/init.sh --source`.
+  - Checked: the shell suite passes, including 11 new checks. One scaffold from a `git archive` of HEAD's `template/` matches the clone scaffold file for file once the project name is mapped (the stamp aside). The `same_tree` comparison was not mutation-tested. pytest (54 passed) covers the argv `init` builds. A wheel run of `repotemplates init`, with gh, uv, stanza, and planners stubbed, scaffolded a repo stamped with the wheel's version, with the Stop hook still executable.
 
 ## Handoff
 
