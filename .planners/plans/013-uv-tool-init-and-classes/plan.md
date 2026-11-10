@@ -1,11 +1,11 @@
 ---
 id: 13
 slug: uv-tool-init-and-classes
-status: active
+status: done
 branch: feature/013-uv-tool-init-and-classes
 created: 2026-11-09T16:05:37-08:00
-concluded:
-pr:
+concluded: 2026-11-09T22:04:45-08:00
+pr: https://github.com/gitronald/repotemplates/pull/61
 ---
 
 # Add init, upgrade, more file classes, and packaged skills to the repotemplates CLI
@@ -138,35 +138,87 @@ Not verified at 012's close, and checked here:
   - Base: `dev` at `7b679da`
   - Worktree: `.worktrees/013-uv-tool-init-and-classes`
   - PR: pending
+- **2026-11-09T18:41:25-08:00** — PR opened: https://github.com/gitronald/repotemplates/pull/61
+- **2026-11-09T18:41:34-08:00** — Step e done (commit 70f2f65). Question 6 answered: global by default, local too (`modes=("global", "local")`).
+  - The CLI is typer now; pkgskills mounts `skill` and `install`. typer and pkgskills are the runtime dependencies (PyYAML comes with pkgskills). typer 0.29 vendors click, so there is no separate click dependency.
+  - `install-template` and `install-renovatabot` moved from `.claude/skills/` to `src/repotemplates/prompts/`, declared in `src/repotemplates/host.py` and registered under `pkgskills.hosts`. `test-init` stays.
+  - `repotemplates path template|scripts` names the shipped directories. The wheel ships `scripts/init.sh` and `scripts/renovatabot-enroll.sh`, which step d needs too. CI checks the wheel carries both scripts and both skill bodies.
+  - The bodies read `{cli} path template` and `{cli} path scripts`; the Renovate guide is linked by URL. Mode 1 of `install-template` still names `scripts/init.sh` until d lands.
+  - Checked: ruff, pyrefly, and pytest (51 passed), plus a wheel built and run with `uv run --isolated --with <wheel>`, where `path scripts` resolved inside site-packages.
+- **2026-11-09T18:49:37-08:00** — Step d done (commits for `init.sh --template-dir` and `repotemplates init`). Question 1's answer stands: `init` calls the shipped bash script.
+  - `init.sh` gains `--template-dir <dir>`, which copies a plain template directory instead of cloning, and `--template-version <v>` (default: a `VERSION` file beside the directory). Neither combines with `--source` or `--branch`, and the script rejects a directory with no `MODULE__NAME/`.
+  - `repotemplates init <path> [--license] [--deps]` runs the shipped `init.sh` on the shipped template with `--template-version` set to the installed release. `install-template`'s Mode 1 now runs `{cli} init`; a checkout or fork still scaffolds through its own `scripts/init.sh --source`.
+  - Checked: the shell suite passes, including 11 new checks. One scaffold from a `git archive` of HEAD's `template/` matches the clone scaffold file for file once the project name is mapped (the stamp aside). The `same_tree` comparison was not mutation-tested. pytest (54 passed) covers the argv `init` builds. A wheel run of `repotemplates init`, with gh, uv, stanza, and planners stubbed, scaffolded a repo stamped with the wheel's version, with the Stop hook still executable.
+- **2026-11-09T18:56:12-08:00** — Step c done, in the order question 5 gave.
+  - Pinned (`.pre-commit-config.yaml`, the `test`, `publish`, and `renovate` workflows): one rule masks `rev:` values, action refs and their version comments, and a `python-version` matrix list. The manifest records the masked digest, so a pin bump alone makes no new release copy. Pins get their own verdict (`same`, `ahead`, `behind`, `mixed`, `differs`). `ahead` is not drift; `behind`, `mixed`, and `differs` keep a repo from `current`.
+  - Config (`dependabot.yml`, `renovate.json`): exact content, in the manifest.
+  - Ignore (`.gitignore`, `.gitattributes`): containment by behaviour. Each template rule gets a probe path, which `git check-ignore --no-index` and `git check-attr` answer with the user's excludes and attributes files switched off. A rule that does not hold is waived when the repo tracks a path it would ignore. That came out of the first fleet run: 9 of 12 gaps were `.claude/` in repos that track `.claude/`. Ignore files are compared against the shipped template only, not the manifest.
+  - Absent by design: `omit` in the stamp table, plus the inferred Dependabot/Renovate exclusion.
+  - A read-only `check --repos-dir` over the local fleet (27 stamped repos) now shows the survey's matrix narrowing as `current`, the newer `setup-uv` and ruff pins as `pins ahead`, and every Renovate or Dependabot counterpart as `omitted`. What remains: 11 one-off `test.yml` (extra setup steps), 3 one-off hook entries, 6 missing `publish.yml` (non-publishing repos to declare in `omit`), and 2 real ignore gaps (`.coverage`, `.coverage.*` in one repo).
+  - Checked: ruff, pyrefly, and pytest (75 passed); the manifest was regenerated from the tags.
+- **2026-11-09T18:59:50-08:00** — Steps f, g, and b done.
+  - f: the root `dependabot.yml` watches `/template` for GitHub Actions (`directories: ["/", "/template"]`) and adds a `pre-commit` ecosystem for `/template`, the only config that pins a hook repo. `pre-commit` is a valid ecosystem per GitHub's options reference. Not verified: that a non-root `github-actions` directory scans `template/.github/workflows`. The reference does not say, and Dependabot reads the file from `main` only, so the first run after release is the check. The template's uv ranges are not watched, since each scaffold locks its own.
+  - g: `repotemplates upgrade [repo] [--dry-run] [--json] [--allow-dirty] [--prerelease]`. It writes a `matches` file from the template (a pinned file through `merge_pinned`, which keeps newer pins and the matrix list; `settings.json` by replacing only `hooks`) and raises pins that are `behind` or `mixed`. It skips one-off, missing, partial, retired, and `differs` files, giving reasons, and stamps only when nothing is skipped. It refuses a repo stamped newer than the tool, dirty tracked targets, and a prerelease without `--prerelease`. The prerelease gate came from the first dry run: from this checkout it would have stamped consumers `0.12.1a0`. A dry run still prints the plan. Ignore files are reported, never written: whether a missing rule belongs in a repo is the skill's call.
+  - A real `upgrade` (not a dry run) was run once against a local consumer clone to test the prerelease refusal. It refused, and `git status` in that clone showed nothing changed. All later runs used temp copies or `--dry-run`.
+  - Fleet dry run (27 repos): 27 writes (25 `dependabot.yml` matching 0.11.7, plus one repo's Renovate pair), and 15 repos would end current. The skips are the judgment rows: 11 customized `test.yml`, 6 missing `publish.yml` (to go in `omit`), 3 customized hook entries, and a few one-offs.
+  - b: the `install-template` preflight reads `{cli} check <path> --json`, and the sync matrix opens with `{cli} upgrade` and maps each skip reason to its row. The `publish.yml` app row adds "list it in `omit`", and the stamp note keeps `omit` across restamps. This used the installed tool rather than waiting on a, since the skill stub already requires it.
+- **2026-11-09T22:05:20-08:00** — Review gate (/code-review, medium) on PR #61: 8 findings verified, all fixed in 0d24df4 and 72bdf4e, each with a regression test. The review is posted on the PR.
+  - The ignore waiver now asks git (`ls-files --cached --ignored` with the rule and the template's later negations), so a tracked `.env.example` no longer waives `.env.*`, and `*.egg-info/` is waived at any depth.
+  - `upgrade` computes the stamped `pyproject.toml` in the plan. An unparseable one is a skip, not a traceback after other writes. `set_stamp` treats `[[array]]` headers as table boundaries.
+  - A comment after an action pin counts as its version only when it is one (`@v4 # keep` reads `v4`).
+  - `repotemplates init` refuses while the checkout's `template/` holds untracked files, which `--template-dir` would copy into the new repo.
+  - Cleanups: `manifest.file_path` replaces two copies, `check.RAISABLE_PINS` feeds `STALE_PINS` and upgrade, and `_ignore_report` reuses `git_state`'s answer.
+  - Conscious no-ops: no FileNotFoundError guard in `classes._git` (its only caller checks for git first), no batched `check-attr` (the template ships one attribute rule), and `Pin` and `GITATTRIBUTES` stay exported.
+  - Checked: ruff, ruff format, pyrefly (0 errors), pytest (95 passed), portability, `init.test.sh`, shellcheck, and `build_manifest.py --check`.
+  - Step a: the owner set up the PyPI pending publisher and set `PUBLISH_ENABLED=true`. GitHub creates the `pypi` environment on the first publish job, as it did for planners and pkgskills. The first publishing release, 0.13.0, follows this merge.
 
 ## Handoff
 
-State on 2026-11-09: still a draft, with no branch and no code. Questions 1, 4,
-and 5 are answered above. The fleet survey behind question 5 is in
-[fleet-survey.md](fleet-survey.md).
+State on 2026-11-09, at close: steps b through g are merged through PR #61,
+with the review fixes (Log, "review follow-up"). Step a's setup is done: the
+owner added the PyPI pending publisher and set `PUBLISH_ENABLED=true`. GitHub
+creates the `pypi` environment on the first publish job. The first publishing
+release, 0.13.0, is cut from `dev` right after this merge, outside the plan.
 
 Open questions (numbering continues from 012's):
 
-6. Where should `repotemplates install` put the skill stubs by default? A global
-   install (`~/.claude/skills/`) fits a skill that is run against other repos.
-   A local install in this repo replaces the tracked `.claude/skills/` copies.
-   pkgskills lets a host declare either mode, or both.
+6. Where should `repotemplates install` put the skill stubs by default?
+   **Answered 2026-11-09: global by default, local too.** The tracked
+   `.claude/skills/` copies of the two skills are gone from this repo, and
+   `test-init` stays.
 
-Order of the remaining work, and what each step waits on:
+No question is open.
 
-1. a (PyPI setup): waits on the owner.
-2. e (pkgskills): can start now. It does not need a.
-3. b (skill preflight): after e, and better after a.
-4. c (file classes), in the order question 5 gives: pinned files, then ignore
-   files, then absent by design.
-5. g (`upgrade`): can start after e with the hooks only, and grows a class at a
-   time as c lands. The skill's switch to calling it follows.
-6. d (`init`): independent of c and g.
-7. f (template pins): small and independent, and can land at any time.
+Follow-on work, outside this plan:
 
-The plan is now about 160 lines across seven steps. If g or c grows large,
-split them into nested subplans then.
+1. Once 0.13.0 is on PyPI: run `repotemplates install` on each machine. A fleet
+   upgrade pass can then use `upgrade` for the mechanical rows. The six
+   non-publishing repos need `publish.yml` in `omit`.
 
-Not verified: the survey's comparisons are line-based. Which `.gitignore`
-differences are only pattern spellings is a reading of the lines, not a
-`git check-ignore` result.
+Not verified:
+
+- That the 0.13.0 publish run succeeds and the release appears on PyPI. It is
+  the first run of `publish.yml`, and it happens after this close.
+- That Dependabot's `github-actions` entry with `/template` scans
+  `template/.github/workflows`. The config is inert until it reaches `main`.
+- The `same_tree` check in `tests/init.test.sh` was not mutation-tested.
+- The fleet survey's line-based `.gitignore` reading was replaced by real
+  `git check-ignore` results (step c's Log entry); the survey file is left as
+  it was written.
+
+## Retrospective
+
+- Steps went in the order e, d, f, c, g, b, not a first: shipping the skills
+  before the preflight meant the preflight was written once, in the packaged
+  body, as the plan intended.
+- Running `check` over the real fleet before finishing the rules paid off twice.
+  It showed that most `.gitignore` gaps were repos that deliberately track
+  `.claude/`, which became the waiver rule. And `upgrade --dry-run` over the
+  fleet showed that a checkout's alpha version would have stamped consumers,
+  which became the prerelease refusal.
+- The review caught that the waiver used pathspec matching where the rest of the
+  class asks git for gitignore semantics. Next time a rule claims to follow git's
+  behavior, test it against the template's own negations (`!.env.example`) too.
+- A dry run against a real repo is the only safe probe: one real `upgrade` run
+  against a consumer, to test a refusal, could have written to it had the
+  refusal regressed.

@@ -42,6 +42,7 @@ sed_escape() {
 
 show_help() {
     echo "Usage: init.sh [--license <key>] [--source <repo>] [--branch <name>] [--deps <tool>] <path>"
+    echo "       init.sh [--license <key>] --template-dir <dir> [--template-version <v>] [--deps <tool>] <path>"
     echo ""
     echo "  path     Target directory (e.g., ~/repos/gdrive)"
     echo "           Basename becomes the project name; dashes become"
@@ -54,6 +55,12 @@ show_help() {
     echo "  --branch   Template branch to clone (default: the source's HEAD —"
     echo "             main on GitHub, or whatever branch a local --source"
     echo "             checkout has checked out)"
+    echo "  --template-dir  Copy this template directory instead of cloning:"
+    echo "             the template/ an installed repotemplates release ships."
+    echo "             Copies the directory as it is on disk, untracked files"
+    echo "             included. Not combined with --source or --branch."
+    echo "  --template-version  Release to stamp with --template-dir (default:"
+    echo "             the VERSION file beside the directory, if there is one)"
     echo "  --deps     Dependency-update automation: dependabot or renovate"
     echo "             (default: dependabot). 'renovate' needs a one-time GitHub"
     echo "             App + secrets; see docs/guides/github-automation.md."
@@ -77,6 +84,8 @@ LICENSE="mit"
 SOURCE=""
 BRANCH=""
 DEPS=""
+TEMPLATE_DIR_ARG=""
+TEMPLATE_VERSION_ARG=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         # An empty value is rejected, not read as "not given": empty is how these
@@ -86,6 +95,8 @@ while [[ $# -gt 0 ]]; do
         --source)  [ -n "${2:-}" ] || { echo "Error: --source requires a value"; exit 1; }; SOURCE="$2"; shift 2 ;;
         --branch)  [ -n "${2:-}" ] || { echo "Error: --branch requires a value"; exit 1; }; BRANCH="$2"; shift 2 ;;
         --deps)    [ -n "${2:-}" ] || { echo "Error: --deps requires a value"; exit 1; }; DEPS="$2"; shift 2 ;;
+        --template-dir)     [ -n "${2:-}" ] || { echo "Error: --template-dir requires a value"; exit 1; }; TEMPLATE_DIR_ARG="$2"; shift 2 ;;
+        --template-version) [ -n "${2:-}" ] || { echo "Error: --template-version requires a value"; exit 1; }; TEMPLATE_VERSION_ARG="$2"; shift 2 ;;
         --*) echo "Error: unknown option $1"; show_help; exit 1 ;;
         *)
             # Reject a second path instead of silently scaffolding the last one.
@@ -97,6 +108,22 @@ done
 if [ -z "${DEST:-}" ]; then
     echo "Error: path required"
     show_help
+    exit 1
+fi
+
+# --template-dir copies a directory that is already a template; --source and
+# --branch say which repo and branch to clone one from. Taking both would leave
+# one of them silently unused.
+if [ -n "$TEMPLATE_DIR_ARG" ] && { [ -n "$SOURCE" ] || [ -n "$BRANCH" ]; }; then
+    echo "Error: --template-dir is not combined with --source or --branch"
+    exit 1
+fi
+if [ -n "$TEMPLATE_VERSION_ARG" ] && [ -z "$TEMPLATE_DIR_ARG" ]; then
+    echo "Error: --template-version needs --template-dir (a clone stamps its own VERSION)"
+    exit 1
+fi
+if [ -n "$TEMPLATE_DIR_ARG" ] && [ ! -d "$TEMPLATE_DIR_ARG" ]; then
+    echo "Error: --template-dir ${TEMPLATE_DIR_ARG} is not a directory"
     exit 1
 fi
 
@@ -185,31 +212,50 @@ fi
 
 echo "Scaffolding ${NAME} at ${DEST}"
 
-# Clone template to a temp directory
-TEMPLATE_TMP=$(mktemp -d)
-TEMPLATE_CLONE="$TEMPLATE_TMP/repotemplates"
-trap 'rm -rf "$TEMPLATE_TMP"' EXIT
-# "--" keeps a --source value starting with "-" from being read as a git option.
-if [ -n "$BRANCH" ]; then
-    git clone --quiet --no-local --depth 1 --branch "$BRANCH" -- "$CLONE_URL" "$TEMPLATE_CLONE"
+if [ -n "$TEMPLATE_DIR_ARG" ]; then
+    # A plain directory, such as the template/ an installed release ships, which
+    # is not a git repo and so cannot be cloned. Resolve it now: the script cds
+    # into DEST later. Its release comes from --template-version, or from a
+    # VERSION file beside it, as in a checkout.
+    TEMPLATE_DIR="$(cd "$TEMPLATE_DIR_ARG" && pwd)"
+    TEMPLATE_VERSION_FILE="$TEMPLATE_DIR/../VERSION"
+    if [ ! -d "$TEMPLATE_DIR/MODULE__NAME" ]; then
+        echo "Error: ${TEMPLATE_DIR} has no MODULE__NAME/"
+        echo "It is not a repotemplates template, or is a release older than this script."
+        exit 1
+    fi
+    echo "Template: ${TEMPLATE_DIR}"
 else
-    git clone --quiet --no-local --depth 1 -- "$CLONE_URL" "$TEMPLATE_CLONE"
-fi
-TEMPLATE_DIR="$TEMPLATE_CLONE/template"
+    # Clone template to a temp directory
+    TEMPLATE_TMP=$(mktemp -d)
+    TEMPLATE_CLONE="$TEMPLATE_TMP/repotemplates"
+    trap 'rm -rf "$TEMPLATE_TMP"' EXIT
+    # "--" keeps a --source value starting with "-" from being read as a git option.
+    if [ -n "$BRANCH" ]; then
+        git clone --quiet --no-local --depth 1 --branch "$BRANCH" -- "$CLONE_URL" "$TEMPLATE_CLONE"
+    else
+        git clone --quiet --no-local --depth 1 -- "$CLONE_URL" "$TEMPLATE_CLONE"
+    fi
+    TEMPLATE_DIR="$TEMPLATE_CLONE/template"
+    # Read VERSION from the clone, not $VERSION_FILE: the clone reflects
+    # --branch, which can differ from the local checkout's VERSION, and is the
+    # only copy present when this script runs from outside a clone.
+    TEMPLATE_VERSION_FILE="$TEMPLATE_CLONE/VERSION"
 
-# Check the clone is a repotemplates checkout this script can fill in before
-# creating anything. A --source that is not one, a remote whose HEAD names a
-# missing branch (git clones it "empty" and exits 0), or a release that predates the
-# MODULE__NAME placeholders would otherwise fail late, in rsync or uv sync, and
-# leave a half-built DEST that blocks every re-run.
-if [ ! -d "$TEMPLATE_DIR/MODULE__NAME" ]; then
-    echo "Error: ${CLONE_URL}${BRANCH:+ (branch ${BRANCH})} has no template/MODULE__NAME/"
-    echo "It is not a repotemplates repo, or is a release older than this script."
-    exit 1
+    # Check the clone is a repotemplates checkout this script can fill in before
+    # creating anything. A --source that is not one, a remote whose HEAD names a
+    # missing branch (git clones it "empty" and exits 0), or a release that predates the
+    # MODULE__NAME placeholders would otherwise fail late, in rsync or uv sync, and
+    # leave a half-built DEST that blocks every re-run.
+    if [ ! -d "$TEMPLATE_DIR/MODULE__NAME" ]; then
+        echo "Error: ${CLONE_URL}${BRANCH:+ (branch ${BRANCH})} has no template/MODULE__NAME/"
+        echo "It is not a repotemplates repo, or is a release older than this script."
+        exit 1
+    fi
+    # Without --branch the clone takes the source's HEAD, which for a local checkout
+    # is whatever it has checked out, so say which commit this scaffold comes from.
+    echo "Template: ${CLONE_URL} at $(git -C "$TEMPLATE_CLONE" rev-parse HEAD)"
 fi
-# Without --branch the clone takes the source's HEAD, which for a local checkout
-# is whatever it has checked out, so say which commit this scaffold comes from.
-echo "Template: ${CLONE_URL} at $(git -C "$TEMPLATE_CLONE" rev-parse HEAD)"
 
 # Fails if DEST already exists (atomic guard)
 mkdir "$DEST"
@@ -257,11 +303,8 @@ while IFS= read -r f; do
     rm -f "$f.tmp"
 done <<< "$placeholder_files"
 
-# Stamp [tool.repotemplates] with the release actually scaffolded. Read VERSION
-# from the clone, not $VERSION_FILE: the clone reflects --branch, which can
-# differ from the local checkout's VERSION, and is the only copy present when
-# this script runs from outside a clone.
-TEMPLATE_VERSION="$(cat "$TEMPLATE_CLONE/VERSION" 2>/dev/null || true)"
+# Stamp [tool.repotemplates] with the release actually scaffolded.
+TEMPLATE_VERSION="${TEMPLATE_VERSION_ARG:-$(cat "$TEMPLATE_VERSION_FILE" 2>/dev/null || true)}"
 if [ -z "$TEMPLATE_VERSION" ]; then
     echo "Warning: template VERSION not found; stamping as 'unknown'"
     TEMPLATE_VERSION="unknown"

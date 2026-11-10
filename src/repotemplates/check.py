@@ -7,19 +7,30 @@ import tomllib
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from repotemplates.classes import (
+    CONFIG,
+    GITIGNORE,
+    IGNORE,
+    PINNED,
+    attribute_gaps,
+    compare_pins,
+    ignore_gaps,
+)
 from repotemplates.manifest import (
     SETTINGS,
     SETTINGS_HOOKS,
     DirSource,
     Manifest,
-    digest,
+    file_digest,
+    file_path,
     fingerprint,
-    hooks_block_digest,
 )
 from repotemplates.versions import is_prerelease, sort_key
 
 __all__ = [
     "CLAUDE_SETTINGS",
+    "KINDS",
+    "RAISABLE_PINS",
     "FileReport",
     "RepoReport",
     "StampReport",
@@ -31,24 +42,44 @@ __all__ = [
 # The stamp table, and the name it had before the rename in 0.12.0.
 STAMP_TABLES = ("repotemplates", "proj-template")
 CLAUDE_SETTINGS = (SETTINGS, ".claude/settings.local.json")
+# The file classes, in report order
+KINDS = ("hook-script", "hook-entries", "pinned", "config", "ignore")
+# Pin verdicts that leave a pinned file behind the template. upgrade raises
+# the raisable ones; ``differs`` (a pin that is not a version) needs a person.
+RAISABLE_PINS = ("behind", "mixed")
+STALE_PINS = (*RAISABLE_PINS, "differs")
+DEPENDABOT = ".github/dependabot.yml"
+RENOVATE = (".github/renovate.json", ".github/workflows/renovate.yml")
 
 
 @dataclass(frozen=True)
 class StampReport:
-    """``status``: latest, behind, ahead, alpha, unknown, unreadable, or missing."""
+    """``status``: latest, behind, ahead, alpha, unknown, unreadable, or missing.
+
+    ``omit`` is the stamp table's list of template files the repo leaves out on
+    purpose.
+    """
 
     version: str | None
     table: str | None
     status: str
     latest: str | None
+    omit: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class FileReport:
-    """``status``: current, matches, retired, one-off, missing, or unreadable.
+    """``status``: current, matches, retired, one-off, partial, missing, omitted,
+    or unreadable.
 
     ``matches`` and ``retired`` name a release: the newest one the file equals.
-    ``retired`` is a path the template no longer ships.
+    ``retired`` is a path the template no longer ships. ``partial`` is an ignore
+    file missing some of the template's rules, listed in ``detail``. ``omitted``
+    is a file the repo leaves out by design: declared in the stamp's ``omit``, or
+    the Dependabot or Renovate file of a repo that uses the other.
+    ``pins`` is set for a pinned file: same, ahead, behind, mixed, or differs.
+    ``waived`` lists an ignore file's template rules the repo leaves out because
+    it tracks paths they would ignore.
     """
 
     path: str
@@ -56,6 +87,13 @@ class FileReport:
     status: str
     release: str | None = None
     git: str | None = None
+    pins: str | None = None
+    detail: tuple[str, ...] = ()
+    waived: tuple[str, ...] = ()
+
+    @property
+    def current(self) -> bool:
+        return self.status in ("current", "omitted") and self.pins not in STALE_PINS
 
 
 @dataclass(frozen=True)
@@ -68,9 +106,7 @@ class RepoReport:
 
     @property
     def current(self) -> bool:
-        return self.stamp.status == "latest" and all(
-            f.status == "current" for f in self.files
-        )
+        return self.stamp.status == "latest" and all(f.current for f in self.files)
 
     def to_dict(self) -> dict[str, object]:
         out = asdict(self)
@@ -108,7 +144,11 @@ def read_stamp(repo: Path, latest: str | None) -> StampReport:
         value = section.get("version") if isinstance(section, dict) else None
         if not isinstance(value, str):
             return StampReport(None, f"tool.{table}", "unreadable", latest)
-        return StampReport(value, f"tool.{table}", _stamp_status(value, latest), latest)
+        omit = section.get("omit", [])
+        if not isinstance(omit, list) or not all(isinstance(o, str) for o in omit):
+            return StampReport(value, f"tool.{table}", "unreadable", latest)
+        status = _stamp_status(value, latest)
+        return StampReport(value, f"tool.{table}", status, latest, tuple(omit))
     return StampReport(None, None, "missing", latest)
 
 
@@ -146,32 +186,83 @@ def git_state(repo: Path, path: str) -> str:
 
 
 def _kind(key: str) -> str:
-    return "hook-entries" if key == SETTINGS_HOOKS else "hook-script"
-
-
-def _file_path(key: str) -> str:
-    return key.split("#", 1)[0]
+    if key == SETTINGS_HOOKS:
+        return "hook-entries"
+    if key in PINNED:
+        return "pinned"
+    if key in CONFIG:
+        return "config"
+    if key in IGNORE:
+        return "ignore"
+    return "hook-script"
 
 
 def _repo_digest(repo: Path, key: str) -> tuple[str | None, bool]:
     """The repo's digest for ``key``, and whether the file could be read."""
     try:
-        raw = DirSource(repo).read(_file_path(key))
+        raw = DirSource(repo).read(file_path(key))
     except OSError:
         return None, False
     if raw is None:
         return None, True
-    if key != SETTINGS_HOOKS:
-        return digest(raw), True
     try:
-        return hooks_block_digest(raw), True
+        return file_digest(key, raw), True
     except ValueError:
         return None, False
 
 
 def _ordered(keys: set[str]) -> list[str]:
-    # Hook scripts first, then the settings entries.
-    return sorted(keys, key=lambda k: (k == SETTINGS_HOOKS, k))
+    return sorted(keys, key=lambda k: (KINDS.index(_kind(k)), k))
+
+
+def omitted(repo: Path, declared: tuple[str, ...]) -> set[str]:
+    """Paths the repo leaves out by design: declared, or the other updater's files.
+
+    A repo on Renovate has no use for the Dependabot file, and one on Dependabot
+    none for the Renovate pair, so the file present names the choice.
+    """
+    out = set(declared)
+    if (repo / DEPENDABOT).is_file():
+        out.update(RENOVATE)
+    elif any((repo / path).is_file() for path in RENOVATE):
+        out.add(DEPENDABOT)
+    return out
+
+
+def _pins(repo: Path, template: Path, key: str) -> str | None:
+    if key not in PINNED:
+        return None
+    try:
+        ours = (repo / key).read_text()
+        theirs = (template / key).read_text()
+    except (OSError, UnicodeDecodeError):
+        return None
+    return compare_pins(ours, theirs)
+
+
+def _ignore_report(repo: Path, template: Path, path: str, skip: set[str]) -> FileReport:
+    git = git_state(repo, path)
+    present = (repo / path).is_file()
+    if not present and path in skip:
+        return FileReport(path, "ignore", "omitted", git=git)
+    # git_state asked already when the file is there
+    if git == "no git" or (not present and _git(repo, "rev-parse", "--git-dir")):
+        # The rules are checked by asking git, so a directory that is not a repo
+        # cannot answer
+        return FileReport(path, "ignore", "unreadable", git="no git")
+    text = (template / path).read_text()
+    waived: list[str] = []
+    try:
+        if path == GITIGNORE:
+            gaps, waived = ignore_gaps(repo, text)
+        else:
+            gaps = attribute_gaps(repo, text)
+    except OSError:
+        return FileReport(path, "ignore", "unreadable", git=git)
+    status = "current" if not gaps else "partial" if present else "missing"
+    return FileReport(
+        path, "ignore", status, git=git, detail=tuple(gaps), waived=tuple(waived)
+    )
 
 
 def check_repo(
@@ -180,25 +271,33 @@ def check_repo(
     repo = repo.resolve()
     shipped = fingerprint(DirSource(template))
     latest = latest_release(manifest, installed)
+    stamp = read_stamp(repo, latest)
+    skip = omitted(repo, stamp.omit)
     files: list[FileReport] = []
     for key in _ordered(set(shipped) | set(manifest.files)):
         value, readable = _repo_digest(repo, key)
-        path, kind = _file_path(key), _kind(key)
+        path, kind = file_path(key), _kind(key)
         git = git_state(repo, path)
         if not readable:
             files.append(FileReport(key, kind, "unreadable", git=git))
         elif value is None:
             if key in shipped:
-                files.append(FileReport(key, kind, "missing", git=git))
+                status = "omitted" if path in skip or key in skip else "missing"
+                files.append(FileReport(key, kind, status, git=git))
         elif value == shipped.get(key):
-            files.append(FileReport(key, kind, "current", git=git))
+            pins = _pins(repo, template, key)
+            files.append(FileReport(key, kind, "current", git=git, pins=pins))
         elif (release := manifest.match(key, value)) is not None:
             status = "matches" if key in shipped else "retired"
-            files.append(FileReport(key, kind, status, release, git))
+            pins = _pins(repo, template, key) if key in shipped else None
+            files.append(FileReport(key, kind, status, release, git, pins))
         else:
             files.append(FileReport(key, kind, "one-off", git=git))
+    for path in IGNORE:
+        if (template / path).is_file():
+            files.append(_ignore_report(repo, template, path, skip))
     settings = {path: git_state(repo, path) for path in CLAUDE_SETTINGS}
-    return RepoReport(repo.name, str(repo), read_stamp(repo, latest), files, settings)
+    return RepoReport(repo.name, str(repo), stamp, files, settings)
 
 
 def is_repo(path: Path) -> bool:

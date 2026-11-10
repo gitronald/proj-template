@@ -221,6 +221,7 @@ def test_to_dict_carries_current(
         "table": "tool.repotemplates",
         "status": "latest",
         "latest": "0.2.0",
+        "omit": (),
     }
 
 

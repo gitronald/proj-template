@@ -11,22 +11,27 @@ Two modes. Pick by whether the target path already exists as a repo:
 - **Upgrade** — target is an existing repo: sync it to the template standard
   file by file, adapting to what the repo is.
 
-The template source of truth is the `template/` directory of this repo
-(repotemplates). Always read the current contents of `template/` rather than
-relying on this document for exact file contents — the template evolves and
-this skill describes the *process*, not frozen payloads.
+The template source of truth is the template the installed repotemplates
+release ships: `{cli} path template` prints its directory, and `{cli} version`
+names the release. This document calls that directory `template/`. Always read
+its current contents rather than relying on this document for exact file
+contents — the template evolves and this skill describes the *process*, not
+frozen payloads. To apply a release other than the installed one, run the
+same commands through `uvx repotemplates@<version>`.
 
 ## Mode 1 — New repo
 
-Run the scaffold script (it clones the template, replaces the `PROJECT__NAME` and
-`MODULE__NAME` placeholders, fetches a license, sets up git/uv/pre-commit/stanza):
+Run the scaffold (it copies the installed release's template, replaces the
+`PROJECT__NAME` and `MODULE__NAME` placeholders, fetches a license, sets up
+git/uv/pre-commit/stanza, and stamps the release):
 
 ```bash
-scripts/init.sh [--license <key>] [--source <repo>] [--deps dependabot|renovate] <path>
+{cli} init [--license <key>] [--deps dependabot|renovate] <path>
 ```
 
-`--source` clones a local repotemplates checkout or a fork instead of the GitHub repo
-(committed changes only).
+To scaffold from a local repotemplates checkout or a fork instead, run its
+script: `bash <checkout>/scripts/init.sh --source <checkout> ... <path>`
+(`--source` clones, so committed changes only).
 
 The basename of `<path>` becomes the project name (dashes map to underscores
 in the Python module name). The script is interactive
@@ -39,13 +44,24 @@ running it from a tool. If the user chose renovate, finish with the
 ### Preflight
 
 1. Require a clean working tree in the target repo; stop and report if dirty.
-2. Classify the repo — this drives the sync matrix below:
+2. Read the repo's state with `{cli} check <path> --json` (read-only). It
+   reports the stamp and classifies every template-owned file against this
+   release and every earlier one: `current`, `matches` (an earlier release's
+   copy, named), `one-off` (customized), `missing`, `omitted` (left out by
+   design), `partial` (an ignore file lacking template rules, listed in
+   `detail`), and for pinned files a separate `pins` verdict, where `ahead` is
+   not drift. Use it instead of hashing or diffing those files by hand; the
+   diff is still needed for the files it reports as `one-off`, and for the
+   rows it does not cover (`pyproject.toml` tables, `.python-version`,
+   `.claude/CLAUDE.md`). `{cli} upgrade <path> --dry-run` shows what the
+   mechanical pass below will write and skip.
+3. Classify the repo — this drives the sync matrix below:
    - **package**: built and published (has `[build-system]`, a `project.scripts`
      entry, or an importable package dir destined for PyPI).
    - **app/site**: run in place, never published (Pelican/Flask sites, analysis
      repos, dashboards). Marker: no build backend, or files like
      `pelicanconf.py`, `app.py`, `tasks.py`.
-3. Open a worktree instead of switching the main checkout: branch
+4. Open a worktree instead of switching the main checkout: branch
    `feature/template-upgrade` off `dev` (or the repo's default working
    branch) at `.worktrees/template-upgrade`. Check the target's `.gitignore`
    first and add `.worktrees/` if it isn't ignored. Do all tracked upgrade
@@ -55,7 +71,7 @@ running it from a tool. If the user chose renovate, finish with the
    there vanishes when the worktree is removed. Apply the `.claude/*` rows in
    the main checkout instead, and note in the PR that those files changed on
    disk outside the branch.
-4. The upgrade writes no plan of its own. This skill is the process, and the
+5. The upgrade writes no plan of its own. This skill is the process, and the
    PR body is the record of what it decided for this repo: the
    classification, the action taken per matrix row, the owner's answers to
    any diverging-file questions, and what was deliberately skipped. Keep it
@@ -66,7 +82,29 @@ running it from a tool. If the user chose renovate, finish with the
 
 ### Sync matrix
 
-Work through every file in `template/`, applying the action for the repo type.
+Start with the mechanical pass, in the worktree:
+
+```bash
+{cli} upgrade <worktree> --dry-run   # read the plan
+{cli} upgrade <worktree>             # apply it
+```
+
+It rewrites only the template-owned files `check` shows hold nothing of the
+repo's own: a copy of an earlier release takes the template's (a pinned file
+keeping the repo's newer pins and its Python matrix list; `settings.json`
+having only its `hooks` block replaced), and pins behind the template are
+raised. It stamps the release only when nothing is left, so a partial pass
+leaves the stamp for the rule below. Everything it skips is listed with the
+reason, and those files are what the rest of this section decides: a `one-off`
+goes to the diverging-file triage, a `missing` file is copied in or (when the
+repo leaves it out on purpose, like `publish.yml` in an app) listed in the
+stamp's `omit`, and a `partial` ignore file gets the merge its row describes.
+It refuses a prerelease without `--prerelease`, and a tracked file with
+uncommitted changes without `--allow-dirty`. When the target ignores `.claude/`,
+the worktree has no copy of those files and the pass reports them missing;
+apply those rows in the main checkout, as preflight step 4 says.
+
+Then work through every file in `template/`, applying the action for the repo type.
 "Merge" means bring the template's entries/sections in without removing
 repo-specific content; "never" means leave the repo's file alone. When the
 target already has a managed file and its content diverges from `template/`,
@@ -88,7 +126,7 @@ overwrite" below.
 | `.claude/settings.local.json` (not shipped) | never — leave a target's copy alone (see note) | same |
 | `.claude/CLAUDE.md` | relocate if in an old spot; never overwrite its content, except the `## Development` tooling bullets and the "Before finishing a task" check list (see note) | same |
 | `.github/workflows/test.yml` | sync (full Python matrix, `UV_PYTHON` env pin **and** `--python` on `uv sync` — see note, SHA-pinned actions) | adapt: single Python from `.python-version`; drop pytest step if no tests; SHA-pinned actions |
-| `.github/workflows/publish.yml` | sync | skip |
+| `.github/workflows/publish.yml` | sync | skip, and list it in the stamp's `omit` |
 | `.github/dependabot.yml` (or renovate pair) | ensure one automation exists; reconcile each ecosystem (groups, cooldown, `target-branch` — see note); set repo alert toggles (see note) | same |
 | `.planners/` scaffold | create if missing | create if missing |
 | `MODULE__NAME/`, `tests/`, `README.md`, `CHANGELOG.md` | never | never |
@@ -143,7 +181,10 @@ Notes:
   the literal `TEMPLATE_VERSION` placeholder there (`init.sh` substitutes
   it at scaffold time), so never copy that string into a target — resolve it to
   the release being applied, and treat a `TEMPLATE_VERSION` or `unknown` value
-  found in a repo as "never stamped".
+  found in a repo as "never stamped". Keep the table's `omit` list when
+  restamping: it records the template files the repo leaves out on purpose, so
+  `check` reads them as `omitted` rather than `missing`. Add a path to it only
+  for a file the repo should never carry, with the reason in the PR.
 - **A `[tool.proj-template]` table is the old name of the stamp.** Releases
   before 0.12.0, when the repo was named proj-template, wrote the stamp there.
   Read the repo's current version from it as you would from the new table. Then,
@@ -349,7 +390,7 @@ swallows them. Commit the intermediate chunks with `--no-verify`, gate on
 Then:
 
 1. Push the branch (`git push -u origin feature/template-upgrade`) and open a
-   PR into `dev` whose body carries the record from preflight step 4:
+   PR into `dev` whose body carries the record from preflight step 5:
    classification, synced/adapted/skipped per the sync matrix, and the
    owner's answers.
 2. If the user wants to review before merging, stop after opening the PR.

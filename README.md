@@ -38,6 +38,14 @@ repo-init --license apache-2.0 ~/repos/myproject
 repo-init --source ~/repos/repotemplates ~/repos/myproject   # scaffold from a local checkout or fork
 ```
 
+With the `repotemplates` tool installed (see below), `repotemplates init` runs
+the same script on the template that release ships, with no clone:
+
+```bash
+repotemplates init ~/repos/myproject
+repotemplates init --license apache-2.0 --deps renovate ~/repos/myproject
+```
+
 `--source` still clones, so it scaffolds the source's committed tree: unpushed
 commits are picked up, uncommitted edits are not. Without `--branch`, a local
 checkout is cloned at whatever branch it has checked out; the script prints the
@@ -92,6 +100,7 @@ uv tool install repotemplates            # or run it once: uvx repotemplates che
 repotemplates check                      # the repo in the current directory
 repotemplates check path/to/repo --json  # one JSON object, for scripts
 repotemplates check --repos-dir ~/repos  # every stamped clone, as one table
+repotemplates init path/to/new-repo      # scaffold from this release's template
 repotemplates version
 ```
 
@@ -105,15 +114,38 @@ For each repo it reports:
   older `[tool.proj-template]` are read.
 - **Each template-owned file**: `current` (matches the template this release
   ships), `matches vX.Y.Z` (an earlier release), `one-off` (matches no release),
-  `missing`, or `retired` (a file the template no longer ships, still present).
-  Claude hook scripts (`.claude/hooks/*.sh`) are compared by exact content, and
-  the `hooks` block of `.claude/settings.json` as normalized JSON, other keys
-  ignored.
+  `missing`, `omitted` (left out by design, below), or `retired` (a file the
+  template no longer ships, still present). Each class has its own rule:
+  - Claude hook scripts (`.claude/hooks/*.sh`), `.github/dependabot.yml`, and
+    `.github/renovate.json`: exact content.
+  - The `hooks` block of `.claude/settings.json`: normalized JSON, other keys
+    ignored.
+  - Pinned files (`.pre-commit-config.yaml` and the `test`, `publish`, and
+    `renovate` workflows): compared with `rev:` values, action refs and their
+    version comments, and the `python-version` matrix list masked. The pins get
+    their own verdict: `same`, `ahead`, `behind`, `mixed`, or `differs`. A pin
+    newer than the template's is `ahead`, which is not drift.
+  - `.gitignore` and `.gitattributes`: every template rule must hold, which git
+    answers for a probe path (`git check-ignore`, `git check-attr`), so spelling
+    and local additions do not count. A rule is `partial` when it does not hold,
+    and waived when the repo tracks a path the rule would ignore (a repo that
+    tracks `.claude/settings.json` leaves out `.claude/` on purpose).
+- **Files left out by design**: a repo on Dependabot has no Renovate files, and
+  the reverse, so those read `omitted`. Any other file the repo leaves out on
+  purpose is listed in the stamp table, which `check` cannot otherwise tell from
+  a file lost by accident:
+
+  ```toml
+  [tool.repotemplates]
+  version = "0.13.0"
+  omit = [".github/workflows/publish.yml"]   # this repo does not publish
+  ```
 - **Git state of the Claude settings files**: tracked, ignored, untracked, or
   absent. An ignored file never reaches a fresh clone or a cloud session; the
   template ignores `.claude/` by default, so this is information, not drift.
 
-It exits 0 when the stamp is the latest and every file is current, 1 when
+It exits 0 when the stamp is the latest and every file is current or omitted
+with no pin behind, 1 when
 anything differs or `--repos-dir` finds no repo to check, and 2 on a usage
 error. `--markdown` prints Markdown tables.
 With `--repos-dir`, `--json` prints an array, and `*-archive` repos and repos
@@ -121,6 +153,48 @@ with no stamp are skipped unless `--include-archived` or `--all` is given.
 
 The tool carries the template and a manifest of every release's files, so it
 needs no clone and no network.
+
+## Upgrading a repo
+
+`repotemplates upgrade` applies the mechanical part of an upgrade, and writes
+only what `check` shows holds nothing of the repo's own:
+
+```bash
+repotemplates upgrade path/to/repo --dry-run   # what it would write and skip
+repotemplates upgrade path/to/repo
+```
+
+- A file that equals an earlier release's copy takes this release's. A pinned
+  file keeps the repo's newer pins and its Python matrix list, and
+  `.claude/settings.json` has only its `hooks` block replaced.
+- A pinned file whose pins are behind the template's has them raised.
+- Anything else (a customized file, a missing one, an ignore file lacking
+  rules) is left, with the reason, for the `install-template` skill.
+- The stamp moves to this release only when every file then reads current or
+  omitted, so it never overstates what the repo carries.
+
+It exits 0 when the repo ends current and 1 when files were left. It refuses
+(exit 2) a repo stamped newer than the tool, a tracked file with uncommitted
+changes (`--allow-dirty` overrides), and a prerelease of the tool itself
+(`--prerelease` overrides), since that would stamp a release that never shipped.
+
+## Skills
+
+The package ships two Claude Code and Codex skills: `install-template`
+(scaffold a repo, or upgrade one to the template) and `install-renovatabot`
+(enroll a repo in the self-hosted Renovate). Install them once:
+
+```bash
+repotemplates install            # stubs under ~/.claude/skills and ~/.agents/skills
+repotemplates install --check    # ok, or what is missing or drifted
+repotemplates skill install-template   # print a skill's instructions
+```
+
+Each stub runs `repotemplates skill <name>`, so the instructions an agent reads
+always come from the installed release, and so does the template they apply:
+`repotemplates path template` prints the directory the release ships.
+`install --local` writes the stubs into the enclosing repo instead, calling
+`uv run repotemplates`.
 
 ## Developing repotemplates
 

@@ -129,6 +129,23 @@ scaffold() {
         < /dev/null > "$WORK/$name.log" 2>&1
 }
 
+# scaffold_dir <name> <extra init.sh args...>: as scaffold, but with no --source,
+# for the --template-dir path, which copies a directory instead of cloning.
+scaffold_dir() {
+    local name="$1"
+    shift
+    (cd "$WORK" && "$BASH_UNDER_TEST" "$SCRIPT" "$@" "$name") \
+        < /dev/null > "$WORK/$name.log" 2>&1
+}
+
+# rejects_dir <name> <expected error text> <extra init.sh args...>: as rejects,
+# through scaffold_dir.
+rejects_dir() {
+    local name="$1" expected="$2"
+    shift 2
+    ! scaffold_dir "$name" "$@" && grep -qF -- "$expected" "$WORK/$name.log" && [ ! -e "$WORK/$name" ]
+}
+
 # rejects <name> <expected error text> <extra init.sh args...>: the scaffold
 # fails, prints that error — so an unrelated early failure cannot take the
 # credit — and leaves nothing at $WORK/<name>.
@@ -166,6 +183,24 @@ no_tracked_claude() {
 
 dev_pushed() {
     git -C "$1" rev-parse --verify -q origin/dev > /dev/null
+}
+
+# same_tree <a> <b> <name a> <name b>: the two scaffolds hold the same files with
+# the same content, once b's project name is mapped back to a's. The stamp
+# differs by design (9.9.9 against VERSION), so pyproject.toml's content is
+# not compared; .worktrees/ is left over from the hook checks on a.
+same_tree() {
+    local a="$1" b="$2" na="$3" nb="$4" ma mb list_a list_b f
+    ma="${na//-/_}"
+    mb="${nb//-/_}"
+    list_a="$(cd "$a" && find . -path ./.git -prune -o -path ./.worktrees -prune -o -type f -print | LC_ALL=C sort)"
+    list_b="$(cd "$b" && find . -path ./.git -prune -o -type f -print | sed "s/$mb/$ma/g" | LC_ALL=C sort)"
+    [ "$list_a" = "$list_b" ] || { diff <(echo "$list_a") <(echo "$list_b"); return 1; }
+    while IFS= read -r f; do
+        [ "$f" = ./pyproject.toml ] && continue
+        sed "s/$nb/$na/g; s/$mb/$ma/g" "$b/$(printf '%s' "$f" | sed "s/$ma/$mb/g")" \
+            | cmp -s - "$a/$f" || { echo "differs: $f"; return 1; }
+    done <<< "$list_a"
 }
 
 runs_clean() {
@@ -322,6 +357,42 @@ if (set -o noclobber; export SHELLOPTS; scaffold fixture-test --deps dependabot 
 else
     fail "fixture scaffold exits 0 (noclobber exported, % in relative --source)"
     cat "$WORK/fixture-test.log"
+fi
+
+# --template-dir: a plain directory laid out as an installed release ships it,
+# template/ with no VERSION beside it unless the test adds one. HEAD's tree, via
+# git archive, so local strays under template/ cannot reach the result.
+PKG="$WORK/pkg"
+mkdir -p "$PKG"
+git -C "$ROOT" archive HEAD template | tar -x -C "$PKG"
+check "--template-dir with --source is rejected" \
+    rejects_dir dir-and-source "Error: --template-dir is not combined with --source or --branch" \
+    --deps dependabot --template-dir "$PKG/template" --source "$ROOT"
+check "--template-version without --template-dir is rejected" \
+    rejects_dir version-alone "Error: --template-version needs --template-dir" \
+    --deps dependabot --template-version 9.9.9
+check "a --template-dir that is not a template is rejected" \
+    rejects_dir dir-not-template "has no MODULE__NAME/" --deps dependabot --template-dir "$NOT_TEMPLATE"
+if scaffold_dir dir-test --deps dependabot --template-dir "$PKG/template" --template-version 9.9.9; then
+    pass "--template-dir scaffold exits 0"
+    D="$WORK/dir-test"
+    check "--template-dir log names the directory" grep -qF "Template: $PKG/template" "$WORK/dir-test.log"
+    check "--template-version is stamped" version_stamped "$D" 9.9.9
+    check "--template-dir leaves no placeholder in contents" no_placeholder_contents "$D"
+    check "--template-dir leaves no placeholder in paths" no_placeholder_paths "$D"
+    check "--template-dir keeps the Stop hook executable" test -x "$D/.claude/hooks/lint-typecheck.sh"
+    check "--template-dir scaffold matches the clone scaffold" same_tree "$P" "$D" template-test dir-test
+else
+    fail "--template-dir scaffold exits 0"
+    cat "$WORK/dir-test.log"
+fi
+git -C "$ROOT" show HEAD:VERSION > "$PKG/VERSION"
+if scaffold_dir dir-version-test --deps dependabot --template-dir "$PKG/template"; then
+    check "--template-dir stamps the VERSION beside it" \
+        version_stamped "$WORK/dir-version-test" "$expected_version"
+else
+    fail "--template-dir scaffold with a VERSION beside it exits 0"
+    cat "$WORK/dir-version-test.log"
 fi
 
 if [ -n "${MANIFEST_OUT:-}" ]; then

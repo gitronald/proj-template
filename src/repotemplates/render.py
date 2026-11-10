@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from repotemplates.check import FileReport, RepoReport, StampReport
-from repotemplates.manifest import SETTINGS_HOOKS
+from repotemplates.check import KINDS, FileReport, RepoReport, StampReport
+from repotemplates.upgrade import UpgradePlan
 
-__all__ = ["render_fleet", "render_repo"]
+__all__ = ["render_fleet", "render_repo", "render_upgrade"]
 
 
 def _table(
@@ -26,10 +26,14 @@ def _table(
 
 def _status(f: FileReport) -> str:
     if f.status == "matches":
-        return f"matches v{f.release}"
-    if f.status == "retired":
-        return f"retired, matches v{f.release}"
-    return f.status
+        text = f"matches v{f.release}"
+    elif f.status == "retired":
+        text = f"retired, matches v{f.release}"
+    else:
+        text = f.status
+    if f.pins not in (None, "same"):
+        text += f", pins {f.pins}"
+    return text
 
 
 def _stamp(s: StampReport) -> str:
@@ -44,8 +48,19 @@ def _label(key: str) -> str:
     return key.replace("#hooks", " (hooks)")
 
 
+def _detail(f: FileReport) -> str:
+    parts = []
+    if f.detail:
+        parts.append(f"lacks {', '.join(f.detail)}")
+    if f.waived:
+        parts.append(f"waived {', '.join(f.waived)} (tracked)")
+    return "; ".join(parts)
+
+
 def render_repo(report: RepoReport, markdown: bool = False) -> str:
-    rows = [[_label(f.path), _status(f), f.git or "-"] for f in report.files]
+    rows = [
+        [_label(f.path), _status(f), f.git or "-", _detail(f)] for f in report.files
+    ]
     settings = ", ".join(f"{path} {state}" for path, state in report.settings.items())
     head = [
         f"repo: {report.name} ({report.path})",
@@ -56,7 +71,7 @@ def render_repo(report: RepoReport, markdown: bool = False) -> str:
     if markdown:
         head = [f"- {line}" if line else line for line in head]
     body = (
-        _table(["file", "status", "git"], rows, markdown)
+        _table(["file", "status", "git", "detail"], rows, markdown)
         if rows
         else "no template-owned files"
     )
@@ -75,8 +90,6 @@ def render_fleet(reports: Sequence[RepoReport], markdown: bool = False) -> str:
         return "no repos to check"
     rows: list[list[str]] = []
     for r in reports:
-        hooks = [f for f in r.files if f.path != SETTINGS_HOOKS]
-        entries = [f for f in r.files if f.path == SETTINGS_HOOKS]
         settings_git = " / ".join(
             f"{'local ' if path.endswith('local.json') else ''}{state}"
             for path, state in r.settings.items()
@@ -87,8 +100,7 @@ def render_fleet(reports: Sequence[RepoReport], markdown: bool = False) -> str:
                 r.name,
                 r.stamp.version or "-",
                 r.stamp.status,
-                _summary(hooks),
-                _summary(entries),
+                *(_summary([f for f in r.files if f.kind == k]) for k in KINDS),
                 settings_git or "absent",
             ]
         )
@@ -98,6 +110,21 @@ def render_fleet(reports: Sequence[RepoReport], markdown: bool = False) -> str:
         "stamp status",
         "hook scripts",
         "hook entries",
+        "pinned",
+        "config",
+        "ignore",
         "settings git",
     ]
     return _table(headers, rows, markdown)
+
+
+def render_upgrade(plan: UpgradePlan, dry_run: bool = False) -> str:
+    head = [f"repo: {plan.repo}", f"release: {plan.release}"]
+    if dry_run:
+        head.append("dry run: nothing written")
+    if plan.refused is not None:
+        return "\n".join([*head, f"refused: {plan.refused}"])
+    rows = [[_label(a.path), a.action, a.reason] for a in plan.actions]
+    stamp = f"stamp: {'write ' if plan.stamp else ''}{plan.stamp_reason}"
+    body = _table(["file", "action", "reason"], rows, False) if rows else "no files"
+    return "\n".join([*head, stamp, "", body])

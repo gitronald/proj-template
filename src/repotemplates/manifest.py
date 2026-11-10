@@ -1,11 +1,16 @@
 """Fingerprints of the template-owned files, and the per-release manifest.
 
-A fingerprint maps each template-owned key to a content digest. Two classes of
-file are template-owned so far:
+A fingerprint maps each template-owned key to a content digest:
 
-- Claude hook scripts, ``.claude/hooks/*.sh``, compared by exact content.
+- Claude hook scripts, ``.claude/hooks/*.sh``, and the config files
+  (``classes.CONFIG``), compared by exact content.
 - Claude hook entries, the ``hooks`` block of ``.claude/settings.json``, compared
   as normalized JSON so other keys and formatting do not count.
+- Pinned files (``classes.PINNED``), compared with their pins masked
+  (``classes.mask``), so a pin bump alone does not make a new release's copy.
+
+The ignore files are template-owned too, but compare by containment against the
+shipped template alone, so the manifest does not record them.
 
 The manifest records the fingerprint of every release tag, so ``check`` can name
 the release a file matches. It holds tagged releases only; the template an
@@ -22,10 +27,13 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Protocol
 
+from repotemplates.classes import CONFIG, PINNED, mask
 from repotemplates.versions import sort_key
 
 __all__ = [
     "HOOKS_DIR",
+    "file_digest",
+    "file_path",
     "SETTINGS",
     "SETTINGS_HOOKS",
     "DirSource",
@@ -42,6 +50,11 @@ SCHEMA = 1
 HOOKS_DIR = ".claude/hooks"
 SETTINGS = ".claude/settings.json"
 SETTINGS_HOOKS = f"{SETTINGS}#hooks"
+
+
+def file_path(key: str) -> str:
+    """The file a manifest key names: ``SETTINGS_HOOKS`` is a block of ``SETTINGS``."""
+    return key.split("#", 1)[0]
 
 
 class Source(Protocol):
@@ -110,19 +123,31 @@ def hooks_block_digest(raw: bytes) -> str | None:
     return digest(block.encode())
 
 
+def file_digest(key: str, raw: bytes) -> str | None:
+    """The digest a key's rule compares: exact, masked, or the hooks block.
+
+    Raises ValueError when the file cannot be read under its rule (a settings
+    file that is not a JSON object, a pinned file that is not UTF-8).
+    """
+    if key == SETTINGS_HOOKS:
+        return hooks_block_digest(raw)
+    if key in PINNED:
+        try:
+            return digest(mask(raw.decode()).encode())
+        except UnicodeDecodeError as exc:
+            raise ValueError(f"{key} is not UTF-8") from exc
+    return digest(raw)
+
+
 def fingerprint(source: Source) -> dict[str, str]:
     """Digest of every template-owned file the source has."""
+    keys = [f"{HOOKS_DIR}/{n}" for n in source.list_dir(HOOKS_DIR) if n.endswith(".sh")]
+    keys += [SETTINGS_HOOKS, *PINNED, *CONFIG]
     out: dict[str, str] = {}
-    for name in source.list_dir(HOOKS_DIR):
-        if name.endswith(".sh"):
-            data = source.read(f"{HOOKS_DIR}/{name}")
-            if data is not None:
-                out[f"{HOOKS_DIR}/{name}"] = digest(data)
-    raw = source.read(SETTINGS)
-    if raw is not None:
-        block = hooks_block_digest(raw)
-        if block is not None:
-            out[SETTINGS_HOOKS] = block
+    for key in keys:
+        raw = source.read(file_path(key))
+        if raw is not None and (value := file_digest(key, raw)) is not None:
+            out[key] = value
     return out
 
 
