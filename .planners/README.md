@@ -2,9 +2,9 @@
 
 | # | Plan | Status | Concluded | PR |
 |---|---|---|---|---|
-| 012 | [Package repotemplates as a uv tool for init and template checks](plans/012-uv-tool-cli/plan.md) | implemented | — | [#60](https://github.com/gitronald/repotemplates/pull/60) |
 | 011 | [Ship multiple templates: python-package, bash, and python-workspace](plans/011-multiple-templates/plan.md) | draft | — | — |
 | 009 | [Offer CodeQL default setup on public repos](plans/009-codeql-default-setup/plan.md) | draft | — | — |
+| 012 | [Package repotemplates as a uv tool for init and template checks](plans/012-uv-tool-cli/plan.md) | done | 2026-11-09 16:05 PT | [#60](https://github.com/gitronald/repotemplates/pull/60) |
 | 010 | [Rename the repo to repotemplates](plans/010-rename-to-repotemplates/plan.md) | done | 2026-11-06 21:32 PT | [#58](https://github.com/gitronald/repotemplates/pull/58) |
 | 008 | [Make the hook, pyrefly, and ruff config workspace- and worktree-safe](plans/008-workspace-and-worktree-tooling/plan.md) | done | 2026-10-09 21:31 PT | [#47](https://github.com/gitronald/proj-template/pull/47) |
 | 007 | [Make the scaffolding scripts run on macOS](plans/007-macos-compatibility/plan.md) | done | 2026-09-10 17:08 PT | [#40](https://github.com/gitronald/proj-template/pull/40) |

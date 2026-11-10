@@ -1,10 +1,10 @@
 ---
 id: 12
 slug: uv-tool-cli
-status: implemented
+status: done
 branch: feature/012-uv-tool-cli
 created: 2026-11-09T15:21:39-08:00
-concluded:
+concluded: 2026-11-09T16:05:26-08:00
 pr: https://github.com/gitronald/repotemplates/pull/60
 ---
 
@@ -162,29 +162,39 @@ Steps a to d are the first deliverable. Step e can follow in a later release.
 
 ## Handoff
 
-State (2026-11-09): steps a to d are committed and pushed on `feature/012-uv-tool-cli`
-(PR #60). Nothing is uncommitted.
+State (2026-11-09, at close): steps a to d, with the review fixes from the close,
+go in with the merge of PR #60. Nothing is uncommitted.
 
 Open questions:
 
-1. `init`: port `scripts/init.sh` or call it? Open. Blocks step e only.
+1. `init`: port `scripts/init.sh` or call it? Handed to plan 013 (2026-11-09).
 2. Before or after plan 011? Answered 2026-11-09: this plan first (see Log).
 3. Distribution? Answered 2026-11-09: PyPI, via the gated `publish.yml`.
-4. `repotemplates upgrade` as a command? Open. Not needed for a to d.
-5. File classes beyond the Claude hooks? Open. Each needs its own comparison
-   rule and an `absent by design` case (e.g. `renovate.yml` under Dependabot).
+4. `repotemplates upgrade` as a command? Handed to plan 013 (2026-11-09).
+5. File classes beyond the Claude hooks? Handed to plan 013 (2026-11-09).
 
 Not verified:
 
-- The new `python` CI job and `publish.yml` have not run on GitHub until this PR's
-  checks do. The publish job cannot run until the owner sets up PyPI.
+- `publish.yml` has not run on GitHub. It cannot until the owner sets up PyPI,
+  which is plan 013's step a. The `python` CI job has run, green on PR #60.
 
-Remaining, in order:
+Remaining: none in this plan. Step e (`init`), the skill half of step f, and the
+PyPI setup moved to plan 013.
 
-1. The owner adds the PyPI pending publisher (project `repotemplates`, workflow
-   `publish.yml`, environment `pypi`), creates the `pypi` environment, and sets
-   `PUBLISH_ENABLED`. Waits on the owner.
-2. Step f's skill half: the `install-template` preflight reads
-   `repotemplates check --json`. Better after the first PyPI release, so the skill
-   can install the tool by name.
-3. Step e (`init`), after question 1 is answered.
+## Retrospective
+
+- Steps a to d shipped as planned. The one design change was the manifest: it
+  lists only tags older than `VERSION`, and the installed template is
+  fingerprinted at run time, so a release never needs an entry for itself. That
+  turned the planned coverage test into a freshness test, which doubles as the
+  release-step reminder stanza has no hook for.
+- Routing every template lookup through `paths.template_root()` made the
+  question of ordering against plan 011 cheap: 011 changes one function.
+- The review found only robustness gaps on malformed or unusual consumer repos
+  (non-table stamps, unreadable files, no git, an empty fleet). Fixture repos
+  built from plain strings made each a two-line regression test. Next time, add
+  a "hostile repo" fixture up front for any command that reads other people's
+  trees.
+- Checking the wheel's template against `git ls-files` in CI was worth it:
+  `force-include` bypasses VCS ignores, and the sdist route was the open risk
+  until it was probed at the close.
