@@ -1,6 +1,83 @@
-# Repo dev tooling only, not a package: the scaffold is template/, the version is VERSION.
+# The repotemplates CLI. The scaffold it ships is template/, and the version is
+# VERSION (stanza bumps it; hatchling reads it), so there is one version source.
+[project]
+name = "repotemplates"
+dynamic = ["version"]
+description = "Scaffold repos from the repotemplates template and check existing repos against it"
+authors = [
+    {name = "gitronald", email = "gitronald@users.noreply.github.com"}
+]
+requires-python = ">=3.11"
+dependencies = [
+    "pkgskills>=0.6.3",
+    "typer>=0.29.0",
+]
+readme = "README.md"
+
+[project.urls]
+repository = "https://github.com/gitronald/repotemplates"
+
+[project.scripts]
+repotemplates = "repotemplates.cli:main"
+
+# pkgskills finds the host here, so `pkgskills check` covers its skills
+[project.entry-points."pkgskills.hosts"]
+repotemplates = "repotemplates.host:HOST"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "VERSION"
+pattern = "(?P<version>.+)"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/repotemplates"]
+
+# template/ ships inside the package, so init and check work from the installed
+# release with no clone. force-include bypasses VCS ignore rules, which matters:
+# template/.gitignore ignores .claude/, and that payload must ship. The two
+# scaffold scripts ship beside it: `init` runs init.sh, and the Renovate skill
+# names renovatabot-enroll.sh through `repotemplates path scripts`.
+[tool.hatch.build.targets.wheel.force-include]
+"template" = "repotemplates/template"
+"scripts/init.sh" = "repotemplates/scripts/init.sh"
+"scripts/renovatabot-enroll.sh" = "repotemplates/scripts/renovatabot-enroll.sh"
+
+[tool.hatch.build.targets.sdist]
+only-include = [
+    "/src",
+    "/template",
+    "/scripts/init.sh",
+    "/scripts/renovatabot-enroll.sh",
+    "/VERSION",
+    "/README.md",
+    "/CHANGELOG.md",
+]
+
 [dependency-groups]
 dev = [
     "pre-commit",
+    "pyrefly>=1.3.2",
+    "pytest>=9.1.1",
+    "ruff>=0.17,<0.18",
     "shellcheck-py",
 ]
+
+[tool.ruff]
+target-version = "py311"
+# template/ is the scaffold, checked by its own config in each generated repo.
+extend-exclude = ["template/", ".planners/", "CHANGELOG.md"]
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "I", "UP"]
+
+[tool.pyrefly]
+preset = "strict"
+project-includes = ["src", "tests", "scripts"]
+# pytest puts tests/ on sys.path, so the tests import conftest helpers directly
+search-path = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

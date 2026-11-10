@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-09
+
+### Added
+
+- A `repotemplates` command line, installable as a uv tool. `repotemplates check`
+  reports a repo's template stamp and how its Claude hook scripts and the hook
+  entries in `.claude/settings.json` compare with the template: current, an earlier
+  release by number, a one-off, or missing, plus whether each Claude settings file is
+  tracked, ignored, or untracked. `--repos-dir` checks every clone under a directory
+  as one table, `--json` and `--markdown` change the output, and the exit status is 0
+  when everything is current and 1 when anything differs. The package ships the
+  template and a manifest of every release's files, so it needs no clone.
+- A publish workflow for the package, off until the `PUBLISH_ENABLED` repository
+  variable is `true`.
+- The `install-template` and `install-renovatabot` skills ship inside the package.
+  `repotemplates install` writes version-stamped stubs for Claude Code and Codex
+  (globally by default, `--local` for one repo), and `repotemplates skill <name>`
+  prints a skill from the installed release. `repotemplates path template` and
+  `repotemplates path scripts` print the directories the release ships, which the
+  skills now read instead of a checkout's `template/` and `scripts/`.
+- `repotemplates init <path>` scaffolds a repo from the template the installed release
+  ships, stamped with that release. It runs the release's own `init.sh`, which gains
+  `--template-dir` (copy a plain template directory instead of cloning) and
+  `--template-version`. The curl-to-bash path is unchanged.
+- `repotemplates check` covers more template-owned files: the pre-commit config and the
+  three workflows (compared with pins and the Python matrix masked, with a separate pin
+  verdict in which a newer pin is not drift), `dependabot.yml` and `renovate.json`
+  (exact), and `.gitignore` and `.gitattributes` (each template rule must hold, checked
+  with `git check-ignore` and `git check-attr`, and waived where the repo tracks what
+  the rule would ignore). A file the repo leaves out on purpose reads `omitted`: the
+  other updater's files, or a path in the stamp table's new `omit` list.
+- `repotemplates upgrade` applies the mechanical part of a template upgrade: it rewrites
+  the template-owned files that equal an earlier release's copy (keeping a pinned file's
+  newer pins and Python matrix, and replacing only the `hooks` block of
+  `.claude/settings.json`), raises pins that are behind, reports everything else with
+  the reason, and stamps the release only when nothing is left. `--dry-run` prints the
+  plan without writing.
+- The `install-template` skill reads `repotemplates check --json` in its preflight
+  instead of diffing template-owned files by hand, and runs `repotemplates upgrade`
+  before working through the rows that need judgment.
+
 ## [0.12.0] - 2026-11-06
 
 ### Changed
