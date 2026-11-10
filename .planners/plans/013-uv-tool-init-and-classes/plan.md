@@ -1,10 +1,10 @@
 ---
 id: 13
 slug: uv-tool-init-and-classes
-status: active
+status: done
 branch: feature/013-uv-tool-init-and-classes
 created: 2026-11-09T16:05:37-08:00
-concluded:
+concluded: 2026-11-09T22:04:45-08:00
 pr: https://github.com/gitronald/repotemplates/pull/61
 ---
 
@@ -174,11 +174,11 @@ Not verified at 012's close, and checked here:
 
 ## Handoff
 
-State on 2026-11-09: steps b through g are committed and pushed on
-`feature/013-uv-tool-init-and-classes` (draft PR #61), with nothing uncommitted.
-The full checks passed at 6c19485: ruff, pyrefly, pytest (89), the shell suite,
-shellcheck, the wheel-contents check, and the manifest freshness check. The Log
-has the detail for each step.
+State on 2026-11-09, at close: steps b through g are merged through PR #61,
+with the review fixes (Log, "review follow-up"). Step a's setup is done: the
+owner added the PyPI pending publisher and set `PUBLISH_ENABLED=true`. GitHub
+creates the `pypi` environment on the first publish job. The first publishing
+release, 0.13.0, is cut from `dev` right after this merge, outside the plan.
 
 Open questions (numbering continues from 012's):
 
@@ -187,23 +187,38 @@ Open questions (numbering continues from 012's):
    `.claude/skills/` copies of the two skills are gone from this repo, and
    `test-init` stays.
 
-Remaining work, and what each waits on:
+No question is open.
 
-1. a (PyPI setup) waits on the owner: the pending publisher, the `pypi`
-   environment, and `PUBLISH_ENABLED`. Then cut the first publishing release
-   and confirm it on PyPI. Until then the skill stubs need the tool installed
-   from a tag (`uv tool install git+https://github.com/gitronald/repotemplates@vX.Y.Z`),
-   and the skill's `uvx repotemplates@<version>` line does not resolve.
-2. After the release: run `repotemplates install` on each machine. A fleet
+Follow-on work, outside this plan:
+
+1. Once 0.13.0 is on PyPI: run `repotemplates install` on each machine. A fleet
    upgrade pass can then use `upgrade` for the mechanical rows. The six
    non-publishing repos need `publish.yml` in `omit`.
 
 Not verified:
 
+- That the 0.13.0 publish run succeeds and the release appears on PyPI. It is
+  the first run of `publish.yml`, and it happens after this close.
 - That Dependabot's `github-actions` entry with `/template` scans
   `template/.github/workflows`. The config is inert until it reaches `main`.
-- `publish.yml` has never run on GitHub; step a is its first run.
 - The `same_tree` check in `tests/init.test.sh` was not mutation-tested.
 - The fleet survey's line-based `.gitignore` reading was replaced by real
   `git check-ignore` results (step c's Log entry); the survey file is left as
   it was written.
+
+## Retrospective
+
+- Steps went in the order e, d, f, c, g, b, not a first: shipping the skills
+  before the preflight meant the preflight was written once, in the packaged
+  body, as the plan intended.
+- Running `check` over the real fleet before finishing the rules paid off twice.
+  It showed that most `.gitignore` gaps were repos that deliberately track
+  `.claude/`, which became the waiver rule. And `upgrade --dry-run` over the
+  fleet showed that a checkout's alpha version would have stamped consumers,
+  which became the prerelease refusal.
+- The review caught that the waiver used pathspec matching where the rest of the
+  class asks git for gitignore semantics. Next time a rule claims to follow git's
+  behavior, test it against the template's own negations (`!.env.example`) too.
+- A dry run against a real repo is the only safe probe: one real `upgrade` run
+  against a consumer, to test a refusal, could have written to it had the
+  refusal regressed.
