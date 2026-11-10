@@ -139,6 +139,12 @@ Not verified at 012's close, and checked here:
   - Worktree: `.worktrees/013-uv-tool-init-and-classes`
   - PR: pending
 - **2026-11-09T18:41:25-08:00** — PR opened: https://github.com/gitronald/repotemplates/pull/61
+- **2026-11-09T18:41:34-08:00** — Step e done (commit 70f2f65). Question 6 answered: global by default, local too (`modes=("global", "local")`).
+  - The CLI is typer now; pkgskills mounts `skill` and `install`. typer and pkgskills are the runtime dependencies (PyYAML comes with pkgskills). typer 0.29 vendors click, so there is no separate click dependency.
+  - `install-template` and `install-renovatabot` moved from `.claude/skills/` to `src/repotemplates/prompts/`, declared in `src/repotemplates/host.py` and registered under `pkgskills.hosts`. `test-init` stays.
+  - `repotemplates path template|scripts` names the shipped directories. The wheel ships `scripts/init.sh` and `scripts/renovatabot-enroll.sh`, which step d needs too. CI checks the wheel carries both scripts and both skill bodies.
+  - The bodies read `{cli} path template` and `{cli} path scripts`; the Renovate guide is linked by URL. Mode 1 of `install-template` still names `scripts/init.sh` until d lands.
+  - Checked: ruff, pyrefly, and pytest (51 passed), plus a wheel built and run with `uv run --isolated --with <wheel>`, where `path scripts` resolved inside site-packages.
 
 ## Handoff
 
