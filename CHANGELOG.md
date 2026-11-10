@@ -29,6 +29,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   ships, stamped with that release. It runs the release's own `init.sh`, which gains
   `--template-dir` (copy a plain template directory instead of cloning) and
   `--template-version`. The curl-to-bash path is unchanged.
+- `repotemplates check` covers more template-owned files: the pre-commit config and the
+  three workflows (compared with pins and the Python matrix masked, with a separate pin
+  verdict in which a newer pin is not drift), `dependabot.yml` and `renovate.json`
+  (exact), and `.gitignore` and `.gitattributes` (each template rule must hold, checked
+  with `git check-ignore` and `git check-attr`, and waived where the repo tracks what
+  the rule would ignore). A file the repo leaves out on purpose reads `omitted`: the
+  other updater's files, or a path in the stamp table's new `omit` list.
 
 ## [0.12.0] - 2026-11-06
 

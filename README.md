@@ -114,15 +114,38 @@ For each repo it reports:
   older `[tool.proj-template]` are read.
 - **Each template-owned file**: `current` (matches the template this release
   ships), `matches vX.Y.Z` (an earlier release), `one-off` (matches no release),
-  `missing`, or `retired` (a file the template no longer ships, still present).
-  Claude hook scripts (`.claude/hooks/*.sh`) are compared by exact content, and
-  the `hooks` block of `.claude/settings.json` as normalized JSON, other keys
-  ignored.
+  `missing`, `omitted` (left out by design, below), or `retired` (a file the
+  template no longer ships, still present). Each class has its own rule:
+  - Claude hook scripts (`.claude/hooks/*.sh`), `.github/dependabot.yml`, and
+    `.github/renovate.json`: exact content.
+  - The `hooks` block of `.claude/settings.json`: normalized JSON, other keys
+    ignored.
+  - Pinned files (`.pre-commit-config.yaml` and the `test`, `publish`, and
+    `renovate` workflows): compared with `rev:` values, action refs and their
+    version comments, and the `python-version` matrix list masked. The pins get
+    their own verdict: `same`, `ahead`, `behind`, `mixed`, or `differs`. A pin
+    newer than the template's is `ahead`, which is not drift.
+  - `.gitignore` and `.gitattributes`: every template rule must hold, which git
+    answers for a probe path (`git check-ignore`, `git check-attr`), so spelling
+    and local additions do not count. A rule is `partial` when it does not hold,
+    and waived when the repo tracks a path the rule would ignore (a repo that
+    tracks `.claude/settings.json` leaves out `.claude/` on purpose).
+- **Files left out by design**: a repo on Dependabot has no Renovate files, and
+  the reverse, so those read `omitted`. Any other file the repo leaves out on
+  purpose is listed in the stamp table, which `check` cannot otherwise tell from
+  a file lost by accident:
+
+  ```toml
+  [tool.repotemplates]
+  version = "0.13.0"
+  omit = [".github/workflows/publish.yml"]   # this repo does not publish
+  ```
 - **Git state of the Claude settings files**: tracked, ignored, untracked, or
   absent. An ignored file never reaches a fresh clone or a cloud session; the
   template ignores `.claude/` by default, so this is information, not drift.
 
-It exits 0 when the stamp is the latest and every file is current, 1 when
+It exits 0 when the stamp is the latest and every file is current or omitted
+with no pin behind, 1 when
 anything differs or `--repos-dir` finds no repo to check, and 2 on a usage
 error. `--markdown` prints Markdown tables.
 With `--repos-dir`, `--json` prints an array, and `*-archive` repos and repos

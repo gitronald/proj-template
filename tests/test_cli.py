@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
@@ -22,10 +23,11 @@ def run(*argv: str) -> tuple[int, str]:
 
 @pytest.fixture
 def real_repo(tmp_path: Path) -> Path:
-    """A repo carrying the shipped template's Claude files and the latest stamp."""
+    """A git repo carrying the shipped template's files and the 0.12.0 stamp."""
     repo = tmp_path / "scaffolded"
-    shutil.copytree(paths.template_root() / ".claude", repo / ".claude")
+    shutil.copytree(paths.template_root(), repo)
     (repo / "pyproject.toml").write_text('[tool.repotemplates]\nversion = "0.12.0"\n')
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
     return repo
 
 
@@ -68,14 +70,12 @@ def test_markdown(real_repo: Path) -> None:
 
 
 def test_fleet_json_is_an_array(real_repo: Path) -> None:
-    (real_repo / ".git").mkdir()
     _, out = run("check", "--repos-dir", str(real_repo.parent), "--json")
     reports = json.loads(out)
     assert [r["name"] for r in reports] == ["scaffolded"]
 
 
 def test_fleet_table(real_repo: Path) -> None:
-    (real_repo / ".git").mkdir()
     _, out = run("check", "--repos-dir", str(real_repo.parent))
     assert out.splitlines()[0].split()[:3] == ["repo", "stamp", "stamp"]
     assert "scaffolded" in out
