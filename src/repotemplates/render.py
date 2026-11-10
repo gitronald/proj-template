@@ -5,8 +5,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from repotemplates.check import KINDS, FileReport, RepoReport, StampReport
+from repotemplates.upgrade import UpgradePlan
 
-__all__ = ["render_fleet", "render_repo"]
+__all__ = ["render_fleet", "render_repo", "render_upgrade"]
 
 
 def _table(
@@ -115,3 +116,15 @@ def render_fleet(reports: Sequence[RepoReport], markdown: bool = False) -> str:
         "settings git",
     ]
     return _table(headers, rows, markdown)
+
+
+def render_upgrade(plan: UpgradePlan, dry_run: bool = False) -> str:
+    head = [f"repo: {plan.repo}", f"release: {plan.release}"]
+    if dry_run:
+        head.append("dry run: nothing written")
+    if plan.refused is not None:
+        return "\n".join([*head, f"refused: {plan.refused}"])
+    rows = [[_label(a.path), a.action, a.reason] for a in plan.actions]
+    stamp = f"stamp: {'write ' if plan.stamp else ''}{plan.stamp_reason}"
+    body = _table(["file", "action", "reason"], rows, False) if rows else "no files"
+    return "\n".join([*head, stamp, "", body])

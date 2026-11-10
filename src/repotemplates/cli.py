@@ -1,8 +1,8 @@
 """The repotemplates command line.
 
-``check``, ``init``, ``path``, and ``version`` are defined here; ``skill``, ``install``,
-and ``doc`` come from :func:`pkgskills.register`, which mounts them from
-:data:`repotemplates.host.HOST`.
+``check``, ``upgrade``, ``init``, ``path``, and ``version`` are defined here;
+``skill``, ``install``, and ``doc`` come from :func:`pkgskills.register`, which
+mounts them from :data:`repotemplates.host.HOST`.
 """
 
 from __future__ import annotations
@@ -20,7 +20,9 @@ from repotemplates import paths
 from repotemplates.check import check_fleet, check_repo
 from repotemplates.host import HOST
 from repotemplates.manifest import load_manifest
-from repotemplates.render import render_fleet, render_repo
+from repotemplates.render import render_fleet, render_repo, render_upgrade
+from repotemplates.upgrade import apply, dirty, plan_upgrade
+from repotemplates.versions import is_prerelease
 
 __all__ = ["app", "main"]
 
@@ -121,6 +123,63 @@ def check(
     else:
         typer.echo(render_repo(report, markdown=markdown))
     if not report.current:
+        raise typer.Exit(1)
+
+
+@app.command()
+def upgrade(
+    repo: Annotated[Path, typer.Argument(help="Repo to upgrade (default: .).")] = Path(
+        "."
+    ),
+    dry_run: Annotated[
+        bool, typer.Option(help="Print what would change, and write nothing.")
+    ] = False,
+    as_json: Annotated[bool, typer.Option("--json", help="Print JSON.")] = False,
+    allow_dirty: Annotated[
+        bool,
+        typer.Option(help="Write over tracked files with uncommitted changes."),
+    ] = False,
+    prerelease: Annotated[
+        bool,
+        typer.Option(help="Apply this release even though it is a prerelease."),
+    ] = False,
+) -> None:
+    """Apply the mechanical part of a template upgrade.
+
+    Rewrites only the template-owned files that check shows hold nothing of the
+    repo's own (an earlier release's copy, or pins behind the template), leaves
+    the rest and says why, and stamps this release once nothing is left. Exits 0
+    when the repo ends current, 1 when files were left for the install-template
+    skill, 2 on a usage error or a refusal.
+    """
+    if not repo.is_dir():
+        raise typer.BadParameter(f"not a directory: {repo}")
+    installed = paths.version()
+    plan = plan_upgrade(repo, paths.template_root(), load_manifest(), installed)
+    if is_prerelease(installed) and not prerelease and plan.refused is None:
+        # A checkout or an alpha install would stamp consumers with a release
+        # that never shipped. A dry run still shows the plan.
+        note = f"{installed} is a prerelease; pass --prerelease to apply it anyway"
+        if dry_run:
+            plan.stamp_reason += f" ({note})"
+        else:
+            plan.refused = note
+    writes = [*plan.contents, *(["pyproject.toml"] if plan.stamp else [])]
+    if plan.refused is None and not dry_run and not allow_dirty:
+        if changed := dirty(Path(plan.repo), writes):
+            plan.refused = (
+                f"uncommitted changes in {', '.join(changed)}; commit them first, "
+                "or pass --allow-dirty"
+            )
+    if plan.refused is None and not dry_run:
+        apply(plan)
+    if as_json:
+        typer.echo(json.dumps({**plan.to_dict(), "dry_run": dry_run}, indent=2))
+    else:
+        typer.echo(render_upgrade(plan, dry_run=dry_run))
+    if plan.refused is not None:
+        raise typer.Exit(2)
+    if not plan.complete:
         raise typer.Exit(1)
 
 

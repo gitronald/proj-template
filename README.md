@@ -154,6 +154,30 @@ with no stamp are skipped unless `--include-archived` or `--all` is given.
 The tool carries the template and a manifest of every release's files, so it
 needs no clone and no network.
 
+## Upgrading a repo
+
+`repotemplates upgrade` applies the mechanical part of an upgrade, and writes
+only what `check` shows holds nothing of the repo's own:
+
+```bash
+repotemplates upgrade path/to/repo --dry-run   # what it would write and skip
+repotemplates upgrade path/to/repo
+```
+
+- A file that equals an earlier release's copy takes this release's. A pinned
+  file keeps the repo's newer pins and its Python matrix list, and
+  `.claude/settings.json` has only its `hooks` block replaced.
+- A pinned file whose pins are behind the template's has them raised.
+- Anything else (a customized file, a missing one, an ignore file lacking
+  rules) is left, with the reason, for the `install-template` skill.
+- The stamp moves to this release only when every file then reads current or
+  omitted, so it never overstates what the repo carries.
+
+It exits 0 when the repo ends current and 1 when files were left. It refuses
+(exit 2) a repo stamped newer than the tool, a tracked file with uncommitted
+changes (`--allow-dirty` overrides), and a prerelease of the tool itself
+(`--prerelease` overrides), since that would stamp a release that never shipped.
+
 ## Skills
 
 The package ships two Claude Code and Codex skills: `install-template`

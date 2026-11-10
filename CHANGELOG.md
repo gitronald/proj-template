@@ -36,6 +36,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   with `git check-ignore` and `git check-attr`, and waived where the repo tracks what
   the rule would ignore). A file the repo leaves out on purpose reads `omitted`: the
   other updater's files, or a path in the stamp table's new `omit` list.
+- `repotemplates upgrade` applies the mechanical part of a template upgrade: it rewrites
+  the template-owned files that equal an earlier release's copy (keeping a pinned file's
+  newer pins and Python matrix, and replacing only the `hooks` block of
+  `.claude/settings.json`), raises pins that are behind, reports everything else with
+  the reason, and stamps the release only when nothing is left. `--dry-run` prints the
+  plan without writing.
+- The `install-template` skill reads `repotemplates check --json` in its preflight
+  instead of diffing template-owned files by hand, and runs `repotemplates upgrade`
+  before working through the rows that need judgment.
 
 ## [0.12.0] - 2026-11-06
 
