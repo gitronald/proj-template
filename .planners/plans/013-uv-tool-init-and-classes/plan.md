@@ -8,7 +8,7 @@ concluded:
 pr:
 ---
 
-# Add init, more file classes, and the skill preflight to the repotemplates CLI
+# Add init, upgrade, more file classes, and packaged skills to the repotemplates CLI
 
 ## Plan
 
@@ -36,8 +36,19 @@ Open questions, keeping 012's numbers so earlier notes still resolve:
 4. (012 q4) Does upgrade become a command (`repotemplates upgrade`, applying the
    mechanical part of the sync matrix), or stay in the `install-template` skill,
    informed by `check`?
-   **Answered 2026-11-09: it stays in the skill, and the skill moves into the
-   package.** pkgskills ships the skill inside `repotemplates`:
+   **Answered 2026-11-09: both. Upgrade becomes a command, and the skill moves
+   into the package.** (This corrects an earlier same-day entry, which read the
+   answer as skill-only.) The work splits along the sync matrix:
+   - **`repotemplates upgrade` (step g)** applies the mechanical part. It
+     rewrites a template-owned file only when `check` shows the repo's copy
+     equals an earlier release (`matches`), or when it differs only in a way
+     the class's rule masks. It leaves alone any file that is `one-off`,
+     customized, or absent by design, and reports it. It also bumps the stamp.
+   - **The `install-template` skill** keeps the judgment calls: merging
+     customized files, the verify gate, and the PR. It runs `upgrade` for
+     everything else.
+
+   pkgskills ships the skill inside `repotemplates`:
    `repotemplates skill install-template` prints the body from the installed
    release, and `repotemplates install` writes a version-stamped stub where
    Claude Code and Codex read skills. This takes four changes (step e):
@@ -103,6 +114,12 @@ f. **Template pins lag the fleet**: Dependabot has moved consumers to newer
    `setup-uv` and `ruff-pre-commit` pins than `template/` ships, because the
    root `dependabot.yml` watches only `/`. Add the template's directories, so
    a new scaffold starts on current pins.
+g. **`repotemplates upgrade`** (question 4): write the files `check` marks safe
+   to replace (`matches`, or masked-equal) from the packaged template, report
+   what it skipped and why, and bump the stamp. Add `--dry-run`, which prints
+   the plan without writing. A class becomes upgradeable only once c has given
+   it a comparison rule; until then the command covers the Claude hooks alone.
+   The skill's sync matrix then calls `upgrade` for the mechanical rows.
 
 Not verified at 012's close, and checked here:
 
@@ -134,8 +151,13 @@ Order of the remaining work, and what each step waits on:
 3. b (skill preflight): after e, and better after a.
 4. c (file classes), in the order question 5 gives: pinned files, then ignore
    files, then absent by design.
-5. d (`init`): independent of c.
-6. f (template pins): small and independent, and can land at any time.
+5. g (`upgrade`): can start after e with the hooks only, and grows a class at a
+   time as c lands. The skill's switch to calling it follows.
+6. d (`init`): independent of c and g.
+7. f (template pins): small and independent, and can land at any time.
+
+The plan is now about 160 lines across seven steps. If g or c grows large,
+split them into nested subplans then.
 
 Not verified: the survey's comparisons are line-based. Which `.gitignore`
 differences are only pattern spellings is a reading of the lines, not a
