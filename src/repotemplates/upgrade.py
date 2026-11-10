@@ -26,9 +26,9 @@ import tomllib
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from repotemplates.check import FileReport, RepoReport, check_repo
+from repotemplates.check import RAISABLE_PINS, FileReport, RepoReport, check_repo
 from repotemplates.classes import merge_pinned
-from repotemplates.manifest import SETTINGS, SETTINGS_HOOKS, Manifest
+from repotemplates.manifest import SETTINGS, SETTINGS_HOOKS, Manifest, file_path
 
 __all__ = ["Action", "UpgradePlan", "apply", "dirty", "plan_upgrade", "set_stamp"]
 
@@ -92,10 +92,10 @@ def _settings_with_hooks(repo_raw: str, template_raw: str) -> str:
 
 def _new_content(repo: Path, template: Path, f: FileReport) -> str | None:
     """What upgrade writes for this file, or None to leave it alone."""
-    replaceable = f.status == "matches" or (
-        f.status == "current" and f.pins in ("behind", "mixed")
+    replaceable = (f.status == "matches" and f.pins != "differs") or (
+        f.status == "current" and f.pins in RAISABLE_PINS
     )
-    if not replaceable or f.pins == "differs":
+    if not replaceable:
         return None
     if f.path == SETTINGS_HOOKS:
         return _settings_with_hooks(
@@ -105,10 +105,6 @@ def _new_content(repo: Path, template: Path, f: FileReport) -> str | None:
     if f.kind == "pinned":
         return merge_pinned(theirs, (repo / f.path).read_text())
     return theirs
-
-
-def _target(key: str) -> str:
-    return key.split("#", 1)[0]
 
 
 def plan_upgrade(
@@ -131,7 +127,7 @@ def plan_upgrade(
         if content is None:
             plan.actions.append(Action(f.path, "skip", _skip_reason(f)))
             continue
-        plan.contents[_target(f.path)] = content
+        plan.contents[file_path(f.path)] = content
         reason = f"matches v{f.release}" if f.status == "matches" else f"pins {f.pins}"
         plan.actions.append(Action(f.path, "write", reason))
     skipped = sum(a.action == "skip" for a in plan.actions)
@@ -147,20 +143,37 @@ def plan_upgrade(
     ):
         plan.stamp_reason = f"already {installed}"
     else:
+        try:
+            stamped = set_stamp((root / "pyproject.toml").read_text(), installed)
+        except (OSError, UnicodeDecodeError, ValueError) as exc:
+            # tomllib's TOMLDecodeError is a ValueError
+            reason = f"cannot set the stamp: {exc}"
+            plan.actions.append(Action("pyproject.toml", "skip", reason))
+            plan.stamp_reason = f"left at {report.stamp.version or 'none'}: {reason}"
+            return plan
+        plan.contents["pyproject.toml"] = stamped
         plan.stamp = installed
         plan.stamp_reason = f"{report.stamp.version or 'none'} -> {installed}"
     return plan
 
 
-_HEADER = re.compile(r"^\s*\[(?P<name>[^\[\]]+)\]\s*(#.*)?$")
+# A table or an array-of-tables header; an array's name keeps its brackets, so
+# ``[[tool.repotemplates]]`` is never taken for the stamp table
+_HEADER = re.compile(r"^\s*(?P<head>\[\[?[^\[\]]+\]\]?)\s*(#.*)?$")
 
 
 def _tables(lines: list[str]) -> list[tuple[int, str]]:
     return [
-        (i, m["name"].strip())
+        (i, _table_name(m["head"]))
         for i, line in enumerate(lines)
         if (m := _HEADER.match(line))
     ]
+
+
+def _table_name(head: str) -> str:
+    if head.startswith("[["):
+        return head
+    return head.strip("[]").strip()
 
 
 def set_stamp(text: str, release: str) -> str:
@@ -224,9 +237,8 @@ def dirty(repo: Path, paths: list[str]) -> list[str]:
 
 
 def apply(plan: UpgradePlan) -> None:
+    """Write the plan. Every file, the stamped ``pyproject.toml`` included, was
+    computed by ``plan_upgrade``, so a failure there writes nothing."""
     root = Path(plan.repo)
     for path, content in plan.contents.items():
         (root / path).write_text(content)
-    if plan.stamp is not None:
-        pyproject = root / "pyproject.toml"
-        pyproject.write_text(set_stamp(pyproject.read_text(), plan.stamp))

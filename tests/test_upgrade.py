@@ -142,6 +142,25 @@ def test_set_stamp(before: str, after: str) -> None:
     assert set_stamp(before, "0.2.0") == after
 
 
+def test_set_stamp_sees_array_tables() -> None:
+    text = '[tool.repotemplates]\nother = 1\n\n[[x]]\nversion = "1"\n'
+    out = tomllib.loads(set_stamp(text, "0.2.0"))
+    assert out["tool"]["repotemplates"] == {"version": "0.2.0", "other": 1}
+    assert out["x"] == [{"version": "1"}]
+
+
+def test_unparseable_pyproject_is_left_unstamped(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = make_repo("broken", version="0.1.0", hook=OLD_HOOK)
+    (repo / "pyproject.toml").write_text("[tool.repotemplates\n")
+    plan = plan_upgrade(repo, template, manifest, "0.2.0")
+    skip = next(a for a in plan.actions if a.path == "pyproject.toml")
+    assert skip.action == "skip" and "cannot set the stamp" in skip.reason
+    assert plan.stamp is None and not plan.complete
+    assert "pyproject.toml" not in plan.contents
+
+
 def test_set_stamp_keeps_omit() -> None:
     text = '[tool.repotemplates]\nversion = "0.1.0"\nomit = ["a.yml"]\n'
     out = tomllib.loads(set_stamp(text, "0.2.0"))["tool"]["repotemplates"]

@@ -164,9 +164,8 @@ def upgrade(
             plan.stamp_reason += f" ({note})"
         else:
             plan.refused = note
-    writes = [*plan.contents, *(["pyproject.toml"] if plan.stamp else [])]
     if plan.refused is None and not dry_run and not allow_dirty:
-        if changed := dirty(Path(plan.repo), writes):
+        if changed := dirty(Path(plan.repo), list(plan.contents)):
             plan.refused = (
                 f"uncommitted changes in {', '.join(changed)}; commit them first, "
                 "or pass --allow-dirty"
@@ -229,6 +228,12 @@ def init(
     stamped with this release. The curl-to-bash path in the README runs the same
     script from GitHub.
     """
+    template = paths.template_root()
+    if stray := paths.stray_files(template):
+        raise typer.BadParameter(
+            f"the checkout's template/ holds files git does not track "
+            f"({', '.join(stray)}); remove them first, since init would copy them"
+        )
     script = paths.scripts_root() / "init.sh"
     argv = [
         "bash",
@@ -236,7 +241,7 @@ def init(
         "--license",
         license_key,
         "--template-dir",
-        str(paths.template_root()),
+        str(template),
         "--template-version",
         paths.version(),
     ]

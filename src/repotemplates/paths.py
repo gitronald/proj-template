@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import importlib.metadata
+import subprocess
 from pathlib import Path
 
-__all__ = ["scripts_root", "template_root", "version"]
+__all__ = ["scripts_root", "stray_files", "template_root", "version"]
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 # src/repotemplates -> the repo root, when running from a checkout
@@ -41,6 +42,30 @@ def template_root() -> Path:
 def scripts_root() -> Path:
     """The scaffold scripts this install ships: ``init.sh`` and the Renovate one."""
     return _data_dir("scripts")
+
+
+def stray_files(root: Path) -> list[str]:
+    """Untracked or ignored files under a checkout's ``root``, as git lists them.
+
+    A wheel's copy is exactly the tracked files (CI checks it), but a checkout's
+    ``template/`` can hold a stray ``uv.lock`` or ``.venv`` that ``init.sh
+    --template-dir`` would copy into every new project. Empty for a shipped copy,
+    and when git cannot answer. ``__pycache__`` is left out: ``init.sh`` skips it.
+    """
+    if not _in_checkout() or not root.resolve().is_relative_to(CHECKOUT_DIR):
+        return []
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "--others", "--directory", "--", str(root)],
+            cwd=CHECKOUT_DIR,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return []
+    if result.returncode != 0:
+        return []
+    return [p for p in result.stdout.splitlines() if "__pycache__" not in p]
 
 
 def version() -> str:

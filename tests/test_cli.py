@@ -109,6 +109,10 @@ class _Ran:
         self.returncode = returncode
 
 
+def no_strays(_root: Path) -> list[str]:
+    return []
+
+
 @pytest.mark.parametrize("code", [0, 3])
 def test_init_runs_shipped_script_on_shipped_template(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, code: int
@@ -119,6 +123,7 @@ def test_init_runs_shipped_script_on_shipped_template(
         calls.append(argv)
         return _Ran(code)
 
+    monkeypatch.setattr("repotemplates.cli.paths.stray_files", no_strays)
     monkeypatch.setattr("repotemplates.cli.subprocess.run", fake_run)
     dest = tmp_path / "new-repo"
     exit_code, _ = run("init", str(dest), "--deps", "renovate", "--license", "bsd")
@@ -149,6 +154,30 @@ def test_init_leaves_deps_to_the_script(
         calls.append(argv)
         return _Ran(0)
 
+    monkeypatch.setattr("repotemplates.cli.paths.stray_files", no_strays)
     monkeypatch.setattr("repotemplates.cli.subprocess.run", fake_run)
     assert run("init", str(tmp_path / "x"))[0] == 0
     assert "--deps" not in calls[0]
+
+
+def test_init_refuses_stray_template_files(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def stray(_root: Path) -> list[str]:
+        return ["template/uv.lock"]
+
+    monkeypatch.setattr("repotemplates.cli.paths.stray_files", stray)
+    code, out = run("init", str(tmp_path / "x"))
+    assert code == 2 and "template/uv.lock" in out
+    assert not (tmp_path / "x").exists()
+
+
+def test_stray_files_lists_untracked_checkout_files() -> None:
+    template = paths.template_root()
+    probe = template / "stray-probe.txt"
+    probe.write_text("x")
+    try:
+        assert "template/stray-probe.txt" in paths.stray_files(template)
+    finally:
+        probe.unlink()
+    assert "template/stray-probe.txt" not in paths.stray_files(template)
