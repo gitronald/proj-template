@@ -96,6 +96,13 @@ def test_compare_pins(repo_text: str, expected: str) -> None:
     assert compare_pins(repo_text, WORKFLOW) == expected
 
 
+def test_non_version_comment_is_not_the_pin() -> None:
+    template = "      - uses: actions/checkout@v4\n"
+    repo = "      - uses: actions/checkout@v4  # keep\n"
+    assert [p.version for p in pins(repo)] == ["v4"]
+    assert compare_pins(repo, template) == "same"
+
+
 def test_compare_pins_rev() -> None:
     assert compare_pins(bump(PRECOMMIT, "v0.17.1", "v0.17.3"), PRECOMMIT) == "ahead"
     assert compare_pins(bump(PRECOMMIT, "v0.17.1", "v0.9.0"), PRECOMMIT) == "behind"
@@ -144,6 +151,19 @@ def test_ignore_rule_waived_when_repo_tracks_under_it(tmp_path: Path) -> None:
     write(repo, ".claude/settings.json", "{}")
     subprocess.run(["git", "add", ".claude/settings.json"], cwd=repo, check=True)
     assert ignore_gaps(repo, TEMPLATE_IGNORE) == ([], [".claude/"])
+
+
+def test_waiver_follows_gitignore_semantics(tmp_path: Path) -> None:
+    # The template un-ignores .env.example, so tracking it waives nothing
+    repo = ignore_repo(tmp_path, ".claude/\n.venv/\n.env\n!.env.example\n")
+    write(repo, ".env.example", "")
+    write(repo, "pkg/x.egg-info/PKG-INFO", "")
+    subprocess.run(["git", "add", ".env.example"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "add", "--", "pkg/x.egg-info/PKG-INFO"], cwd=repo, check=True
+    )
+    # A slashless rule matches at any depth, as gitignore does
+    assert ignore_gaps(repo, TEMPLATE_IGNORE) == ([".env.*"], ["*.egg-info/"])
 
 
 def test_attribute_gaps(tmp_path: Path) -> None:

@@ -33,6 +33,7 @@ from repotemplates.versions import sort_key
 __all__ = [
     "HOOKS_DIR",
     "file_digest",
+    "file_path",
     "SETTINGS",
     "SETTINGS_HOOKS",
     "DirSource",
@@ -49,6 +50,11 @@ SCHEMA = 1
 HOOKS_DIR = ".claude/hooks"
 SETTINGS = ".claude/settings.json"
 SETTINGS_HOOKS = f"{SETTINGS}#hooks"
+
+
+def file_path(key: str) -> str:
+    """The file a manifest key names: ``SETTINGS_HOOKS`` is a block of ``SETTINGS``."""
+    return key.split("#", 1)[0]
 
 
 class Source(Protocol):
@@ -139,7 +145,7 @@ def fingerprint(source: Source) -> dict[str, str]:
     keys += [SETTINGS_HOOKS, *PINNED, *CONFIG]
     out: dict[str, str] = {}
     for key in keys:
-        raw = source.read(key.split("#", 1)[0])
+        raw = source.read(file_path(key))
         if raw is not None and (value := file_digest(key, raw)) is not None:
             out[key] = value
     return out

@@ -101,7 +101,11 @@ def pins(text: str) -> list[Pin]:
         if (m := _REV.match(line)) and repo is not None:
             found.append(Pin(repo, m["ref"], number))
         elif m := _USES.match(line):
-            found.append(Pin(m["name"], m["comment"] or m["ref"], number))
+            # A SHA ref names its release in the comment; any other comment
+            # ("# keep") says nothing about the version
+            comment = m["comment"]
+            version = comment if comment and _key(comment) else m["ref"]
+            found.append(Pin(m["name"], version, number))
     return found
 
 
@@ -229,19 +233,25 @@ def ignore_gaps(repo: Path, template_text: str) -> tuple[list[str], list[str]]:
     ignored = _ignored(repo, probes)
     gaps: list[str] = []
     waived: list[str] = []
-    for rule, probe in zip(rules, probes, strict=True):
+    for i, (rule, probe) in enumerate(zip(rules, probes, strict=True)):
         if (probe in ignored) != rule.startswith("!"):
             continue
-        (waived if _tracks(repo, rule) else gaps).append(rule)
+        (waived if _tracks(repo, rules, i) else gaps).append(rule)
     return gaps, waived
 
 
-def _tracks(repo: Path, rule: str) -> bool:
-    """Whether the repo tracks a path under a (non-negated) ignore rule."""
-    if rule.startswith("!"):
+def _tracks(repo: Path, rules: Sequence[str], i: int) -> bool:
+    """Whether the repo tracks a path the template's rule ``rules[i]`` ignores.
+
+    git matches the rule as a gitignore pattern, together with the template's
+    later negations: ``.env.*`` does not claim a tracked ``.env.example`` while
+    the template's own ``!.env.example`` un-ignores it.
+    """
+    if rules[i].startswith("!"):
         return False
-    spec = rule.strip("/")
-    result = _git(repo, "ls-files", "--", f":(glob){spec}", f":(glob){spec}/**")
+    later = [r for r in rules[i + 1 :] if r.startswith("!")]
+    excludes = [f"--exclude={r}" for r in (rules[i], *later)]
+    result = _git(repo, "ls-files", "--cached", "--ignored", *excludes)
     return result.returncode == 0 and bool(result.stdout.strip())
 
 

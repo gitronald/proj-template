@@ -22,6 +22,7 @@ from repotemplates.manifest import (
     DirSource,
     Manifest,
     file_digest,
+    file_path,
     fingerprint,
 )
 from repotemplates.versions import is_prerelease, sort_key
@@ -29,6 +30,7 @@ from repotemplates.versions import is_prerelease, sort_key
 __all__ = [
     "CLAUDE_SETTINGS",
     "KINDS",
+    "RAISABLE_PINS",
     "FileReport",
     "RepoReport",
     "StampReport",
@@ -42,8 +44,10 @@ STAMP_TABLES = ("repotemplates", "proj-template")
 CLAUDE_SETTINGS = (SETTINGS, ".claude/settings.local.json")
 # The file classes, in report order
 KINDS = ("hook-script", "hook-entries", "pinned", "config", "ignore")
-# Pin verdicts that leave a pinned file behind the template
-STALE_PINS = ("behind", "mixed", "differs")
+# Pin verdicts that leave a pinned file behind the template. upgrade raises
+# the raisable ones; ``differs`` (a pin that is not a version) needs a person.
+RAISABLE_PINS = ("behind", "mixed")
+STALE_PINS = (*RAISABLE_PINS, "differs")
 DEPENDABOT = ".github/dependabot.yml"
 RENOVATE = (".github/renovate.json", ".github/workflows/renovate.yml")
 
@@ -193,14 +197,10 @@ def _kind(key: str) -> str:
     return "hook-script"
 
 
-def _file_path(key: str) -> str:
-    return key.split("#", 1)[0]
-
-
 def _repo_digest(repo: Path, key: str) -> tuple[str | None, bool]:
     """The repo's digest for ``key``, and whether the file could be read."""
     try:
-        raw = DirSource(repo).read(_file_path(key))
+        raw = DirSource(repo).read(file_path(key))
     except OSError:
         return None, False
     if raw is None:
@@ -245,7 +245,8 @@ def _ignore_report(repo: Path, template: Path, path: str, skip: set[str]) -> Fil
     present = (repo / path).is_file()
     if not present and path in skip:
         return FileReport(path, "ignore", "omitted", git=git)
-    if _git(repo, "rev-parse", "--git-dir") != 0:
+    # git_state asked already when the file is there
+    if git == "no git" or (not present and _git(repo, "rev-parse", "--git-dir")):
         # The rules are checked by asking git, so a directory that is not a repo
         # cannot answer
         return FileReport(path, "ignore", "unreadable", git="no git")
@@ -275,7 +276,7 @@ def check_repo(
     files: list[FileReport] = []
     for key in _ordered(set(shipped) | set(manifest.files)):
         value, readable = _repo_digest(repo, key)
-        path, kind = _file_path(key), _kind(key)
+        path, kind = file_path(key), _kind(key)
         git = git_state(repo, path)
         if not readable:
             files.append(FileReport(key, kind, "unreadable", git=git))
