@@ -102,3 +102,53 @@ def test_empty_fleet_exits_1(tmp_path: Path) -> None:
     code, out = run("check", "--repos-dir", str(tmp_path / "empty"))
     assert code == 1
     assert "no repos to check" in out
+
+
+class _Ran:
+    def __init__(self, returncode: int) -> None:
+        self.returncode = returncode
+
+
+@pytest.mark.parametrize("code", [0, 3])
+def test_init_runs_shipped_script_on_shipped_template(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, code: int
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(argv: list[str]) -> _Ran:
+        calls.append(argv)
+        return _Ran(code)
+
+    monkeypatch.setattr("repotemplates.cli.subprocess.run", fake_run)
+    dest = tmp_path / "new-repo"
+    exit_code, _ = run("init", str(dest), "--deps", "renovate", "--license", "bsd")
+    assert exit_code == code
+    assert calls == [
+        [
+            "bash",
+            str(paths.scripts_root() / "init.sh"),
+            "--license",
+            "bsd",
+            "--template-dir",
+            str(paths.template_root()),
+            "--template-version",
+            paths.version(),
+            "--deps",
+            "renovate",
+            str(dest),
+        ]
+    ]
+
+
+def test_init_leaves_deps_to_the_script(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(argv: list[str]) -> _Ran:
+        calls.append(argv)
+        return _Ran(0)
+
+    monkeypatch.setattr("repotemplates.cli.subprocess.run", fake_run)
+    assert run("init", str(tmp_path / "x"))[0] == 0
+    assert "--deps" not in calls[0]

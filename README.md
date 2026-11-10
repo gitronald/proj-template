@@ -38,6 +38,14 @@ repo-init --license apache-2.0 ~/repos/myproject
 repo-init --source ~/repos/repotemplates ~/repos/myproject   # scaffold from a local checkout or fork
 ```
 
+With the `repotemplates` tool installed (see below), `repotemplates init` runs
+the same script on the template that release ships, with no clone:
+
+```bash
+repotemplates init ~/repos/myproject
+repotemplates init --license apache-2.0 --deps renovate ~/repos/myproject
+```
+
 `--source` still clones, so it scaffolds the source's committed tree: unpushed
 commits are picked up, uncommitted edits are not. Without `--branch`, a local
 checkout is cloned at whatever branch it has checked out; the script prints the
@@ -92,6 +100,7 @@ uv tool install repotemplates            # or run it once: uvx repotemplates che
 repotemplates check                      # the repo in the current directory
 repotemplates check path/to/repo --json  # one JSON object, for scripts
 repotemplates check --repos-dir ~/repos  # every stamped clone, as one table
+repotemplates init path/to/new-repo      # scaffold from this release's template
 repotemplates version
 ```
 

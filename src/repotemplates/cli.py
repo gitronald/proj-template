@@ -1,6 +1,6 @@
 """The repotemplates command line.
 
-``check``, ``path``, and ``version`` are defined here; ``skill``, ``install``,
+``check``, ``init``, ``path``, and ``version`` are defined here; ``skill``, ``install``,
 and ``doc`` come from :func:`pkgskills.register`, which mounts them from
 :data:`repotemplates.host.HOST`.
 """
@@ -8,6 +8,7 @@ and ``doc`` come from :func:`pkgskills.register`, which mounts them from
 from __future__ import annotations
 
 import json
+import subprocess
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
@@ -139,6 +140,52 @@ def path(
     """
     root = paths.template_root() if what is Shipped.template else paths.scripts_root()
     typer.echo(str(root))
+
+
+class Deps(StrEnum):
+    dependabot = "dependabot"
+    renovate = "renovate"
+
+
+@app.command()
+def init(
+    dest: Annotated[
+        Path,
+        typer.Argument(
+            help="Directory to create. Its basename becomes the project name.",
+            show_default=False,
+        ),
+    ],
+    license_key: Annotated[
+        str, typer.Option("--license", help="License key, e.g. mit or apache-2.0.")
+    ] = "mit",
+    deps: Annotated[
+        Deps | None,
+        typer.Option(help="Dependency-update automation (asks on a terminal)."),
+    ] = None,
+) -> None:
+    """Scaffold a new repo from the template this release ships.
+
+    Runs the release's own init.sh on its own template/, so the new repo is
+    stamped with this release. The curl-to-bash path in the README runs the same
+    script from GitHub.
+    """
+    script = paths.scripts_root() / "init.sh"
+    argv = [
+        "bash",
+        str(script),
+        "--license",
+        license_key,
+        "--template-dir",
+        str(paths.template_root()),
+        "--template-version",
+        paths.version(),
+    ]
+    if deps is not None:
+        argv += ["--deps", deps.value]
+    code = subprocess.run([*argv, str(dest)]).returncode
+    if code != 0:
+        raise typer.Exit(code)
 
 
 @app.command()

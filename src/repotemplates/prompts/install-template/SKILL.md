@@ -21,15 +21,17 @@ same commands through `uvx repotemplates@<version>`.
 
 ## Mode 1 — New repo
 
-Run the scaffold script (it clones the template, replaces the `PROJECT__NAME` and
-`MODULE__NAME` placeholders, fetches a license, sets up git/uv/pre-commit/stanza):
+Run the scaffold (it copies the installed release's template, replaces the
+`PROJECT__NAME` and `MODULE__NAME` placeholders, fetches a license, sets up
+git/uv/pre-commit/stanza, and stamps the release):
 
 ```bash
-scripts/init.sh [--license <key>] [--source <repo>] [--deps dependabot|renovate] <path>
+{cli} init [--license <key>] [--deps dependabot|renovate] <path>
 ```
 
-`--source` clones a local repotemplates checkout or a fork instead of the GitHub repo
-(committed changes only).
+To scaffold from a local repotemplates checkout or a fork instead, run its
+script: `bash <checkout>/scripts/init.sh --source <checkout> ... <path>`
+(`--source` clones, so committed changes only).
 
 The basename of `<path>` becomes the project name (dashes map to underscores
 in the Python module name). The script is interactive

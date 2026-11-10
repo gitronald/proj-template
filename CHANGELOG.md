@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   prints a skill from the installed release. `repotemplates path template` and
   `repotemplates path scripts` print the directories the release ships, which the
   skills now read instead of a checkout's `template/` and `scripts/`.
+- `repotemplates init <path>` scaffolds a repo from the template the installed release
+  ships, stamped with that release. It runs the release's own `init.sh`, which gains
+  `--template-dir` (copy a plain template directory instead of cloning) and
+  `--template-version`. The curl-to-bash path is unchanged.
 
 ## [0.12.0] - 2026-11-06
 
