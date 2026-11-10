@@ -5,7 +5,7 @@ status: active
 branch: feature/013-uv-tool-init-and-classes
 created: 2026-11-09T16:05:37-08:00
 concluded:
-pr:
+pr: https://github.com/gitronald/repotemplates/pull/61
 ---
 
 # Add init, upgrade, more file classes, and packaged skills to the repotemplates CLI
@@ -138,6 +138,7 @@ Not verified at 012's close, and checked here:
   - Base: `dev` at `7b679da`
   - Worktree: `.worktrees/013-uv-tool-init-and-classes`
   - PR: pending
+- **2026-11-09T18:41:25-08:00** — PR opened: https://github.com/gitronald/repotemplates/pull/61
 
 ## Handoff
 
