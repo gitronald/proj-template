@@ -26,15 +26,61 @@ Open questions, keeping 012's numbers so earlier notes still resolve:
 1. (012 q1) Does `init` port `scripts/init.sh` to Python, or call the bash
    script it ships? The bash script supports a fresh machine with no uv (curl to
    bash), which the tool cannot replace.
+   **Answered 2026-11-09: call the bash script.** There stays one scaffold
+   implementation, and the curl-to-bash path keeps working. Two changes follow.
+   The wheel has to ship `scripts/init.sh`, because it ships only `template/`
+   today. And `init.sh` needs a way to scaffold from a plain directory, since
+   `--source` clones a git repo ("only committed changes are cloned") and the
+   packaged template is not one. With both in place, `repotemplates init`
+   scaffolds the exact release that is installed.
 4. (012 q4) Does upgrade become a command (`repotemplates upgrade`, applying the
    mechanical part of the sync matrix), or stay in the `install-template` skill,
    informed by `check`?
+   **Answered 2026-11-09: it stays in the skill, and the skill moves into the
+   package.** pkgskills ships the skill inside `repotemplates`:
+   `repotemplates skill install-template` prints the body from the installed
+   release, and `repotemplates install` writes a version-stamped stub where
+   Claude Code and Codex read skills. This takes four changes (step e):
+   - The CLI moves from argparse to typer, because pkgskills' `register()`
+     mounts its commands on a typer app. typer and PyYAML become the package's
+     first runtime dependencies.
+   - The body reads `template/` as a path in a checkout. Printed from an
+     installed package, it needs a command that names the packaged template
+     instead (`paths.template_root()` already locates it).
+   - `install-renovatabot` moves with it. `test-init` stays repo-local, because
+     it tests this checkout.
+   - A downstream fleet-upgrade skill that reads `install-template` from the
+     release tag can run `uvx repotemplates@<version> skill install-template`
+     instead.
 5. (012 q5) Which file classes beyond the Claude hooks are template-owned for
    `check`: pre-commit config, CI workflows, `.gitignore`? Each needs its own
    comparison rule, and where repos legitimately diverge an `absent by design`
    status (e.g. `renovate.yml` in a repo on Dependabot).
+   **Answered 2026-11-09 from a fleet survey** (27 stamped repos, all on
+   0.11.7; counts in [fleet-survey.md](fleet-survey.md)). Most raw drift is
+   legitimate, so the order follows the drift a rule can explain, not the raw
+   count:
+   1. **Pinned files** (`.pre-commit-config.yaml` and the three workflows): one
+      rule that masks `rev:` values, action SHAs and their version comments, and
+      the `test.yml` Python matrix list, which follows `requires-python`. It
+      reports pins separately. Every pin difference found is a repo *ahead* of
+      the template, so "newer pin" must not count as drift.
+   2. **Ignore files** (`.gitignore`, `.gitattributes`): containment, with local
+      additions allowed. Check behaviour with `git check-ignore` on a probe path
+      for each template pattern, not by line text. The fleet writes the same
+      rule several ways (`.claude`, `.claude/`, `.claude/*`), and a repo that
+      tracks `.claude/settings.json` leaves the `.claude/` rule out on purpose.
+   3. **Absent by design**: an `omit` list declared in the stamp table, plus one
+      inferred case: the Dependabot and Renovate files exclude each other. The
+      non-publishing repos have dropped `publish.yml`, and only a declaration
+      can tell that from a file lost by accident.
+   Not template-owned for `check`: `.claude/CLAUDE.md` (project prose; 25 of 27
+   differ), `.python-version` (two repos pin a patch release), and the
+   `pyproject.toml` tool tables. Those are uniform where it matters: every repo
+   has the same ruff `select` and pyrefly `strict`, and only `target-version`
+   varies, following `requires-python`.
 
-Remaining work, in order:
+Remaining work (letters stay fixed; the run order is in Handoff):
 
 a. **PyPI setup** (waits on the owner): add the PyPI pending publisher (project
    `repotemplates`, workflow `publish.yml`, environment `pypi`), create the
@@ -47,6 +93,16 @@ c. **More file classes** (question 5), each with fixture tests, starting with
    whichever class the fleet shows drifting most.
 d. **`init`** (012's step e), once question 1 is answered. The curl-to-bash
    path in the README keeps working.
+e. **Ship the skills through pkgskills** (question 4): port the CLI to typer,
+   declare a pkgskills `Host` with `install-template` and `install-renovatabot`,
+   register the `pkgskills.hosts` entry point, and add the command that names
+   the packaged template. Then make the skill bodies use it instead of
+   checkout paths. Do this before b, so the preflight is written once, in the
+   packaged body.
+f. **Template pins lag the fleet**: Dependabot has moved consumers to newer
+   `setup-uv` and `ruff-pre-commit` pins than `template/` ships, because the
+   root `dependabot.yml` watches only `/`. Add the template's directories, so
+   a new scaffold starts on current pins.
 
 Not verified at 012's close, and checked here:
 
@@ -57,3 +113,30 @@ Not verified at 012's close, and checked here:
 - Plan 011 (multiple templates). When it lands, it changes
   `paths.template_root()` and teaches `read_stamp` the stamp's `template` key;
   that work belongs to 011.
+
+## Handoff
+
+State on 2026-11-09: still a draft, with no branch and no code. Questions 1, 4,
+and 5 are answered above. The fleet survey behind question 5 is in
+[fleet-survey.md](fleet-survey.md).
+
+Open questions (numbering continues from 012's):
+
+6. Where should `repotemplates install` put the skill stubs by default? A global
+   install (`~/.claude/skills/`) fits a skill that is run against other repos.
+   A local install in this repo replaces the tracked `.claude/skills/` copies.
+   pkgskills lets a host declare either mode, or both.
+
+Order of the remaining work, and what each step waits on:
+
+1. a (PyPI setup): waits on the owner.
+2. e (pkgskills): can start now. It does not need a.
+3. b (skill preflight): after e, and better after a.
+4. c (file classes), in the order question 5 gives: pinned files, then ignore
+   files, then absent by design.
+5. d (`init`): independent of c.
+6. f (template pins): small and independent, and can land at any time.
+
+Not verified: the survey's comparisons are line-based. Which `.gitignore`
+differences are only pattern spellings is a reading of the lines, not a
+`git check-ignore` result.
