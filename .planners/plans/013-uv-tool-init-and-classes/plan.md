@@ -165,32 +165,36 @@ Not verified at 012's close, and checked here:
 
 ## Handoff
 
-State on 2026-11-09: still a draft, with no branch and no code. Questions 1, 4,
-and 5 are answered above. The fleet survey behind question 5 is in
-[fleet-survey.md](fleet-survey.md).
+State on 2026-11-09: steps b through g are committed and pushed on
+`feature/013-uv-tool-init-and-classes` (draft PR #61), with nothing uncommitted.
+The full checks passed at 6c19485: ruff, pyrefly, pytest (89), the shell suite,
+shellcheck, the wheel-contents check, and the manifest freshness check. The Log
+has the detail for each step.
 
 Open questions (numbering continues from 012's):
 
-6. Where should `repotemplates install` put the skill stubs by default? A global
-   install (`~/.claude/skills/`) fits a skill that is run against other repos.
-   A local install in this repo replaces the tracked `.claude/skills/` copies.
-   pkgskills lets a host declare either mode, or both.
+6. Where should `repotemplates install` put the skill stubs by default?
+   **Answered 2026-11-09: global by default, local too.** The tracked
+   `.claude/skills/` copies of the two skills are gone from this repo, and
+   `test-init` stays.
 
-Order of the remaining work, and what each step waits on:
+Remaining work, and what each waits on:
 
-1. a (PyPI setup): waits on the owner.
-2. e (pkgskills): can start now. It does not need a.
-3. b (skill preflight): after e, and better after a.
-4. c (file classes), in the order question 5 gives: pinned files, then ignore
-   files, then absent by design.
-5. g (`upgrade`): can start after e with the hooks only, and grows a class at a
-   time as c lands. The skill's switch to calling it follows.
-6. d (`init`): independent of c and g.
-7. f (template pins): small and independent, and can land at any time.
+1. a (PyPI setup) waits on the owner: the pending publisher, the `pypi`
+   environment, and `PUBLISH_ENABLED`. Then cut the first publishing release
+   and confirm it on PyPI. Until then the skill stubs need the tool installed
+   from a tag (`uv tool install git+https://github.com/gitronald/repotemplates@vX.Y.Z`),
+   and the skill's `uvx repotemplates@<version>` line does not resolve.
+2. After the release: run `repotemplates install` on each machine. A fleet
+   upgrade pass can then use `upgrade` for the mechanical rows. The six
+   non-publishing repos need `publish.yml` in `omit`.
 
-The plan is now about 160 lines across seven steps. If g or c grows large,
-split them into nested subplans then.
+Not verified:
 
-Not verified: the survey's comparisons are line-based. Which `.gitignore`
-differences are only pattern spellings is a reading of the lines, not a
-`git check-ignore` result.
+- That Dependabot's `github-actions` entry with `/template` scans
+  `template/.github/workflows`. The config is inert until it reaches `main`.
+- `publish.yml` has never run on GitHub; step a is its first run.
+- The `same_tree` check in `tests/init.test.sh` was not mutation-tested.
+- The fleet survey's line-based `.gitignore` reading was replaced by real
+  `git check-ignore` results (step c's Log entry); the survey file is left as
+  it was written.
