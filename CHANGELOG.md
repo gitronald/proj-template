@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   template and a manifest of every release's files, so it needs no clone.
 - A publish workflow for the package, off until the `PUBLISH_ENABLED` repository
   variable is `true`.
+- The `install-template` and `install-renovatabot` skills ship inside the package.
+  `repotemplates install` writes version-stamped stubs for Claude Code and Codex
+  (globally by default, `--local` for one repo), and `repotemplates skill <name>`
+  prints a skill from the installed release. `repotemplates path template` and
+  `repotemplates path scripts` print the directories the release ships, which the
+  skills now read instead of a checkout's `template/` and `scripts/`.
 
 ## [0.12.0] - 2026-11-06
 

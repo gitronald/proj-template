@@ -53,9 +53,14 @@ machine-wide.
 
 ## Running uv in this repo
 
-The root `pyproject.toml` is the `repotemplates` package: the CLI under
-`src/repotemplates/` (`check`, `version`), with `template/` shipped inside the
-wheel as package data. The version is still `VERSION` alone: hatchling reads it
+The root `pyproject.toml` is the `repotemplates` package: the typer CLI under
+`src/repotemplates/` (`check`, `path`, `version`, plus `skill` and `install`
+from pkgskills), with `template/` and the two scaffold scripts shipped inside
+the wheel as package data. The `install-template` and `install-renovatabot`
+skill bodies live in `src/repotemplates/prompts/`, not `.claude/skills/`; a body
+names the template as `{cli} path template`, never a checkout path, because it
+is printed from an installed release. `test-init` stays in `.claude/skills/`,
+since it tests this checkout. The version is still `VERSION` alone: hatchling reads it
 (`[tool.hatch.version]`), and stanza bumps it, so there is no second version
 source. An editable install's metadata keeps the version from its last
 `uv sync`; `repotemplates version` in a checkout reads `VERSION` directly.

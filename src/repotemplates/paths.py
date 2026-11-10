@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib.metadata
 from pathlib import Path
 
-__all__ = ["template_root", "version"]
+__all__ = ["scripts_root", "template_root", "version"]
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 # src/repotemplates -> the repo root, when running from a checkout
@@ -20,17 +20,27 @@ def _in_checkout() -> bool:
     return not _shipped().is_dir() and (CHECKOUT_DIR / "VERSION").is_file()
 
 
-def template_root() -> Path:
-    """The template this install ships.
+def _data_dir(name: str) -> Path:
+    """A directory the wheel ships as package data, or the checkout's copy.
 
-    A wheel carries it as package data (``repotemplates/template``). An editable
-    install from a checkout does not, so it reads the checkout's ``template/``.
+    A wheel carries it under the package (``repotemplates/<name>``). An editable
+    install from a checkout does not, so it reads the checkout's ``<name>/``.
     """
-    if _shipped().is_dir():
-        return _shipped()
-    if _in_checkout() and (CHECKOUT_DIR / "template").is_dir():
-        return CHECKOUT_DIR / "template"
-    raise FileNotFoundError("no template found: the install ships no template/")
+    if (PACKAGE_DIR / name).is_dir():
+        return PACKAGE_DIR / name
+    if _in_checkout() and (CHECKOUT_DIR / name).is_dir():
+        return CHECKOUT_DIR / name
+    raise FileNotFoundError(f"no {name}/ found: the install ships none")
+
+
+def template_root() -> Path:
+    """The template this install ships."""
+    return _data_dir("template")
+
+
+def scripts_root() -> Path:
+    """The scaffold scripts this install ships: ``init.sh`` and the Renovate one."""
+    return _data_dir("scripts")
 
 
 def version() -> str:

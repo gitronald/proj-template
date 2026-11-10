@@ -11,10 +11,13 @@ Two modes. Pick by whether the target path already exists as a repo:
 - **Upgrade** — target is an existing repo: sync it to the template standard
   file by file, adapting to what the repo is.
 
-The template source of truth is the `template/` directory of this repo
-(repotemplates). Always read the current contents of `template/` rather than
-relying on this document for exact file contents — the template evolves and
-this skill describes the *process*, not frozen payloads.
+The template source of truth is the template the installed repotemplates
+release ships: `{cli} path template` prints its directory, and `{cli} version`
+names the release. This document calls that directory `template/`. Always read
+its current contents rather than relying on this document for exact file
+contents — the template evolves and this skill describes the *process*, not
+frozen payloads. To apply a release other than the installed one, run the
+same commands through `uvx repotemplates@<version>`.
 
 ## Mode 1 — New repo
 

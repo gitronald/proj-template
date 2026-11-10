@@ -122,6 +122,24 @@ with no stamp are skipped unless `--include-archived` or `--all` is given.
 The tool carries the template and a manifest of every release's files, so it
 needs no clone and no network.
 
+## Skills
+
+The package ships two Claude Code and Codex skills: `install-template`
+(scaffold a repo, or upgrade one to the template) and `install-renovatabot`
+(enroll a repo in the self-hosted Renovate). Install them once:
+
+```bash
+repotemplates install            # stubs under ~/.claude/skills and ~/.agents/skills
+repotemplates install --check    # ok, or what is missing or drifted
+repotemplates skill install-template   # print a skill's instructions
+```
+
+Each stub runs `repotemplates skill <name>`, so the instructions an agent reads
+always come from the installed release, and so does the template they apply:
+`repotemplates path template` prints the directory the release ships.
+`install --local` writes the stubs into the enclosing repo instead, calling
+`uv run repotemplates`.
+
 ## Developing repotemplates
 
 Working on the template itself needs only `uv` and `planners`. The root

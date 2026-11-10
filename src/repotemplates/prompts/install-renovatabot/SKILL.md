@@ -5,10 +5,12 @@ description: Enroll a scaffolded repo in this template's self-hosted Renovate �
 
 # Install renovatabot
 
-Thin wrapper around `scripts/renovatabot-enroll.sh`. It enrolls a repository in this template's
-self-hosted Renovate setup in one step. The script holds **no secrets** — it reads the GitHub
-App credentials from `${RENOVATE_CONFIG_DIR:-~/.config/renovatabot}/.env` and only orchestrates
-`gh`. See `docs/guides/github-automation.md` for the full setup rationale.
+Thin wrapper around `renovatabot-enroll.sh`, which the installed repotemplates release ships
+beside its template (`{cli} path scripts` prints the directory). It enrolls a repository in this
+template's self-hosted Renovate setup in one step. The script holds **no secrets** — it reads the
+GitHub App credentials from `${RENOVATE_CONFIG_DIR:-~/.config/renovatabot}/.env` and only
+orchestrates `gh`. See the [GitHub automation guide](https://github.com/gitronald/repotemplates/blob/main/docs/guides/github-automation.md)
+for the full setup rationale.
 
 ## When to use
 
@@ -29,7 +31,7 @@ point the user at the guide rather than guessing.
 Run the script with the target repo (ask the user for `owner/repo` if not given):
 
 ```bash
-scripts/renovatabot-enroll.sh <owner/repo>
+bash "$({cli} path scripts)/renovatabot-enroll.sh" <owner/repo>
 ```
 
 The script: (1) pushes the two secrets from the `.env`, (2) keeps Dependabot vulnerability
