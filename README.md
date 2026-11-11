@@ -55,7 +55,7 @@ The script targets bash 3.2+, so it runs on stock macOS as well as Linux.
 
 ## What it does
 
-1. Clones the template repo and replaces placeholders: `PROJECT__NAME` becomes your project name, and `MODULE__NAME` becomes its Python module name (dashes become underscores)
+1. Copies the template (the curl script clones it; `repotemplates init` uses the copy its release ships) and replaces placeholders: `PROJECT__NAME` becomes your project name, and `MODULE__NAME` becomes its Python module name (dashes become underscores)
 2. Stamps the template release it used into `[tool.repotemplates]` in the new repo's `pyproject.toml`, so you can later tell which template version a repo carries (see [Template version stamp](#template-version-stamp))
 3. Fetches a LICENSE file from GitHub's API (default: MIT)
 4. Initializes a git repo on a `dev` branch
@@ -92,8 +92,8 @@ To audit drift across repos, use `repotemplates check` (below).
 
 ## Checking a repo against the template
 
-The `repotemplates` command compares a repo with the template. It is read-only:
-it never edits a repo.
+`repotemplates check` compares a repo with the template. It is read-only:
+it never edits a repo (`repotemplates upgrade`, below, is the command that writes).
 
 ```bash
 uv tool install repotemplates            # or run it once: uvx repotemplates check
@@ -103,9 +103,6 @@ repotemplates check --repos-dir ~/repos  # every stamped clone, as one table
 repotemplates init path/to/new-repo      # scaffold from this release's template
 repotemplates version
 ```
-
-Until it is on PyPI, install it from a release tag:
-`uv tool install git+https://github.com/gitronald/repotemplates@vX.Y.Z`.
 
 For each repo it reports:
 
@@ -228,16 +225,13 @@ uv run pytest
 After each release, regenerate the release manifest on `dev` and commit it:
 `uv run python scripts/build_manifest.py`. CI fails until it lists the new tag.
 
-## Future
-
-- Support GitHub's [template repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-template-repository) feature via `gh repo create --template` to replace the clone step
-
 ## Template structure
 
 ```
 MODULE__NAME/
 ├── __init__.py
 ├── cli.py
+├── py.typed
 tests/
 ├── __init__.py
 ├── test_MODULE__NAME.py
@@ -250,7 +244,13 @@ tests/
 ├── hooks/
 │   └── lint-typecheck.sh
 .github/
-├── workflows/test.yml
+├── dependabot.yml             # or the Renovate pair, per --deps
+├── renovate.json
+├── workflows/
+│   ├── test.yml
+│   ├── publish.yml            # off until PUBLISH_ENABLED is true
+│   └── renovate.yml
+CHANGELOG.md
 README.md
 pyproject.toml
 .gitignore

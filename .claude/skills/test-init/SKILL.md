@@ -1,6 +1,6 @@
 ---
 name: test-init
-description: End-to-end test of scripts/init.sh — scaffold a dash-named project, verify placeholder substitution, build, CLI, tests, and GitHub repo state, then report. Use whenever the user wants to test init.sh (formerly proj-init.sh) or the scaffold ("test the template", "rerun the init test", "test proj-init", "does the scaffold still work?"), after any change to scripts/init.sh or template/ files, or before releasing repotemplates. Also covers the cheap local-only placeholder check that creates no GitHub repo.
+description: End-to-end test of scripts/init.sh — scaffold a dash-named project, verify placeholder substitution, build, CLI, tests, and GitHub repo state, then report. Use whenever the user wants to test init.sh or the scaffold ("test the template", "rerun the init test", "does the scaffold still work?"), after any change to scripts/init.sh or template/ files, or before releasing repotemplates. Also covers the cheap local-only placeholder check that creates no GitHub repo.
 ---
 
 # Test init.sh
@@ -23,7 +23,7 @@ does not prove the scaffold *builds*. The two modes below do:
   initial commit, `stanza init` (creates a real **private** GitHub repo), and branch
   pushes. Use after script changes and before releases.
 
-Default to **full** when the user says "test init.sh" (or the older "test proj-init") without qualification, and say
+Default to **full** when the user says "test init.sh" without qualification, and say
 up front that a private repo will be created (default name: `template-test`).
 
 ## Why a dashed test name

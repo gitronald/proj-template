@@ -54,8 +54,8 @@ machine-wide.
 ## Running uv in this repo
 
 The root `pyproject.toml` is the `repotemplates` package: the typer CLI under
-`src/repotemplates/` (`check`, `path`, `version`, plus `skill` and `install`
-from pkgskills), with `template/` and the two scaffold scripts shipped inside
+`src/repotemplates/` (`check`, `upgrade`, `init`, `path`, `version`, plus `skill` and
+`install` from pkgskills), with `template/` and the two scaffold scripts shipped inside
 the wheel as package data. The `install-template` and `install-renovatabot`
 skill bodies live in `src/repotemplates/prompts/`, not `.claude/skills/`; a body
 names the template as `{cli} path template`, never a checkout path, because it
