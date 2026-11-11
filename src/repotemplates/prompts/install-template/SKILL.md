@@ -193,6 +193,19 @@ Notes:
   stamp-last rule above still decides whether and when that value moves. Never
   leave both tables in a repo, and never add `[tool.proj-template]` to one that
   lacks it.
+- **Check the stamp comment by hand after the pass rewrites it.** When the
+  comment above the table differs from the template's, as it does in every repo
+  carrying `[tool.proj-template]`, `{cli} upgrade` swaps it for the template's
+  one line by deleting everything from the old comment's first line down to the
+  table header. That is the only way to catch the four-line comment releases
+  before 0.11.6 shipped, which starts
+  `# Which proj-template release this repo was scaffolded from`. A comment line
+  the repo added inside that span goes with it, and so does a trailing comment
+  on the `version` line, which the restamp rewrites whole. Read the
+  `pyproject.toml` diff: the only lines removed above the table should be the
+  old template comment, in its one-line or four-line form. Put back any other
+  comment it dropped: a repo line just above the template's comment line, and a
+  `version` comment at the end of the new `version` line.
 - **Claude settings are never a silent copy.** The template's
   `.claude/settings.json` carries only the `Stop` hook; the permission baseline
   lives in each user's global `~/.claude/settings.json`, not in the template.
