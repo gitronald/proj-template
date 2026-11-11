@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `repotemplates upgrade` writes the template's stamp comment when it renames a
+  `[tool.proj-template]` table. It had swapped only the table name inside the old
+  comment, leaving the old scaffold script's name there. A repo already stamped
+  at the installed release with a stale stamp comment now has the comment
+  refreshed too, instead of reading as already current.
+
 ## [0.13.0] - 2026-11-09
 
 ### Added
