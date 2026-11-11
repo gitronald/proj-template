@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-11
+
 ### Added
 
 - `repotemplates upgrade --no-stamp` writes the files and leaves the stamp
