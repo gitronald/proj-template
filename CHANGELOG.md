@@ -7,13 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `repotemplates upgrade --no-stamp` writes the files and leaves the stamp
+  alone. The pass sees only the files `check` tracks, so a repo can read current
+  to it while rows such as the ruff config in `pyproject.toml` are still behind.
+
 ### Changed
 
-- The `install-template` skill has the model check the stamp comment after
-  `repotemplates upgrade` rewrites it. The pass deletes everything from the old
-  template comment down to the stamp table, so it can drop a repo comment line
-  inside that span or a trailing comment on the `version` line. The skill says
-  to put those back.
+- The `install-template` skill runs the mechanical pass with `--no-stamp` and
+  writes the stamp itself once the whole matrix has landed, so a row kept behind
+  the template no longer leaves the stamp overstating the repo.
+- The `install-template` skill says to replace only the template's stamp
+  comment and keep the repo's own. A run of `repotemplates upgrade` that writes
+  the stamp deletes everything from the old template comment down to the stamp
+  table, so it can drop a repo comment line inside that span or a trailing
+  comment on the `version` line; the skill says to put those back.
 
 ### Fixed
 

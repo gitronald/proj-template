@@ -74,7 +74,8 @@ class UpgradePlan:
 
     @property
     def complete(self) -> bool:
-        """Whether the repo reads current once the plan is applied."""
+        """Whether the repo reads current once the plan is applied, but for a
+        stamp held back with ``stamp=False``."""
         return self.refused is None and all(a.action != "skip" for a in self.actions)
 
     def to_dict(self) -> dict[str, object]:
@@ -122,8 +123,16 @@ def _new_content(repo: Path, template: Path, f: FileReport) -> str | None:
 
 
 def plan_upgrade(
-    repo: Path, template: Path, manifest: Manifest, installed: str
+    repo: Path,
+    template: Path,
+    manifest: Manifest,
+    installed: str,
+    *,
+    stamp: bool = True,
 ) -> UpgradePlan:
+    """What upgrade writes and skips. With ``stamp`` false the stamp is left for
+    the ``install-template`` skill, which writes it once the rows ``check`` does
+    not cover (``pyproject.toml`` tables, ``.python-version``) are settled too."""
     report: RepoReport = check_repo(repo, template, manifest, installed)
     plan = UpgradePlan(repo=report.path, release=installed)
     # Compared with this release itself, not with the newest stable one the
@@ -154,6 +163,11 @@ def plan_upgrade(
         plan.stamp_reason = (
             f"left at {report.stamp.version or 'none'}: {skipped} file(s) still "
             "differ, and a stamp that overstates makes the next upgrade skip the repo"
+        )
+    elif not stamp:
+        plan.stamp_reason = (
+            f"left at {report.stamp.version or 'none'}: --no-stamp, so it is "
+            "written once the rest of the upgrade lands"
         )
     elif not (root / "pyproject.toml").is_file():
         plan.actions.append(Action("pyproject.toml", "skip", "missing: no stamp"))

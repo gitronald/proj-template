@@ -392,6 +392,16 @@ def test_command_stamps_a_current_repo(scaffolded: Path) -> None:
     assert stamp_of(scaffolded) == paths.version()
 
 
+def test_command_no_stamp_leaves_the_stamp(scaffolded: Path) -> None:
+    # Current but for the stamp, which upgrade would otherwise move
+    code, out = run("upgrade", str(scaffolded), "--prerelease", "--no-stamp", "--json")
+    assert code == 0, out
+    plan = json.loads(out)
+    assert plan["complete"] is True and plan["stamp"] is None
+    assert "--no-stamp" in plan["stamp_reason"]
+    assert stamp_of(scaffolded) == "0.1.0"
+
+
 def test_command_refuses_dirty_tracked_files(scaffolded: Path) -> None:
     (scaffolded / "pyproject.toml").write_text(
         '[tool.repotemplates]\nversion = "0.1.0"\n# edited\n'

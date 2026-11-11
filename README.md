@@ -168,9 +168,12 @@ repotemplates upgrade path/to/repo
 - Anything else (a customized file, a missing one, an ignore file lacking
   rules) is left, with the reason, for the `install-template` skill.
 - The stamp moves to this release only when every file then reads current or
-  omitted, so it never overstates what the repo carries.
+  omitted, so it never overstates what the repo carries. `--no-stamp` leaves it
+  alone, for an upgrade with more to do than the files `upgrade` tracks: the
+  `install-template` skill passes it and writes the stamp once the rest lands.
 
-It exits 0 when the repo ends current and 1 when files were left. It refuses
+It exits 0 when the repo ends current (but for a stamp `--no-stamp` held back)
+and 1 when files were left. It refuses
 (exit 2) a repo stamped newer than the tool, a tracked file with uncommitted
 changes (`--allow-dirty` overrides), and a prerelease of the tool itself
 (`--prerelease` overrides), since that would stamp a release that never shipped.
