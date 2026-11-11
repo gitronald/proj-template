@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-11-11
+
 ### Changed
 
 - The scaffolded workflows pin `astral-sh/setup-uv` v10.3.3 and
