@@ -37,10 +37,12 @@ STAMP_COMMENT = (
     "inert to consumers."
 )
 
-# The comment block above the stamp table, in any wording the template has
-# shipped: the one-line form, and the three-line form from before 0.11.6. A
-# comment of the repo's own is left alone.
-_TEMPLATE_COMMENT = re.compile(r"release stamp|proj-template release")
+# The first line of the comment above the stamp table, in any wording the
+# template has shipped: the one-line form, and the four-line form from before
+# 0.11.6. Comment lines of the repo's own above it are left alone.
+_TEMPLATE_COMMENT = re.compile(
+    r"^\s*#\s*(Which proj-template release|(proj-template|repotemplates) release stamp)"
+)
 
 
 @dataclass(frozen=True)
@@ -158,10 +160,12 @@ def plan_upgrade(
             return plan
         plan.contents["pyproject.toml"] = stamped
         plan.stamp = installed
-        if report.stamp.version == installed:
-            plan.stamp_reason = f"already {installed}; stamp comment refreshed"
-        else:
+        if report.stamp.version != installed:
             plan.stamp_reason = f"{report.stamp.version or 'none'} -> {installed}"
+        elif report.stamp.table != "tool.repotemplates":
+            plan.stamp_reason = f"already {installed}; table renamed"
+        else:
+            plan.stamp_reason = f"already {installed}; stamp comment refreshed"
     return plan
 
 
@@ -184,6 +188,14 @@ def _table_name(head: str) -> str:
     return head.strip("[]").strip()
 
 
+def _value(line: str) -> object:
+    """The value a ``version = ...`` line sets, or None when it does not parse."""
+    try:
+        return tomllib.loads(line).get("version")
+    except tomllib.TOMLDecodeError:
+        return None
+
+
 def set_stamp(text: str, release: str) -> str:
     """``pyproject.toml`` with ``[tool.repotemplates] version`` set to ``release``.
 
@@ -199,17 +211,22 @@ def set_stamp(text: str, release: str) -> str:
             continue
         at = tables[names.index(old)][0]
         end = next((i for i, _ in tables if i > at), len(lines))
-        lines[at] = "[tool.repotemplates]"
+        if old != "tool.repotemplates":
+            lines[at] = "[tool.repotemplates]"
         top = at
         while top > 0 and lines[top - 1].lstrip().startswith("#"):
             top -= 1
-        if top < at and _TEMPLATE_COMMENT.search(" ".join(lines[top:at])):
-            lines[top:at] = [STAMP_COMMENT]
-            end -= at - top - 1
-            at = top + 1
+        start = next(
+            (i for i in range(top, at) if _TEMPLATE_COMMENT.match(lines[i])), None
+        )
+        if start is not None and lines[start:at] != [STAMP_COMMENT]:
+            lines[start:at] = [STAMP_COMMENT]
+            end -= at - start - 1
+            at = start + 1
         for i in range(at + 1, end):
             if re.match(r"^\s*version\s*=", lines[i]):
-                lines[i] = version_line
+                if _value(lines[i]) != release:
+                    lines[i] = version_line
                 break
         else:
             lines.insert(at + 1, version_line)

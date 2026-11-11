@@ -13,7 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `[tool.proj-template]` table. It had swapped only the table name inside the old
   comment, leaving the old scaffold script's name there. A repo already stamped
   at the installed release with a stale stamp comment now has the comment
-  refreshed too, instead of reading as already current.
+  refreshed too, instead of reading as already current. Comment lines of the
+  repo's own above the stamp, and a current stamp written in another format, are
+  left as they are.
 
 ## [0.13.0] - 2026-11-09
 

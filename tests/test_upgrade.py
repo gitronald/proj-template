@@ -10,7 +10,16 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from conftest import HOOK, NEW_HOOK, NEW_HOOKS, OLD_HOOK, OLD_HOOKS, SETTINGS, write
+from conftest import (
+    HOOK,
+    NEW_HOOK,
+    NEW_HOOKS,
+    OLD_HOOK,
+    OLD_HOOKS,
+    SETTINGS,
+    stamp,
+    write,
+)
 from test_classes import WORKFLOW, bump
 from typer.testing import CliRunner
 
@@ -138,6 +147,20 @@ def test_newer_stamp_is_refused(
             '# our own note\n[tool.repotemplates]\nversion = "0.2.0"\n',
         ),
         (
+            "# our own note\n# proj-template release stamp, set by proj-init.sh\n"
+            '[tool.proj-template]\nversion = "0.1.0"\n',
+            f"# our own note\n{STAMP_COMMENT}\n"
+            '[tool.repotemplates]\nversion = "0.2.0"\n',
+        ),
+        (
+            '# our release stamp, keep\n[tool.repotemplates]\nversion = "0.1.0"\n',
+            '# our release stamp, keep\n[tool.repotemplates]\nversion = "0.2.0"\n',
+        ),
+        (
+            "[tool.repotemplates]  # ours\nversion='0.2.0'  # pinned\n",
+            "[tool.repotemplates]  # ours\nversion='0.2.0'  # pinned\n",
+        ),
+        (
             '[project.scripts]\nx = "x:app"\n\n[tool.ruff]\nline-length = 88\n',
             '[project.scripts]\nx = "x:app"\n\n'
             "# repotemplates release stamp, set by init.sh and install-template; "
@@ -174,6 +197,27 @@ def test_stale_stamp_comment_is_refreshed(
     )
     again = plan_upgrade(repo, template, manifest, "0.2.0")
     assert again.stamp is None and again.stamp_reason == "already 0.2.0"
+
+
+def test_current_stamp_in_another_format_is_left_alone(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = make_repo("terse", version="0.2.0")
+    text = (repo / "pyproject.toml").read_text()
+    (repo / "pyproject.toml").write_text(
+        text.replace('version = "0.2.0"', "version='0.2.0'  # pinned")
+    )
+    plan = plan_upgrade(repo, template, manifest, "0.2.0")
+    assert plan.stamp is None and plan.stamp_reason == "already 0.2.0"
+
+
+def test_old_table_at_this_release_is_renamed(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = make_repo("old", version=None)
+    (repo / "pyproject.toml").write_text(stamp("0.2.0", table="proj-template"))
+    plan = plan_upgrade(repo, template, manifest, "0.2.0")
+    assert plan.stamp == "0.2.0" and plan.stamp_reason == "already 0.2.0; table renamed"
 
 
 def test_set_stamp_sees_array_tables() -> None:
