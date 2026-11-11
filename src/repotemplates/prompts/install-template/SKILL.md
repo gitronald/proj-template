@@ -85,16 +85,19 @@ running it from a tool. If the user chose renovate, finish with the
 Start with the mechanical pass, in the worktree:
 
 ```bash
-{cli} upgrade <worktree> --dry-run   # read the plan
-{cli} upgrade <worktree>             # apply it
+{cli} upgrade <worktree> --no-stamp --dry-run   # read the plan
+{cli} upgrade <worktree> --no-stamp             # apply it
 ```
 
 It rewrites only the template-owned files `check` shows hold nothing of the
 repo's own: a copy of an earlier release takes the template's (a pinned file
 keeping the repo's newer pins and its Python matrix list; `settings.json`
 having only its `hooks` block replaced), and pins behind the template are
-raised. It stamps the release only when nothing is left, so a partial pass
-leaves the stamp for the rule below. Everything it skips is listed with the
+raised. `--no-stamp` keeps it off the stamp: the pass sees only the files
+`check` tracks, not the `pyproject.toml` tables or `.python-version` rows still
+ahead, so the stamp waits for the rule below. Without the flag it stamps the
+release once every tracked file is current, which is right only when the pass
+is the whole upgrade. Everything it skips is listed with the
 reason, and those files are what the rest of this section decides: a `one-off`
 goes to the diverging-file triage, a `missing` file is copied in or (when the
 repo leaves it out on purpose, like `publish.yml` in an app) listed in the
@@ -172,11 +175,12 @@ Notes:
   written last.** It records which template release the repo carries, so it is
   never a merge and never a customization to preserve: overwrite whatever
   version is there, and add the table (after `[project.scripts]`) when a repo
-  predates it. Write it only *after* the rest of the matrix has been applied and
-  any batched questions answered, and only if the upgrade actually landed in
-  full — if the user chose **keep** on rows that leave the repo behind the
-  template, stamp the older release the repo still matches, or leave the stamp
-  untouched and say so in the report. A stamp that overstates is worse than an
+  predates it. The mechanical pass ran with `--no-stamp`, so it still holds the
+  release the repo started from. Write it only *after* the rest of the matrix
+  has been applied and any batched questions answered, and only if the upgrade
+  actually landed in full — if the user chose **keep** on rows that leave the
+  repo behind the template, stamp the older release the repo still matches, or
+  leave the stamp untouched and say so in the report. A stamp that overstates is worse than an
   absent one, since it makes the next upgrade skip the repo. The template ships
   the literal `TEMPLATE_VERSION` placeholder there (`init.sh` substitutes
   it at scaffold time), so never copy that string into a target — resolve it to
@@ -193,19 +197,15 @@ Notes:
   stamp-last rule above still decides whether and when that value moves. Never
   leave both tables in a repo, and never add `[tool.proj-template]` to one that
   lacks it.
-- **Check the stamp comment by hand after the pass rewrites it.** When the
-  comment above the table differs from the template's, as it does in every repo
-  carrying `[tool.proj-template]`, `{cli} upgrade` swaps it for the template's
-  one line by deleting everything from the old comment's first line down to the
-  table header. That is the only way to catch the four-line comment releases
-  before 0.11.6 shipped, which starts
-  `# Which proj-template release this repo was scaffolded from`. A comment line
-  the repo added inside that span goes with it, and so does a trailing comment
-  on the `version` line, which the restamp rewrites whole. Read the
-  `pyproject.toml` diff: the only lines removed above the table should be the
-  old template comment, in its one-line or four-line form. Put back any other
-  comment it dropped: a repo line just above the template's comment line, and a
-  `version` comment at the end of the new `version` line.
+- **Replace only the template's stamp comment.** When the comment above the
+  table differs from the template's, as it does in every repo carrying
+  `[tool.proj-template]`, swap in the template's one line. The old comment is
+  one line, or four from releases before 0.11.6, starting
+  `# Which proj-template release this repo was scaffolded from`. Keep every
+  other comment there, and a trailing comment on the `version` line. A run of
+  `{cli} upgrade` without `--no-stamp` does this swap itself by deleting
+  everything from the old comment's first line down to the header, so after
+  one, read the `pyproject.toml` diff and put back any repo comment it dropped.
 - **Claude settings are never a silent copy.** The template's
   `.claude/settings.json` carries only the `Stop` hook; the permission baseline
   lives in each user's global `~/.claude/settings.json`, not in the template.
