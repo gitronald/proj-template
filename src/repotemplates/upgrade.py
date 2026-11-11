@@ -138,9 +138,9 @@ def plan_upgrade(
     # Compared with this release itself, not with the newest stable one the
     # stamp's status is read against: a prerelease stamp reads "alpha" whichever
     # side of the installed release it falls
-    stamped = sort_key(report.stamp.version) if report.stamp.version else None
+    stamp_key = sort_key(report.stamp.version) if report.stamp.version else None
     release_key = sort_key(installed)
-    if stamped and release_key and stamped > release_key:
+    if stamp_key and release_key and stamp_key > release_key:
         plan.refused = (
             f"the repo is stamped {report.stamp.version}, newer than this release "
             f"({installed}); run a newer repotemplates"
@@ -164,14 +164,14 @@ def plan_upgrade(
             f"left at {report.stamp.version or 'none'}: {skipped} file(s) still "
             "differ, and a stamp that overstates makes the next upgrade skip the repo"
         )
+    elif not (root / "pyproject.toml").is_file():
+        plan.actions.append(Action("pyproject.toml", "skip", "missing: no stamp"))
+        plan.stamp_reason = "no pyproject.toml to stamp"
     elif not stamp:
         plan.stamp_reason = (
             f"left at {report.stamp.version or 'none'}: --no-stamp, so it is "
             "written once the rest of the upgrade lands"
         )
-    elif not (root / "pyproject.toml").is_file():
-        plan.actions.append(Action("pyproject.toml", "skip", "missing: no stamp"))
-        plan.stamp_reason = "no pyproject.toml to stamp"
     else:
         try:
             text = (root / "pyproject.toml").read_text()

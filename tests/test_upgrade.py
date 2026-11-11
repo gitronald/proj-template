@@ -138,10 +138,13 @@ def test_prerelease_install_takes_an_older_stamp(
     assert plan.refused is None and plan.stamp == "0.3.0a0"
 
 
+@pytest.mark.parametrize("stamp", [True, False])
 def test_no_pyproject_is_not_complete(
-    make_repo: MakeRepo, template: Path, manifest: Manifest
+    make_repo: MakeRepo, template: Path, manifest: Manifest, stamp: bool
 ) -> None:
-    plan = plan_upgrade(make_repo("bare", version=None), template, manifest, "0.2.0")
+    # --no-stamp too: the skill could not write the stamp later either
+    repo = make_repo("bare", version=None)
+    plan = plan_upgrade(repo, template, manifest, "0.2.0", stamp=stamp)
     assert plan.stamp is None and not plan.complete
     assert plan.stamp_reason == "no pyproject.toml to stamp"
 
