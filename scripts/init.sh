@@ -122,6 +122,11 @@ if [ -n "$TEMPLATE_VERSION_ARG" ] && [ -z "$TEMPLATE_DIR_ARG" ]; then
     echo "Error: --template-version needs --template-dir (a clone stamps its own VERSION)"
     exit 1
 fi
+# It goes into pyproject.toml as a TOML string, so only a release number passes.
+if [ -n "$TEMPLATE_VERSION_ARG" ] && ! [[ "$TEMPLATE_VERSION_ARG" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+((a|b|rc)[0-9]+)?$ ]]; then
+    echo "Error: --template-version ${TEMPLATE_VERSION_ARG} is not a release number (X.Y.Z, optionally with aN, bN, or rcN)"
+    exit 1
+fi
 if [ -n "$TEMPLATE_DIR_ARG" ] && [ ! -d "$TEMPLATE_DIR_ARG" ]; then
     echo "Error: --template-dir ${TEMPLATE_DIR_ARG} is not a directory"
     exit 1

@@ -143,19 +143,29 @@ def upgrade(
         bool,
         typer.Option(help="Apply this release even though it is a prerelease."),
     ] = False,
+    no_stamp: Annotated[
+        bool,
+        typer.Option(
+            "--no-stamp",
+            help="Leave the stamp, for the install-template skill to write last.",
+        ),
+    ] = False,
 ) -> None:
     """Apply the mechanical part of a template upgrade.
 
     Rewrites only the template-owned files that check shows hold nothing of the
     repo's own (an earlier release's copy, or pins behind the template), leaves
-    the rest and says why, and stamps this release once nothing is left. Exits 0
-    when the repo ends current, 1 when files were left for the install-template
-    skill, 2 on a usage error or a refusal.
+    the rest and says why, and stamps this release once nothing is left (unless
+    --no-stamp). Exits 0 when the repo ends current (but for a stamp held back),
+    1 when files were left for the install-template skill, 2 on a usage error or
+    a refusal.
     """
     if not repo.is_dir():
         raise typer.BadParameter(f"not a directory: {repo}")
     installed = paths.version()
-    plan = plan_upgrade(repo, paths.template_root(), load_manifest(), installed)
+    plan = plan_upgrade(
+        repo, paths.template_root(), load_manifest(), installed, stamp=not no_stamp
+    )
     if is_prerelease(installed) and not prerelease and plan.refused is None:
         # A checkout or an alpha install would stamp consumers with a release
         # that never shipped. A dry run still shows the plan.

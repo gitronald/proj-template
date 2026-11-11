@@ -55,7 +55,7 @@ The script targets bash 3.2+, so it runs on stock macOS as well as Linux.
 
 ## What it does
 
-1. Clones the template repo and replaces placeholders: `PROJECT__NAME` becomes your project name, and `MODULE__NAME` becomes its Python module name (dashes become underscores)
+1. Copies the template (the curl script clones it; `repotemplates init` uses the copy its release ships) and replaces placeholders: `PROJECT__NAME` becomes your project name, and `MODULE__NAME` becomes its Python module name (dashes become underscores)
 2. Stamps the template release it used into `[tool.repotemplates]` in the new repo's `pyproject.toml`, so you can later tell which template version a repo carries (see [Template version stamp](#template-version-stamp))
 3. Fetches a LICENSE file from GitHub's API (default: MIT)
 4. Initializes a git repo on a `dev` branch
@@ -92,8 +92,8 @@ To audit drift across repos, use `repotemplates check` (below).
 
 ## Checking a repo against the template
 
-The `repotemplates` command compares a repo with the template. It is read-only:
-it never edits a repo.
+`repotemplates check` compares a repo with the template. It is read-only:
+it never edits a repo (`repotemplates upgrade`, below, is the command that writes).
 
 ```bash
 uv tool install repotemplates            # or run it once: uvx repotemplates check
@@ -103,9 +103,6 @@ repotemplates check --repos-dir ~/repos  # every stamped clone, as one table
 repotemplates init path/to/new-repo      # scaffold from this release's template
 repotemplates version
 ```
-
-Until it is on PyPI, install it from a release tag:
-`uv tool install git+https://github.com/gitronald/repotemplates@vX.Y.Z`.
 
 For each repo it reports:
 
@@ -171,9 +168,12 @@ repotemplates upgrade path/to/repo
 - Anything else (a customized file, a missing one, an ignore file lacking
   rules) is left, with the reason, for the `install-template` skill.
 - The stamp moves to this release only when every file then reads current or
-  omitted, so it never overstates what the repo carries.
+  omitted, so it never overstates what the repo carries. `--no-stamp` leaves it
+  alone, for an upgrade with more to do than the files `upgrade` tracks: the
+  `install-template` skill passes it and writes the stamp once the rest lands.
 
-It exits 0 when the repo ends current and 1 when files were left. It refuses
+It exits 0 when the repo ends current (but for a stamp `--no-stamp` held back)
+and 1 when files were left. It refuses
 (exit 2) a repo stamped newer than the tool, a tracked file with uncommitted
 changes (`--allow-dirty` overrides), and a prerelease of the tool itself
 (`--prerelease` overrides), since that would stamp a release that never shipped.
@@ -228,16 +228,13 @@ uv run pytest
 After each release, regenerate the release manifest on `dev` and commit it:
 `uv run python scripts/build_manifest.py`. CI fails until it lists the new tag.
 
-## Future
-
-- Support GitHub's [template repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-template-repository) feature via `gh repo create --template` to replace the clone step
-
 ## Template structure
 
 ```
 MODULE__NAME/
 ├── __init__.py
 ├── cli.py
+├── py.typed
 tests/
 ├── __init__.py
 ├── test_MODULE__NAME.py
@@ -250,7 +247,13 @@ tests/
 ├── hooks/
 │   └── lint-typecheck.sh
 .github/
-├── workflows/test.yml
+├── dependabot.yml             # or the Renovate pair, per --deps
+├── renovate.json
+├── workflows/
+│   ├── test.yml
+│   ├── publish.yml            # off until PUBLISH_ENABLED is true
+│   └── renovate.yml
+CHANGELOG.md
 README.md
 pyproject.toml
 .gitignore

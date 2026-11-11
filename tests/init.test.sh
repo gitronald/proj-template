@@ -371,6 +371,9 @@ check "--template-dir with --source is rejected" \
 check "--template-version without --template-dir is rejected" \
     rejects_dir version-alone "Error: --template-version needs --template-dir" \
     --deps dependabot --template-version 9.9.9
+check "a --template-version that is not a release number is rejected" \
+    rejects_dir version-not-release "is not a release number" \
+    --deps dependabot --template-dir "$PKG/template" --template-version '9.9.9"x'
 check "a --template-dir that is not a template is rejected" \
     rejects_dir dir-not-template "has no MODULE__NAME/" --deps dependabot --template-dir "$NOT_TEMPLATE"
 if scaffold_dir dir-test --deps dependabot --template-dir "$PKG/template" --template-version 9.9.9; then

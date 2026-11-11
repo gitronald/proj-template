@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-11
+
+### Added
+
+- `repotemplates upgrade --no-stamp` writes the files and leaves the stamp
+  alone. The pass sees only the files `check` tracks, so a repo can read current
+  to it while rows such as the ruff config in `pyproject.toml` are still behind.
+
+### Changed
+
+- The `install-template` skill runs the mechanical pass with `--no-stamp` and
+  writes the stamp itself once the whole matrix has landed, so a row kept behind
+  the template no longer leaves the stamp overstating the repo.
+- The `install-template` skill says to replace only the template's stamp
+  comment and keep the repo's own. A run of `repotemplates upgrade` that writes
+  the stamp deletes everything from the old template comment down to the stamp
+  table, so it can drop a repo comment line inside that span or a trailing
+  comment on the `version` line; the skill says to put those back.
+
+### Fixed
+
+- `repotemplates upgrade` writes the template's stamp comment when it renames a
+  `[tool.proj-template]` table. It had swapped only the table name inside the old
+  comment, leaving the old scaffold script's name there. A repo already stamped
+  at the installed release with a stale stamp comment now has the comment
+  refreshed too, instead of reading as already current. Comment lines of the
+  repo's own above the stamp, and a current stamp written in another format, are
+  left as they are.
+- `repotemplates upgrade` reads `pyproject.toml` as TOML when it restamps. A
+  table header or `version` line inside a multi-line string is no longer edited,
+  quoted spellings of the header and key are recognized, CRLF line endings are
+  kept, and a repo with both stamp tables loses the old `[tool.proj-template]`.
+  A stamp written as an inline table or dotted keys, a stamp that is not a
+  table, and an `omit` that is not a list of paths are reported as skipped,
+  where they had failed to parse, crashed the command, or been stamped into a
+  table `check` could not read.
+- `repotemplates upgrade` compares the repo's stamp with the installed release
+  directly. A stamp on a newer prerelease is refused instead of being
+  downgraded, and an install of a prerelease no longer refuses a stamp that is
+  newer than every stable release but older than the prerelease.
+- `repotemplates upgrade` no longer reports a repo with no `pyproject.toml` as
+  complete, since it cannot carry the stamp.
+- `init.sh` refuses a `--template-version` that is not a release number, which
+  it had written into `pyproject.toml` unescaped.
+
 ## [0.13.0] - 2026-11-09
 
 ### Added
