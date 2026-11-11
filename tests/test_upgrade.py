@@ -17,7 +17,7 @@ from typer.testing import CliRunner
 from repotemplates import paths
 from repotemplates.cli import app
 from repotemplates.manifest import SETTINGS_HOOKS, Manifest
-from repotemplates.upgrade import apply, plan_upgrade, set_stamp
+from repotemplates.upgrade import STAMP_COMMENT, apply, plan_upgrade, set_stamp
 
 MakeRepo = Callable[..., Path]
 TEST_YML = ".github/workflows/test.yml"
@@ -118,10 +118,24 @@ def test_newer_stamp_is_refused(
             '[project]\nname = "x"\n\n[tool.repotemplates]\nversion = "0.2.0"\n',
         ),
         (
-            '# proj-template release stamp\n[tool.proj-template]\nversion = "0.1.0"\n'
+            "# proj-template release stamp, set by proj-init.sh and install-template; "
+            'inert to consumers.\n[tool.proj-template]\nversion = "0.1.0"\n'
             "\n[tool.ruff]\n",
-            '# repotemplates release stamp\n[tool.repotemplates]\nversion = "0.2.0"\n'
+            f'{STAMP_COMMENT}\n[tool.repotemplates]\nversion = "0.2.0"\n'
             "\n[tool.ruff]\n",
+        ),
+        (
+            "# Which proj-template release this repo was scaffolded from, stamped by\n"
+            "# proj-init.sh and re-stamped by the install-template skill on upgrade. "
+            "Inert to\n# consumers.\n"
+            '[tool.proj-template]\nversion = "0.1.0"\nomit = ["a.yml"]\n'
+            "\n[tool.ruff]\n",
+            f'{STAMP_COMMENT}\n[tool.repotemplates]\nversion = "0.2.0"\n'
+            'omit = ["a.yml"]\n\n[tool.ruff]\n',
+        ),
+        (
+            '# our own note\n[tool.proj-template]\nversion = "0.1.0"\n',
+            '# our own note\n[tool.repotemplates]\nversion = "0.2.0"\n',
         ),
         (
             '[project.scripts]\nx = "x:app"\n\n[tool.ruff]\nline-length = 88\n',
@@ -140,6 +154,26 @@ def test_newer_stamp_is_refused(
 )
 def test_set_stamp(before: str, after: str) -> None:
     assert set_stamp(before, "0.2.0") == after
+
+
+def test_stale_stamp_comment_is_refreshed(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = make_repo("stale", version="0.2.0")
+    stale = "# repotemplates release stamp, set by proj-init.sh and install-template"
+    text = (repo / "pyproject.toml").read_text()
+    (repo / "pyproject.toml").write_text(
+        text.replace("[tool.repotemplates]", f"{stale}\n[tool.repotemplates]")
+    )
+    plan = plan_upgrade(repo, template, manifest, "0.2.0")
+    assert plan.stamp == "0.2.0" and "comment refreshed" in plan.stamp_reason
+    apply(plan)
+    assert (
+        f"{STAMP_COMMENT}\n[tool.repotemplates]"
+        in (repo / "pyproject.toml").read_text()
+    )
+    again = plan_upgrade(repo, template, manifest, "0.2.0")
+    assert again.stamp is None and again.stamp_reason == "already 0.2.0"
 
 
 def test_set_stamp_sees_array_tables() -> None:
