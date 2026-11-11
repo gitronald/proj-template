@@ -119,6 +119,33 @@ def test_newer_stamp_is_refused(
     assert plan.actions == []
 
 
+def test_newer_prerelease_stamp_is_refused(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    # Its status reads "alpha", not "ahead", so the guard compares versions
+    repo = make_repo("alpha", version="0.3.0a0")
+    plan = plan_upgrade(repo, template, manifest, "0.2.0")
+    assert plan.refused is not None and plan.stamp is None
+
+
+def test_prerelease_install_takes_an_older_stamp(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    # 0.2.1 is newer than every stable release the manifest knows, but older
+    # than the prerelease installed
+    repo = make_repo("patch", version="0.2.1")
+    plan = plan_upgrade(repo, template, manifest, "0.3.0a0")
+    assert plan.refused is None and plan.stamp == "0.3.0a0"
+
+
+def test_no_pyproject_is_not_complete(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    plan = plan_upgrade(make_repo("bare", version=None), template, manifest, "0.2.0")
+    assert plan.stamp is None and not plan.complete
+    assert plan.stamp_reason == "no pyproject.toml to stamp"
+
+
 @pytest.mark.parametrize(
     ("before", "after"),
     [
@@ -243,6 +270,91 @@ def test_set_stamp_keeps_omit() -> None:
     text = '[tool.repotemplates]\nversion = "0.1.0"\nomit = ["a.yml"]\n'
     out = tomllib.loads(set_stamp(text, "0.2.0"))["tool"]["repotemplates"]
     assert out == {"version": "0.2.0", "omit": ["a.yml"]}
+
+
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        # A header inside a multi-line string is text
+        (
+            "[project]\ndescription = '''\n[tool.repotemplates]\n"
+            'version = "0.1.0"\n\'\'\'\n\n[tool.repotemplates]\nversion = "0.1.0"\n',
+            "[project]\ndescription = '''\n[tool.repotemplates]\n"
+            'version = "0.1.0"\n\'\'\'\n\n[tool.repotemplates]\nversion = "0.2.0"\n',
+        ),
+        (
+            '[project]\nx = """a\n[tool.repotemplates]\\""""\n\n'
+            '[tool.repotemplates]\nversion = "0.1.0"\n',
+            '[project]\nx = """a\n[tool.repotemplates]\\""""\n\n'
+            '[tool.repotemplates]\nversion = "0.2.0"\n',
+        ),
+        # Header and key spelled with quotes
+        (
+            '[ tool . "repotemplates" ]\n"version" = "0.1.0"\n',
+            '[ tool . "repotemplates" ]\nversion = "0.2.0"\n',
+        ),
+        # Both tables: the old one goes, the new one is read and kept
+        (
+            '[tool.repotemplates]\nversion = "0.1.0"\n\n'
+            '[tool.proj-template]\nversion = "0.0.1"\n\n[tool.ruff]\n',
+            '[tool.repotemplates]\nversion = "0.2.0"\n\n[tool.ruff]\n',
+        ),
+        (
+            "# proj-template release stamp, set by proj-init.sh\n"
+            '[tool.proj-template]\nversion = "0.0.1"\n\n'
+            '[tool.repotemplates]\nversion = "0.1.0"\n',
+            '[tool.repotemplates]\nversion = "0.2.0"\n',
+        ),
+        # CRLF line endings stay CRLF
+        (
+            '[project]\r\nname = "x"\r\n\r\n[tool.repotemplates]\r\nversion = "0.1.0"'
+            "\r\n",
+            '[project]\r\nname = "x"\r\n\r\n[tool.repotemplates]\r\nversion = "0.2.0"'
+            "\r\n",
+        ),
+        # A current stamp written inline is left as it is
+        (
+            '[tool]\nrepotemplates = {version = "0.2.0", omit = ["a.yml"]}\n',
+            '[tool]\nrepotemplates = {version = "0.2.0", omit = ["a.yml"]}\n',
+        ),
+    ],
+)
+def test_set_stamp_reads_toml_as_toml(before: str, after: str) -> None:
+    assert set_stamp(before, "0.2.0") == after
+    assert set_stamp(after, "0.2.0") == after
+
+
+@pytest.mark.parametrize(
+    ("text", "error"),
+    [
+        ('[tool]\nrepotemplates = {version = "0.1.0"}\n', "stamp it by hand"),
+        ('[tool]\nrepotemplates.version = "0.1.0"\n', "stamp it by hand"),
+        ('tool = {proj-template = {version = "0.2.0"}}\n', "stamp it by hand"),
+        ("[tool]\nrepotemplates = 1\n", "is not a table"),
+        ('[tool.repotemplates]\nversion = "0.1.0"\nomit = [1]\n', "list of paths"),
+        ('[tool.repotemplates]\nversion = "0.1.0"\nomit = "a.yml"\n', "list of paths"),
+        (
+            # Once a multi-line string's header was taken for the stamp, this
+            # reached an AttributeError the planner does not catch
+            "[project]\nx = '''\n[tool.repotemplates]\nversion = \"0.1.0\"\n'''\n"
+            "[tool]\nrepotemplates = 1\n",
+            "is not a table",
+        ),
+    ],
+)
+def test_set_stamp_refuses_what_it_cannot_stamp(text: str, error: str) -> None:
+    with pytest.raises(ValueError, match=error):
+        set_stamp(text, "0.2.0")
+
+
+def test_malformed_omit_is_left_unstamped(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = make_repo("omit", version="0.1.0")
+    text = (repo / "pyproject.toml").read_text()
+    (repo / "pyproject.toml").write_text(text + "omit = [1]\n")
+    plan = plan_upgrade(repo, template, manifest, "0.2.0")
+    assert plan.stamp is None and not plan.complete
 
 
 # --- the command ---------------------------------------------------------------

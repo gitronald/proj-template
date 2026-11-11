@@ -26,9 +26,16 @@ import tomllib
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from repotemplates.check import RAISABLE_PINS, FileReport, RepoReport, check_repo
+from repotemplates.check import (
+    RAISABLE_PINS,
+    STAMP_TABLES,
+    FileReport,
+    RepoReport,
+    check_repo,
+)
 from repotemplates.classes import merge_pinned
 from repotemplates.manifest import SETTINGS, SETTINGS_HOOKS, Manifest, file_path
+from repotemplates.versions import sort_key
 
 __all__ = ["Action", "UpgradePlan", "apply", "dirty", "plan_upgrade", "set_stamp"]
 
@@ -119,7 +126,12 @@ def plan_upgrade(
 ) -> UpgradePlan:
     report: RepoReport = check_repo(repo, template, manifest, installed)
     plan = UpgradePlan(repo=report.path, release=installed)
-    if report.stamp.status == "ahead":
+    # Compared with this release itself, not with the newest stable one the
+    # stamp's status is read against: a prerelease stamp reads "alpha" whichever
+    # side of the installed release it falls
+    stamped = sort_key(report.stamp.version) if report.stamp.version else None
+    release_key = sort_key(installed)
+    if stamped and release_key and stamped > release_key:
         plan.refused = (
             f"the repo is stamped {report.stamp.version}, newer than this release "
             f"({installed}); run a newer repotemplates"
@@ -144,6 +156,7 @@ def plan_upgrade(
             "differ, and a stamp that overstates makes the next upgrade skip the repo"
         )
     elif not (root / "pyproject.toml").is_file():
+        plan.actions.append(Action("pyproject.toml", "skip", "missing: no stamp"))
         plan.stamp_reason = "no pyproject.toml to stamp"
     else:
         try:
@@ -169,23 +182,121 @@ def plan_upgrade(
     return plan
 
 
-# A table or an array-of-tables header; an array's name keeps its brackets, so
-# ``[[tool.repotemplates]]`` is never taken for the stamp table
+# A table or an array-of-tables header
 _HEADER = re.compile(r"^\s*(?P<head>\[\[?[^\[\]]+\]\]?)\s*(#.*)?$")
+_VERSION_KEY = re.compile(r"""^\s*(version|"version"|'version')\s*=""")
+
+Key = tuple[str, ...]
+_NEW: Key = ("tool", "repotemplates")
+_OLD: Key = ("tool", "proj-template")
+_SCRIPTS: Key = ("project", "scripts")
 
 
-def _tables(lines: list[str]) -> list[tuple[int, str]]:
+def _in_strings(lines: list[str]) -> set[int]:
+    """The lines that start inside a multi-line string, where what looks like a
+    header or a key is text. Assumes the lines parse as TOML."""
+    inside: set[int] = set()
+    quote: str = ""
+    for n, line in enumerate(lines):
+        if quote:
+            inside.add(n)
+        i = 0
+        while i < len(line):
+            if quote:
+                if quote == '"""' and line[i] == "\\":
+                    i += 2
+                elif line.startswith(quote, i):
+                    i += 3
+                    # Up to two more quotes close it: they end the string's text
+                    while i < len(line) and line[i] == quote[0]:
+                        i += 1
+                    quote = ""
+                else:
+                    i += 1
+            elif line[i] == "#":
+                break
+            elif line.startswith(('"""', "'''"), i):
+                quote = line[i : i + 3]
+                i += 3
+            elif line[i] in "\"'":
+                close = line[i]
+                i += 1
+                while i < len(line) and line[i] != close:
+                    i += 2 if close == '"' and line[i] == "\\" else 1
+                i += 1
+            else:
+                i += 1
+    return inside
+
+
+def _table_key(head: str) -> Key:
+    """The key a header names, read as TOML reads it, so ``[tool."repotemplates"]``
+    is the stamp table. An array of tables keeps a marker, so
+    ``[[tool.repotemplates]]`` never is."""
+    if head.startswith("[["):
+        return ("[[", head)
+    try:
+        node: object = tomllib.loads(head)
+    except tomllib.TOMLDecodeError:
+        return ("?", head)
+    key: list[str] = []
+    while isinstance(node, dict) and len(node) == 1:
+        name, node = next(iter(node.items()))
+        key.append(str(name))
+    return tuple(key)
+
+
+def _tables(lines: list[str], inside: set[int]) -> list[tuple[int, Key]]:
     return [
-        (i, _table_name(m["head"]))
+        (i, _table_key(m["head"]))
         for i, line in enumerate(lines)
-        if (m := _HEADER.match(line))
+        if i not in inside and (m := _HEADER.match(line))
     ]
 
 
-def _table_name(head: str) -> str:
-    if head.startswith("[["):
-        return head
-    return head.strip("[]").strip()
+def _comment_start(lines: list[str], at: int, inside: set[int]) -> int | None:
+    """Where the template's comment above the header at ``at`` starts, if the
+    comment block there holds one."""
+    top = at
+    while top > 0 and top - 1 not in inside and lines[top - 1].lstrip().startswith("#"):
+        top -= 1
+    return next((i for i in range(top, at) if _TEMPLATE_COMMENT.match(lines[i])), None)
+
+
+def _drop_table(
+    lines: list[str], tables: list[tuple[int, Key]], index: int, inside: set[int]
+) -> list[str]:
+    """``lines`` without the table ``tables[index]`` names, or its template
+    comment."""
+    at = tables[index][0]
+    start = _comment_start(lines, at, inside)
+    head = lines[: at if start is None else start]
+    if index + 1 < len(tables):
+        return head + lines[tables[index + 1][0] :]
+    while head and head[-1] == "":
+        head.pop()
+    return head + [""] if lines[-1] == "" else head
+
+
+def _stamps(text: str) -> dict[str, dict[str, object]]:
+    """The stamp tables ``text`` holds, by name. Raises ValueError when it does
+    not parse, or a stamp is not a table or has an ``omit`` that is not a list
+    of paths, which a restamp would carry into a stamp ``check`` cannot read."""
+    tool = tomllib.loads(text).get("tool", {})
+    if not isinstance(tool, dict):
+        raise ValueError("tool is not a table")
+    found: dict[str, dict[str, object]] = {}
+    for name in STAMP_TABLES:
+        if name not in tool:
+            continue
+        section = tool[name]
+        if not isinstance(section, dict):
+            raise ValueError(f"tool.{name} is not a table")
+        omit = section.get("omit", [])
+        if not isinstance(omit, list) or not all(isinstance(o, str) for o in omit):
+            raise ValueError(f"tool.{name} omit is not a list of paths")
+        found[name] = section
+    return found
 
 
 def _value(line: str) -> object:
@@ -199,32 +310,46 @@ def _value(line: str) -> object:
 def set_stamp(text: str, release: str) -> str:
     """``pyproject.toml`` with ``[tool.repotemplates] version`` set to ``release``.
 
-    Renames an old ``[tool.proj-template]`` table, and adds the table after
-    ``[project.scripts]`` (or at the end) when the repo has neither.
+    Renames an old ``[tool.proj-template]`` table, or drops it when the repo has
+    both, and adds the table after ``[project.scripts]`` (or at the end) when the
+    repo has neither. Keeps CRLF line endings. Raises ValueError for a file it
+    cannot stamp safely (see ``_stamps``), and for a stamp written as an inline
+    table or dotted keys, which it leaves alone only when it holds ``release``.
     """
-    lines = text.split("\n")
-    tables = _tables(lines)
-    names = [name for _, name in tables]
-    version_line = f'version = "{release}"'
-    for old in ("tool.repotemplates", "tool.proj-template"):
-        if old not in names:
+    crlf = "\r\n" in text and text.count("\r\n") == text.count("\n")
+    body = text.replace("\r\n", "\n") if crlf else text
+    stamps = _stamps(body)
+    lines = body.split("\n")
+    inside = _in_strings(lines)
+    tables = _tables(lines, inside)
+    keys = [key for _, key in tables]
+    for name, section in stamps.items():
+        if ("tool", name) in keys:
             continue
-        at = tables[names.index(old)][0]
+        if list(stamps) == ["repotemplates"] and section.get("version") == release:
+            return text
+        raise ValueError(f"tool.{name} is not a [tool.{name}] table; stamp it by hand")
+    if _NEW in keys and _OLD in keys:
+        lines = _drop_table(lines, tables, keys.index(_OLD), inside)
+        inside = _in_strings(lines)
+        tables = _tables(lines, inside)
+        keys = [key for _, key in tables]
+    version_line = f'version = "{release}"'
+    for old in (_NEW, _OLD):
+        if old not in keys:
+            continue
+        at = tables[keys.index(old)][0]
         end = next((i for i, _ in tables if i > at), len(lines))
-        if old != "tool.repotemplates":
+        if old != _NEW:
             lines[at] = "[tool.repotemplates]"
-        top = at
-        while top > 0 and lines[top - 1].lstrip().startswith("#"):
-            top -= 1
-        start = next(
-            (i for i in range(top, at) if _TEMPLATE_COMMENT.match(lines[i])), None
-        )
+        start = _comment_start(lines, at, inside)
         if start is not None and lines[start:at] != [STAMP_COMMENT]:
             lines[start:at] = [STAMP_COMMENT]
             end -= at - start - 1
             at = start + 1
+            inside = _in_strings(lines)
         for i in range(at + 1, end):
-            if re.match(r"^\s*version\s*=", lines[i]):
+            if i not in inside and _VERSION_KEY.match(lines[i]):
                 if _value(lines[i]) != release:
                     lines[i] = version_line
                 break
@@ -233,8 +358,8 @@ def set_stamp(text: str, release: str) -> str:
         break
     else:
         block = [STAMP_COMMENT, "[tool.repotemplates]", version_line, ""]
-        if "project.scripts" in names:
-            at = tables[names.index("project.scripts")][0]
+        if _SCRIPTS in keys:
+            at = tables[keys.index(_SCRIPTS)][0]
             end = next((i for i, _ in tables if i > at), None)
         else:
             end = None
@@ -245,10 +370,13 @@ def set_stamp(text: str, release: str) -> str:
         else:
             lines[end:end] = block
     out = "\n".join(lines)
-    stamp = tomllib.loads(out).get("tool", {}).get("repotemplates", {})
-    if stamp.get("version") != release:
+    stamps = _stamps(out)
+    if (
+        list(stamps) != ["repotemplates"]
+        or stamps["repotemplates"].get("version") != release
+    ):
         raise ValueError("could not set the stamp in pyproject.toml")
-    return out
+    return out.replace("\n", "\r\n") if crlf else out
 
 
 def dirty(repo: Path, paths: list[str]) -> list[str]:

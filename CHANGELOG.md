@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The `install-template` skill has the model check the stamp comment after
+  `repotemplates upgrade` rewrites it. The pass deletes everything from the old
+  template comment down to the stamp table, so it can drop a repo comment line
+  inside that span or a trailing comment on the `version` line. The skill says
+  to put those back.
+
 ### Fixed
 
 - `repotemplates upgrade` writes the template's stamp comment when it renames a
@@ -16,6 +24,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   refreshed too, instead of reading as already current. Comment lines of the
   repo's own above the stamp, and a current stamp written in another format, are
   left as they are.
+- `repotemplates upgrade` reads `pyproject.toml` as TOML when it restamps. A
+  table header or `version` line inside a multi-line string is no longer edited,
+  quoted spellings of the header and key are recognized, CRLF line endings are
+  kept, and a repo with both stamp tables loses the old `[tool.proj-template]`.
+  A stamp written as an inline table or dotted keys, a stamp that is not a
+  table, and an `omit` that is not a list of paths are reported as skipped,
+  where they had failed to parse, crashed the command, or been stamped into a
+  table `check` could not read.
+- `repotemplates upgrade` compares the repo's stamp with the installed release
+  directly. A stamp on a newer prerelease is refused instead of being
+  downgraded, and an install of a prerelease no longer refuses a stamp that is
+  newer than every stable release but older than the prerelease.
+- `repotemplates upgrade` no longer reports a repo with no `pyproject.toml` as
+  complete, since it cannot carry the stamp.
+- `init.sh` refuses a `--template-version` that is not a release number, which
+  it had written into `pyproject.toml` unescaped.
 
 ## [0.13.0] - 2026-11-09
 
