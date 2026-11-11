@@ -1,13 +1,11 @@
-# This repo's actions and root dev tooling, plus the pins template/ ships, so a
-# new scaffold starts on current pins. template/'s uv dependencies are ranges with
-# no lock, which each scaffolded repo locks and updates itself, so they are not
-# watched here.
+# Root actions and dev tooling, plus template/'s pre-commit pins. template/'s uv
+# ranges have no lock; each scaffolded repo locks and updates its own.
 # Read from the default branch only; dev edits are inert until merged.
 version: 2
 updates:
   - package-ecosystem: github-actions
-    # "/template" covers template/.github/workflows
-    directories: ["/", "/template"]
+    # Reads the root's .github/workflows only: bump template/'s workflow pins by hand
+    directory: /
     schedule:
       interval: weekly
     target-branch: dev
