@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The scaffolded workflows pin `astral-sh/setup-uv` v10.3.3 and
+  `renovatebot/github-action` v46.3.12, each by commit SHA, and the
+  `ruff-pre-commit` hook moves to v0.17.3, still within the `ruff<0.18` pin.
+
 ## [0.14.0] - 2026-11-11
 
 ### Added
