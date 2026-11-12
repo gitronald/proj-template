@@ -135,7 +135,7 @@ def test_lock_and_rev_that_differ_are_reported_and_relocked(
     manifest: Manifest,
     relocks: list[str],
 ) -> None:
-    # Batch 1's state: the rev at the template's, the lock left behind
+    # A rev copied from the template, with the lock left behind
     repo = ruff_repo(make_repo, TEMPLATE_REV, "0.17.1")
     report = check_repo(repo, ruff_template, manifest, "0.2.0")
     assert report.ruff is not None and report.ruff.status == "differs"
