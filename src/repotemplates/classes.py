@@ -36,6 +36,7 @@ __all__ = [
     "mask",
     "merge_pinned",
     "pins",
+    "version_cmp",
 ]
 
 PINNED = (
@@ -124,6 +125,12 @@ def _cmp(ours: str, theirs: str) -> int | None:
     width = max(len(a), len(b))
     a, b = a + (0,) * (width - len(a)), b + (0,) * (width - len(b))
     return (a > b) - (a < b)
+
+
+def version_cmp(ours: str, theirs: str) -> int | None:
+    """-1, 0, or 1 for one version against another, a leading ``v`` allowed on
+    either; None when either is not a plain dotted version."""
+    return _cmp(ours.removeprefix("v"), theirs.removeprefix("v"))
 
 
 def compare_pins(repo_text: str, template_text: str) -> str:

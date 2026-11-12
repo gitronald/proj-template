@@ -1,6 +1,7 @@
 """The repotemplates command line.
 
-``check``, ``upgrade``, ``init``, ``path``, and ``version`` are defined here;
+``check``, ``upgrade``, ``stamp``, ``init``, ``path``, and ``version`` are
+defined here;
 ``skill``, ``install``, and ``doc`` come from :func:`pkgskills.register`, which
 mounts them from :data:`repotemplates.host.HOST`.
 """
@@ -21,7 +22,7 @@ from repotemplates.check import check_fleet, check_repo
 from repotemplates.host import HOST
 from repotemplates.manifest import load_manifest
 from repotemplates.render import render_fleet, render_repo, render_upgrade
-from repotemplates.upgrade import apply, dirty, plan_upgrade
+from repotemplates.upgrade import apply, dirty, plan_stamp, plan_upgrade
 from repotemplates.versions import is_prerelease
 
 __all__ = ["app", "main"]
@@ -190,6 +191,54 @@ def upgrade(
         raise typer.Exit(2)
     if not plan.complete:
         raise typer.Exit(1)
+
+
+@app.command()
+def stamp(
+    repo: Annotated[Path, typer.Argument(help="Repo to stamp (default: .).")] = Path(
+        "."
+    ),
+    dry_run: Annotated[
+        bool, typer.Option(help="Print what would change, and write nothing.")
+    ] = False,
+    as_json: Annotated[bool, typer.Option("--json", help="Print JSON.")] = False,
+    force: Annotated[
+        bool,
+        typer.Option(help="Stamp even though check reports files behind."),
+    ] = False,
+    prerelease: Annotated[
+        bool,
+        typer.Option(help="Stamp this release even though it is a prerelease."),
+    ] = False,
+) -> None:
+    """Write the template stamp, the last step after ``upgrade --no-stamp``.
+
+    Sets ``version`` in ``[tool.repotemplates]`` to this release, keeping
+    ``omit`` and writing the template's comment line, and renames an old
+    ``[tool.proj-template]`` table. Refuses while check still reports anything
+    but the stamp behind (pass --force to stamp anyway). Exits 0 when stamped or
+    already stamped, 2 on a usage error or a refusal.
+    """
+    if not repo.is_dir():
+        raise typer.BadParameter(f"not a directory: {repo}")
+    installed = paths.version()
+    plan = plan_stamp(
+        repo, paths.template_root(), load_manifest(), installed, force=force
+    )
+    if is_prerelease(installed) and not prerelease and plan.refused is None:
+        note = f"{installed} is a prerelease; pass --prerelease to stamp it anyway"
+        if dry_run:
+            plan.stamp_reason += f" ({note})"
+        else:
+            plan.refused = note
+    if plan.refused is None and not dry_run:
+        apply(plan)
+    if as_json:
+        typer.echo(json.dumps({**plan.to_dict(), "dry_run": dry_run}, indent=2))
+    else:
+        typer.echo(render_upgrade(plan, dry_run=dry_run))
+    if plan.refused is not None:
+        raise typer.Exit(2)
 
 
 class Shipped(StrEnum):

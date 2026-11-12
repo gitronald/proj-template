@@ -137,6 +137,12 @@ For each repo it reports:
   version = "0.13.0"
   omit = [".github/workflows/publish.yml"]   # this repo does not publish
   ```
+- **The ruff rev against the lock**: the `ruff-pre-commit` rev in
+  `.pre-commit-config.yaml` always equals the ruff in `uv.lock`, since the
+  commit hook runs the one and CI the other. The pair gets a row of its own:
+  `same`, `differs` (drift, even when every pin is current), or `unlocked` (no
+  ruff in `uv.lock`). The template's rev is a floor: a lock newer than it leads
+  the rev, and a lock older than it moves up to it.
 - **Git state of the Claude settings files**: tracked, ignored, untracked, or
   absent. An ignored file never reaches a fresh clone or a cloud session; the
   template ignores `.claude/` by default, so this is information, not drift.
@@ -165,6 +171,11 @@ repotemplates upgrade path/to/repo
   file keeps the repo's newer pins and its Python matrix list, and
   `.claude/settings.json` has only its `hooks` block replaced.
 - A pinned file whose pins are behind the template's has them raised.
+- The `ruff-pre-commit` rev moves to the locked ruff, or to the template's rev
+  when the lock is older (within the repo's `ruff` range in `pyproject.toml`),
+  and ruff is relocked to exactly that version with
+  `uv lock --upgrade-package ruff==<version>`. When uv cannot run, the row names
+  that command and the stamp waits.
 - Anything else (a customized file, a missing one, an ignore file lacking
   rules) is left, with the reason, for the `install-template` skill.
 - The stamp moves to this release only when every file then reads current or
@@ -177,6 +188,20 @@ and 1 when files were left. It refuses
 (exit 2) a repo stamped newer than the tool, a tracked file with uncommitted
 changes (`--allow-dirty` overrides), and a prerelease of the tool itself
 (`--prerelease` overrides), since that would stamp a release that never shipped.
+
+`repotemplates stamp` writes the stamp alone, the last step after
+`upgrade --no-stamp`:
+
+```bash
+repotemplates stamp path/to/repo --dry-run
+repotemplates stamp path/to/repo
+```
+
+It sets `version` in `[tool.repotemplates]` to this release, keeps `omit`,
+writes the template's comment line in place of an old one, and renames a
+`[tool.proj-template]` table. It refuses (exit 2) while `check` still reports
+anything but the stamp behind, unless `--force`, and a repo stamped newer than
+the tool or a prerelease of the tool, as `upgrade` does.
 
 ## Skills
 
