@@ -93,7 +93,11 @@ It rewrites only the template-owned files `check` shows hold nothing of the
 repo's own: a copy of an earlier release takes the template's (a pinned file
 keeping the repo's newer pins and its Python matrix list; `settings.json`
 having only its `hooks` block replaced), and pins behind the template are
-raised. `--no-stamp` keeps it off the stamp: the pass sees only the files
+raised. It also keeps the `ruff-pre-commit` rev equal to the locked ruff (see
+*Verify*): the rev moves to the lock, or to the template's rev when the lock is
+older, and ruff is relocked to exactly that version (`uv lock
+--upgrade-package ruff==<version>`; the row names the command when uv cannot
+run it). `--no-stamp` keeps it off the stamp: the pass sees only the files
 `check` tracks, not the `pyproject.toml` tables or `.python-version` rows still
 ahead, so the stamp waits for the rule below. Without the flag it stamps the
 release once every tracked file is current, which is right only when the pass
@@ -177,10 +181,15 @@ Notes:
   version is there, and add the table (after `[project.scripts]`) when a repo
   predates it. The mechanical pass ran with `--no-stamp`, so it still holds the
   release the repo started from. Write it only *after* the rest of the matrix
-  has been applied and any batched questions answered, and only if the upgrade
-  actually landed in full — if the user chose **keep** on rows that leave the
+  has been applied and any batched questions answered, with `{cli} stamp
+  <worktree>` (`--dry-run` first). It keeps `omit`, writes the template's comment
+  line in place of an old one, renames a `[tool.proj-template]` table, and
+  refuses while `check` still reports anything but the stamp behind. Stamp only
+  if the upgrade actually landed in full — if the user chose **keep** on rows that leave the
   repo behind the template, stamp the older release the repo still matches, or
-  leave the stamp untouched and say so in the report. A stamp that overstates is worse than an
+  leave the stamp untouched and say so in the report (`--force` stamps past
+  what `check` reports, so use it only for a release the repo does match). A
+  stamp that overstates is worse than an
   absent one, since it makes the next upgrade skip the repo. The template ships
   the literal `TEMPLATE_VERSION` placeholder there (`init.sh` substitutes
   it at scaffold time), so never copy that string into a target — resolve it to
@@ -340,12 +349,17 @@ uv run pre-commit run --all-files
 uv run pytest   # only if the repo has tests; runs with coverage via addopts
 ```
 
-After `uv sync`, compare `uv run ruff --version` with the `ruff-pre-commit`
-`rev` in `.pre-commit-config.yaml`. The commit hook installs its own ruff at
-that rev, while CI and the Stop hook use the locked one, so a mismatch lets a
-commit pass the hook and then fail `ruff format --check` in CI. Move the rev to
-the locked version when they differ: Dependabot's `uv` ecosystem bumps the
-lock, and nothing bumps the hook rev.
+The `ruff-pre-commit` `rev` in `.pre-commit-config.yaml` always equals the
+locked ruff. The commit hook installs its own ruff at that rev, while CI and the
+Stop hook use the locked one, so a mismatch lets a commit pass the hook and then
+fail `ruff format --check` in CI. The template's rev is a floor, not a value to
+copy: when the lock is newer, the rev follows the lock (Dependabot's `uv`
+ecosystem bumps the lock, and nothing bumps the hook rev); when both are older,
+both move to the template's rev, within the repo's `ruff` range. `{cli} check`
+reports the pair as its own row (`ruff rev vs uv.lock`), and `{cli} upgrade`
+applies the rule. Relock to an exact version, `uv lock --upgrade-package
+ruff==<version>`: a bare `--upgrade-package ruff` takes the newest release and
+breaks the rule again.
 
 Name both hook types: the synced config carries a `planners-index` hook on the
 `post-merge` stage, and a plain `pre-commit install` registers only

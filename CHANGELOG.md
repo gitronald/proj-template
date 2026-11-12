@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `repotemplates stamp` writes the template stamp on its own, the step the
+  `install-template` skill takes last after `upgrade --no-stamp`. It keeps
+  `omit`, writes the template's comment line, renames `[tool.proj-template]`,
+  and refuses while `check` reports anything but the stamp behind (`--force`
+  overrides).
+- `repotemplates check` reports the `ruff-pre-commit` rev against the ruff in
+  `uv.lock` as a row of its own (`same`, `differs`, or `unlocked`), and a rev
+  that differs from the lock is drift. The fleet table gains a `ruff rev`
+  column.
+
+### Changed
+
+- `repotemplates upgrade` keeps the rev equal to the locked ruff. The template's
+  rev is a floor: a newer lock leads the rev, and an older lock and rev both
+  move to the template's (within the repo's `ruff` range), with ruff relocked to
+  exactly that version (`uv lock --upgrade-package ruff==<version>`). When uv
+  cannot run, the row names the command and the stamp waits.
+- The `install-template` skill names `repotemplates stamp` for the stamp-last
+  step, and states the rev rule.
+
 ## [0.14.1] - 2026-11-11
 
 ### Changed
