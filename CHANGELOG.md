@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-11
+
 ### Added
 
 - `repotemplates stamp` writes the template stamp on its own, the step the
