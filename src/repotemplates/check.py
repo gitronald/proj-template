@@ -25,6 +25,7 @@ from repotemplates.manifest import (
     file_path,
     fingerprint,
 )
+from repotemplates.ruff import RuffReport, ruff_report
 from repotemplates.versions import is_prerelease, sort_key
 
 __all__ = [
@@ -103,10 +104,18 @@ class RepoReport:
     stamp: StampReport
     files: list[FileReport] = field(default_factory=list)
     settings: dict[str, str] = field(default_factory=dict)
+    # The ruff-pre-commit rev against the locked ruff, a row of its own: a rev
+    # that differs from the lock is drift even when every pin is current
+    ruff: RuffReport | None = None
 
     @property
     def current(self) -> bool:
-        return self.stamp.status == "latest" and all(f.current for f in self.files)
+        ruff_ok = self.ruff is None or self.ruff.status != "differs"
+        return (
+            self.stamp.status == "latest"
+            and all(f.current for f in self.files)
+            and ruff_ok
+        )
 
     def to_dict(self) -> dict[str, object]:
         out = asdict(self)
@@ -297,7 +306,8 @@ def check_repo(
         if (template / path).is_file():
             files.append(_ignore_report(repo, template, path, skip))
     settings = {path: git_state(repo, path) for path in CLAUDE_SETTINGS}
-    return RepoReport(repo.name, str(repo), stamp, files, settings)
+    ruff = ruff_report(repo, template)
+    return RepoReport(repo.name, str(repo), stamp, files, settings, ruff)
 
 
 def is_repo(path: Path) -> bool:

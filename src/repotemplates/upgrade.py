@@ -8,7 +8,10 @@ the repo's own in it would be lost:
   (``classes.merge_pinned``), and the settings file has only its ``hooks`` block
   replaced;
 - a pinned file that is current but for pins behind the template has those pins
-  raised, and keeps the ones that are ahead.
+  raised, and keeps the ones that are ahead;
+- the ruff-pre-commit rev moves to the locked ruff, or to the template's rev
+  when the lock is older, and ruff is relocked to exactly that version
+  (``repotemplates.ruff`` has the rule).
 
 Everything else is reported and left alone, for the ``install-template`` skill:
 a one-off (customized) file, a missing one (copy it, or declare it in ``omit``),
@@ -35,9 +38,18 @@ from repotemplates.check import (
 )
 from repotemplates.classes import merge_pinned
 from repotemplates.manifest import SETTINGS, SETTINGS_HOOKS, Manifest, file_path
+from repotemplates.ruff import PRECOMMIT, relock_command, set_rev
 from repotemplates.versions import sort_key
 
-__all__ = ["Action", "UpgradePlan", "apply", "dirty", "plan_upgrade", "set_stamp"]
+__all__ = [
+    "Action",
+    "UpgradePlan",
+    "apply",
+    "dirty",
+    "plan_stamp",
+    "plan_upgrade",
+    "set_stamp",
+]
 
 STAMP_COMMENT = (
     "# repotemplates release stamp, set by init.sh and install-template; "
@@ -54,7 +66,8 @@ _TEMPLATE_COMMENT = re.compile(
 
 @dataclass(frozen=True)
 class Action:
-    """``action``: write (upgrade rewrites it), keep (already current), or skip."""
+    """``action``: write (upgrade rewrites it), keep (already current), relock
+    (``uv.lock`` takes the ruff the rev names), or skip."""
 
     path: str
     action: str
@@ -70,6 +83,8 @@ class UpgradePlan:
     stamp: str | None = None
     stamp_reason: str = ""
     refused: str | None = None
+    # The ruff version apply relocks to, or None
+    relock: str | None = None
     contents: dict[str, str] = field(default_factory=dict, repr=False)
 
     @property
@@ -158,6 +173,7 @@ def plan_upgrade(
         plan.contents[file_path(f.path)] = content
         reason = f"matches v{f.release}" if f.status == "matches" else f"pins {f.pins}"
         plan.actions.append(Action(f.path, "write", reason))
+    _plan_ruff(plan, report, root)
     skipped = sum(a.action == "skip" for a in plan.actions)
     if skipped:
         plan.stamp_reason = (
@@ -193,6 +209,96 @@ def plan_upgrade(
             plan.stamp_reason = f"already {installed}; table renamed"
         else:
             plan.stamp_reason = f"already {installed}; stamp comment refreshed"
+    return plan
+
+
+def _plan_ruff(plan: UpgradePlan, report: RepoReport, root: Path) -> None:
+    """Move the ruff-pre-commit rev to the target and plan the relock. A
+    pre-commit config upgrade leaves alone (a one-off) is left for the skill."""
+    ruff = report.ruff
+    if ruff is None:
+        return
+    if ruff.detail:
+        plan.actions.append(Action("uv.lock (ruff)", "skip", ruff.detail))
+    if ruff.target is None:
+        return
+    at = next((i for i, a in enumerate(plan.actions) if a.path == PRECOMMIT), None)
+    if at is None or plan.actions[at].action == "skip":
+        return
+    text = plan.contents.get(PRECOMMIT)
+    if text is None:
+        text = (root / PRECOMMIT).read_text()
+    moved = set_rev(text, ruff.target)
+    if moved != text:
+        plan.contents[PRECOMMIT] = moved
+        old = plan.actions[at]
+        note = f"ruff rev v{ruff.target}, the locked ruff"
+        reason = note if old.action == "keep" else f"{old.reason}; {note}"
+        plan.actions[at] = Action(PRECOMMIT, "write", reason)
+    if ruff.relock:
+        plan.relock = ruff.target
+        was = ", ".join(ruff.locked)
+        reason = f"ruff {was} -> {ruff.target}: `{relock_command(ruff.target)}`"
+        plan.actions.append(Action("uv.lock", "relock", reason))
+
+
+def plan_stamp(
+    repo: Path,
+    template: Path,
+    manifest: Manifest,
+    installed: str,
+    *,
+    force: bool = False,
+) -> UpgradePlan:
+    """Write the stamp alone, the step the ``install-template`` skill takes last
+    after ``upgrade --no-stamp``. Refuses while ``check`` reports anything but
+    the stamp behind, since a stamp that overstates makes the next upgrade skip
+    the repo, unless ``force``."""
+    report: RepoReport = check_repo(repo, template, manifest, installed)
+    plan = UpgradePlan(repo=report.path, release=installed)
+    stamp_key = sort_key(report.stamp.version) if report.stamp.version else None
+    release_key = sort_key(installed)
+    if stamp_key and release_key and stamp_key > release_key:
+        plan.refused = (
+            f"the repo is stamped {report.stamp.version}, newer than this release "
+            f"({installed}); run a newer repotemplates"
+        )
+        return plan
+    for f in report.files:
+        if not f.current:
+            plan.actions.append(Action(f.path, "skip", _skip_reason(f)))
+    ruff = report.ruff
+    if ruff is not None and ruff.status == "differs":
+        detail = ruff.detail or f"rev {ruff.rev}, locked {', '.join(ruff.locked)}"
+        plan.actions.append(Action("uv.lock (ruff)", "skip", detail))
+    behind = [a.path for a in plan.actions]
+    if behind and not force:
+        plan.refused = (
+            f"check still reports {', '.join(behind)} behind the template; "
+            "finish the upgrade first, or pass --force"
+        )
+        return plan
+    root = Path(report.path)
+    try:
+        text = (root / "pyproject.toml").read_text()
+        stamped = set_stamp(text, installed)
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
+        plan.refused = f"cannot set the stamp: {exc}"
+        return plan
+    if stamped == text:
+        plan.stamp_reason = f"already {installed}"
+        return plan
+    plan.contents["pyproject.toml"] = stamped
+    plan.stamp = installed
+    was = report.stamp.version or "none"
+    plan.stamp_reason = f"{was} -> {installed}" + (
+        f" (forced past {len(behind)} file(s))" if behind else ""
+    )
+    if report.stamp.version == installed:
+        renamed = report.stamp.table != "tool.repotemplates"
+        plan.stamp_reason = f"already {installed}; " + (
+            "table renamed" if renamed else "stamp comment refreshed"
+        )
     return plan
 
 
@@ -408,9 +514,36 @@ def dirty(repo: Path, paths: list[str]) -> list[str]:
     return [line[3:] for line in result.stdout.splitlines()]
 
 
+def relock(root: Path, version: str) -> str | None:
+    """Relock ruff to exactly ``version``; the error, or None on success."""
+    command = relock_command(version).split()
+    try:
+        result = subprocess.run(command, cwd=root, capture_output=True, text=True)
+    except FileNotFoundError:
+        return "uv is not on PATH"
+    if result.returncode != 0:
+        lines = (result.stderr or result.stdout).strip().splitlines()
+        return lines[-1] if lines else f"exit {result.returncode}"
+    return None
+
+
 def apply(plan: UpgradePlan) -> None:
     """Write the plan. Every file, the stamped ``pyproject.toml`` included, was
-    computed by ``plan_upgrade``, so a failure there writes nothing."""
+    computed by ``plan_upgrade``, so a failure there writes nothing. A relock
+    runs first; when it fails, its row becomes a skip naming the command to run,
+    and the stamp is held back with it."""
     root = Path(plan.repo)
+    if plan.relock is not None and (error := relock(root, plan.relock)):
+        command = relock_command(plan.relock)
+        plan.actions = [
+            Action(a.path, "skip", f"run `{command}`: {error}")
+            if a.action == "relock"
+            else a
+            for a in plan.actions
+        ]
+        if plan.stamp is not None:
+            plan.contents.pop("pyproject.toml", None)
+            plan.stamp_reason = f"held back: the ruff relock failed ({error})"
+            plan.stamp = None
     for path, content in plan.contents.items():
         (root / path).write_text(content)

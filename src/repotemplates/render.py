@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from repotemplates.check import KINDS, FileReport, RepoReport, StampReport
+from repotemplates.ruff import PRECOMMIT, RuffReport, relock_command
 from repotemplates.upgrade import UpgradePlan
 
 __all__ = ["render_fleet", "render_repo", "render_upgrade"]
@@ -57,10 +58,31 @@ def _detail(f: FileReport) -> str:
     return "; ".join(parts)
 
 
+def _ruff_status(r: RuffReport) -> str:
+    locked = ", ".join(r.locked) or "none"
+    return f"{r.status} (rev {r.rev}, locked {locked})"
+
+
+def _ruff_detail(r: RuffReport) -> str:
+    if r.detail:
+        return r.detail
+    if r.status == "differs" and r.target is not None:
+        steps = [f"rev to v{r.target}"] if r.rev.removeprefix("v") != r.target else []
+        if r.relock:
+            steps.append(f"`{relock_command(r.target)}`")
+        return "the rev equals the locked ruff: " + ", ".join(steps)
+    if r.status == "unlocked":
+        return "no ruff in uv.lock"
+    return ""
+
+
 def render_repo(report: RepoReport, markdown: bool = False) -> str:
     rows = [
         [_label(f.path), _status(f), f.git or "-", _detail(f)] for f in report.files
     ]
+    if report.ruff is not None:
+        row = [f"{PRECOMMIT} (ruff rev vs uv.lock)", _ruff_status(report.ruff)]
+        rows.append([*row, "-", _ruff_detail(report.ruff)])
     settings = ", ".join(f"{path} {state}" for path, state in report.settings.items())
     head = [
         f"repo: {report.name} ({report.path})",
@@ -101,6 +123,7 @@ def render_fleet(reports: Sequence[RepoReport], markdown: bool = False) -> str:
                 r.stamp.version or "-",
                 r.stamp.status,
                 *(_summary([f for f in r.files if f.kind == k]) for k in KINDS),
+                r.ruff.status if r.ruff is not None else "-",
                 settings_git or "absent",
             ]
         )
@@ -113,6 +136,7 @@ def render_fleet(reports: Sequence[RepoReport], markdown: bool = False) -> str:
         "pinned",
         "config",
         "ignore",
+        "ruff rev",
         "settings git",
     ]
     return _table(headers, rows, markdown)
