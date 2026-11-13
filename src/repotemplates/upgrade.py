@@ -14,8 +14,12 @@ the repo's own in it would be lost:
   (``repotemplates.ruff`` has the rule).
 
 Everything else is reported and left alone, for the ``install-template`` skill:
-a one-off (customized) file, a missing one (copy it, or declare it in ``omit``),
-an ignore file lacking rules, a retired one, a pin that is not a version. The
+a one-off (customized) file (merge it, or record it in ``keep``), a kept file
+whose template copy has changed since it was reviewed, a missing one (copy it,
+or declare it in ``omit``), an ignore file lacking rules, a retired one, a pin
+that is not a version, and a file a linked worktree reads from the main
+checkout because it ignores it. A file ``keep`` records is otherwise left as
+it is and counts as current. The
 stamp moves to this release last, and only when every file then reads current or
 omitted, so a stamp never overstates what the repo carries.
 """
@@ -111,7 +115,15 @@ def _skip_reason(f: FileReport) -> str:
 
 def _status_reason(f: FileReport) -> str:
     if f.status == "one-off":
-        return "customized: matches no release; merge by hand"
+        return (
+            "customized: matches no release; merge by hand, or record it in the "
+            "stamp's keep"
+        )
+    if f.status == "kept-behind":
+        return (
+            f"kept as reviewed against v{f.release}, and {f.detail[0]}: review "
+            "the change, then move its keep release to this one"
+        )
     if f.status == "missing":
         return "missing: copy it in, or list it in the stamp's omit"
     if f.status == "partial":
@@ -120,6 +132,8 @@ def _status_reason(f: FileReport) -> str:
         return f"retired after v{f.release}; remove it if nothing uses it"
     if f.pins == "differs":
         return "a pin is not a version (a bare ref); compare it by hand"
+    if f.status == "kept":
+        return f"kept, with pins {f.pins}; raise them by hand"
     return f.status
 
 
@@ -173,7 +187,8 @@ def plan_upgrade(
     root = Path(report.path)
     for f in report.files:
         if f.current:
-            plan.actions.append(Action(f.path, "keep", f.status))
+            reason = f"kept as of v{f.release}" if f.status == "kept" else f.status
+            plan.actions.append(Action(f.path, "keep", reason))
             continue
         content = None if f.source else _new_content(root, template, f)
         if content is None:

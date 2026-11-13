@@ -15,6 +15,7 @@ from conftest import (
     add_worktree,
     write,
 )
+from conftest import settings as settings_text
 
 from repotemplates.check import (
     FileReport,
@@ -231,6 +232,7 @@ def test_to_dict_carries_current(
         "status": "latest",
         "latest": "0.2.0",
         "omit": (),
+        "keep": {},
     }
 
 
@@ -248,6 +250,9 @@ def test_malformed_stamp_table(
     cases = {
         "not-a-table": '[tool]\nrepotemplates = "0.2.0"\n',
         "omit-not-a-list": '[tool.repotemplates]\nomit = "a.yml"\n',
+        "keep-a-list": '[tool.repotemplates]\nversion = "0.2.0"\nkeep = ["a.yml"]\n',
+        "keep-no-release": '[tool.repotemplates]\nkeep = {"a.yml" = 1}\n',
+        "keep-not-a-version": '[tool.repotemplates]\nkeep = {"a.yml" = "soon"}\n',
         "number-version": "[tool.proj-template]\nversion = 2\n",
         "tool-not-a-table": 'tool = "x"\n',
     }
@@ -342,3 +347,61 @@ def test_worktree_missing_file_not_ignored_stays_missing(
     tree = add_worktree(make_repo("untracked"), "pyproject.toml")
     files = by_path(run(tree, template, manifest))
     assert (files[HOOK].status, files[HOOK].source) == ("missing", None)
+
+
+def kept_repo(make_repo: MakeRepo, name: str, keep: str) -> Path:
+    repo = make_repo(name, version=None, hook=b"echo mine\n")
+    write(repo, "pyproject.toml", f'[tool.repotemplates]\nversion = "0.2.0"\n{keep}')
+    return repo
+
+
+def test_kept_file_reads_current(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = kept_repo(make_repo, "kept", f'keep = {{"{HOOK}" = "0.2.0"}}\n')
+    report = run(repo, template, manifest)
+    hook = by_path(report)[HOOK]
+    assert (hook.status, hook.release, hook.detail) == ("kept", "0.2.0", ())
+    assert report.stamp.keep == {HOOK: "0.2.0"}
+    assert report.current
+
+
+def test_kept_file_behind_once_the_template_moves(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    # The template's hook changed between 0.1.0 and 0.2.0
+    repo = kept_repo(make_repo, "kept-old", f'keep = {{"{HOOK}" = "0.1.0"}}\n')
+    report = run(repo, template, manifest)
+    hook = by_path(report)[HOOK]
+    assert (hook.status, hook.release) == ("kept-behind", "0.1.0")
+    assert hook.detail == ("the template's copy changed after v0.1.0",)
+    assert not report.current
+    # Unchanged since that release: still kept
+    files = {**manifest.files, HOOK: {**manifest.files[HOOK]}}
+    files[HOOK]["0.1.0"] = files[HOOK]["0.2.0"]
+    same = Manifest(manifest.releases, files)
+    assert by_path(run(repo, template, same))[HOOK].status == "kept"
+
+
+def test_kept_release_unknown_or_settings_by_path(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = kept_repo(
+        make_repo,
+        "kept-odd",
+        f'keep = {{"{HOOK}" = "0.0.9", ".claude/settings.json" = "0.2.0"}}\n',
+    )
+    write(repo, ".claude/settings.json", settings_text({"Stop": []}))
+    files = by_path(run(repo, template, manifest))
+    assert files[HOOK].status == "kept-behind"
+    assert files[HOOK].detail == ("v0.0.9 is not a release this install knows",)
+    # The settings file's path names its hooks block
+    assert files[SETTINGS_HOOKS].status == "kept"
+
+
+def test_kept_entry_does_not_hide_an_earlier_release(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = kept_repo(make_repo, "kept-match", f'keep = {{"{HOOK}" = "0.2.0"}}\n')
+    write(repo, HOOK, OLD_HOOK)
+    assert by_path(run(repo, template, manifest))[HOOK].status == "matches"

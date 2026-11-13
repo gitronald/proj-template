@@ -423,6 +423,61 @@ def test_worktree_leaves_a_behind_main_checkout_file_alone(
     assert refused is not None and HOOK in refused
 
 
+def kept(make_repo: MakeRepo, name: str, release: str) -> Path:
+    repo = make_repo(name, version=None, hook=b"echo mine\n")
+    write(
+        repo,
+        "pyproject.toml",
+        f'[tool.repotemplates]\nversion = "0.1.0"\nkeep = {{"{HOOK}" = "{release}"}}\n',
+    )
+    return repo
+
+
+def test_kept_file_is_left_and_stamped(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = kept(make_repo, "kept", "0.2.0")
+    plan = plan_upgrade(repo, template, manifest, "0.2.0")
+    action = next(a for a in plan.actions if a.path == HOOK)
+    assert (action.action, action.reason) == ("keep", "kept as of v0.2.0")
+    assert plan.complete and plan.stamp == "0.2.0"
+    assert plan_stamp(repo, template, manifest, "0.2.0").refused is None
+    apply(plan)
+    assert (repo / HOOK).read_bytes() == b"echo mine\n"
+    data = tomllib.loads((repo / "pyproject.toml").read_text())
+    assert data["tool"]["repotemplates"]["keep"] == {HOOK: "0.2.0"}
+
+
+def test_kept_file_behind_holds_the_stamp(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = kept(make_repo, "kept-old", "0.1.0")
+    plan = plan_upgrade(repo, template, manifest, "0.2.0")
+    skip = next(a for a in plan.actions if a.path == HOOK)
+    assert skip.action == "skip" and "reviewed against v0.1.0" in skip.reason
+    assert plan.stamp is None
+    refused = plan_stamp(repo, template, manifest, "0.2.0").refused
+    assert refused is not None and HOOK in refused
+
+
+def test_kept_pinned_file_with_pins_behind_is_left(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    write(template, TEST_YML, WORKFLOW)
+    repo = make_repo("kept-pins", version=None)
+    write(
+        repo,
+        "pyproject.toml",
+        f'[tool.repotemplates]\nversion = "0.2.0"\nkeep = {{"{TEST_YML}" = "0.2.0"}}\n',
+    )
+    custom = bump(WORKFLOW, "aaaa  # v7.0.1", "dddd  # v6.0.0") + "      - run: extra\n"
+    write(repo, TEST_YML, custom)
+    plan = plan_upgrade(repo, template, manifest, "0.2.0")
+    skip = next(a for a in plan.actions if a.path == TEST_YML)
+    assert skip.action == "skip" and "pins behind" in skip.reason
+    assert TEST_YML not in plan.contents
+
+
 # --- the command ---------------------------------------------------------------
 
 
