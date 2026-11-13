@@ -5,7 +5,7 @@ status: active
 branch: feature/014-stamp-without-force
 created: 2026-11-13T10:32:22-08:00
 concluded:
-pr:
+pr: https://github.com/gitronald/repotemplates/pull/70
 ---
 
 # Let stamp finish a fleet upgrade without --force
@@ -97,3 +97,4 @@ updated with it. Each gets a test in `tests/test_check.py` or
   - Base: `dev` at `da133d7`
   - Worktree: `.worktrees/014-stamp-without-force`
   - PR: pending
+- **2026-11-13T11:13:05-08:00** — PR opened: https://github.com/gitronald/repotemplates/pull/70
