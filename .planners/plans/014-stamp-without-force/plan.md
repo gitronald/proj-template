@@ -1,10 +1,10 @@
 ---
 id: 14
 slug: stamp-without-force
-status: implemented
+status: done
 branch: feature/014-stamp-without-force
 created: 2026-11-13T10:32:22-08:00
-concluded:
+concluded: 2026-11-13T11:27:21-08:00
 pr: https://github.com/gitronald/repotemplates/pull/70
 ---
 
@@ -113,3 +113,11 @@ updated with it. Each gets a test in `tests/test_check.py` or
   - Review follow-up: a main-checkout row current but for raisable pins got the skip reason "current"; the reason now names the pins for any kept or main-checkout row, with test_worktree_names_stale_pins_in_a_main_checkout_file (72d5a0a).
   - Review follow-up: _git and _git_out now share _run_git (69bb524).
   - Conscious no-op: a version-less stamp table leaving the default fleet listing (it now reads missing) is what gap 3 specifies.
+
+## Retrospective
+
+- All four gaps landed as planned. The two open design choices were settled by the owner before coding: `keep` maps a path to its reviewed release rather than being a plain list, and gap 1 reads the main worktree's copy instead of adding an `elsewhere` status.
+- The order (gaps 3 and 4 first) paid off: a first stamp of a repo with a hand-written `omit` exercises both, so fixing them together gave one end-to-end test of that path.
+- Gap 4 has a visible side effect: every hand-written stamp table gains the comment line on its next upgrade, even when already current. Several existing `set_stamp` expectations changed with it.
+- Reading git output needs `splitlines()`, never `split()`: the review caught a whitespace split that would have dropped gap 1 for any repo under a path with a space. Worktree tests should include a spaced path from the start.
+- Not verified: a real fleet pass on 0.15.x+ stamping without `--force`. The "Done when" shapes were checked on scratch repos built from the shipped template, not on fleet repos; the next template batch is the real test.

@@ -2,9 +2,9 @@
 
 | # | Plan | Status | Concluded | PR |
 |---|---|---|---|---|
-| 014 | [Let stamp finish a fleet upgrade without --force](plans/014-stamp-without-force/plan.md) | implemented | — | [#70](https://github.com/gitronald/repotemplates/pull/70) |
 | 011 | [Ship multiple templates: python-package, bash, and python-workspace](plans/011-multiple-templates/plan.md) | draft | — | — |
 | 009 | [Offer CodeQL default setup on public repos](plans/009-codeql-default-setup/plan.md) | draft | — | — |
+| 014 | [Let stamp finish a fleet upgrade without --force](plans/014-stamp-without-force/plan.md) | done | 2026-11-13 11:27 PT | [#70](https://github.com/gitronald/repotemplates/pull/70) |
 | 013 | [Add init, upgrade, more file classes, and packaged skills to the repotemplates CLI](plans/013-uv-tool-init-and-classes/plan.md) | done | 2026-11-09 22:04 PT | [#61](https://github.com/gitronald/repotemplates/pull/61) |
 | 012 | [Package repotemplates as a uv tool for init and template checks](plans/012-uv-tool-cli/plan.md) | done | 2026-11-09 16:05 PT | [#60](https://github.com/gitronald/repotemplates/pull/60) |
 | 010 | [Rename the repo to repotemplates](plans/010-rename-to-repotemplates/plan.md) | done | 2026-11-06 21:32 PT | [#58](https://github.com/gitronald/repotemplates/pull/58) |
