@@ -80,7 +80,9 @@ class FileReport:
     the Dependabot or Renovate file of a repo that uses the other.
     ``pins`` is set for a pinned file: same, ahead, behind, mixed, or differs.
     ``waived`` lists an ignore file's template rules the repo leaves out because
-    it tracks paths they would ignore.
+    it tracks paths they would ignore. ``source`` is set when the repo is a
+    linked worktree that ignores the file and so lacks it: the main worktree the
+    file was read from instead, where its ``git`` state was read too.
     """
 
     path: str
@@ -91,6 +93,7 @@ class FileReport:
     pins: str | None = None
     detail: tuple[str, ...] = ()
     waived: tuple[str, ...] = ()
+    source: str | None = None
 
     @property
     def current(self) -> bool:
@@ -190,6 +193,44 @@ def _git(repo: Path, *args: str) -> int:
     except FileNotFoundError:
         # No git on PATH: every query fails, so git_state reports "no git"
         return 127
+
+
+def _git_out(repo: Path, *args: str) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", *args], cwd=repo, capture_output=True, text=True
+        )
+    except FileNotFoundError:
+        return None
+    return result.stdout if result.returncode == 0 else None
+
+
+def main_worktree(repo: Path) -> Path | None:
+    """The main worktree's root when ``repo`` is a linked worktree, else None.
+
+    A linked worktree's git dir differs from the common one. The main worktree
+    is the first ``git worktree list`` names, unless it is bare.
+    """
+    dirs = _git_out(
+        repo, "rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"
+    )
+    if dirs is None or len(set(dirs.split())) != 2:
+        return None
+    listing = _git_out(repo, "worktree", "list", "--porcelain")
+    first = listing.split("\n\n", 1)[0].splitlines() if listing else []
+    if not first or not first[0].startswith("worktree ") or "bare" in first:
+        return None
+    main = Path(first[0].removeprefix("worktree ")).resolve()
+    return main if main.is_dir() and main != repo.resolve() else None
+
+
+def _root_for(repo: Path, main: Path | None, path: str) -> Path:
+    """Where to read ``path``: the main worktree, for a file this linked
+    worktree ignores and so lacks (``git worktree add`` copies tracked files
+    only), else the repo. ``git check-ignore`` answers for an absent path."""
+    if main is None or (repo / path).exists() or not (main / path).exists():
+        return repo
+    return main if _git(repo, "check-ignore", "-q", "--", path) == 0 else repo
 
 
 def git_state(repo: Path, path: str) -> str:
@@ -293,30 +334,35 @@ def check_repo(
     latest = latest_release(manifest, installed)
     stamp = read_stamp(repo, latest)
     skip = omitted(repo, stamp.omit)
+    main = main_worktree(repo)
     files: list[FileReport] = []
     for key in _ordered(set(shipped) | set(manifest.files)):
-        value, readable = _repo_digest(repo, key)
         path, kind = file_path(key), _kind(key)
-        git = git_state(repo, path)
+        root = _root_for(repo, main, path)
+        value, readable = _repo_digest(root, key)
+        source = str(root) if root != repo else None
+        at = {"git": git_state(root, path), "source": source}
         if not readable:
-            files.append(FileReport(key, kind, "unreadable", git=git))
+            files.append(FileReport(key, kind, "unreadable", **at))
         elif value is None:
             if key in shipped:
                 status = "omitted" if path in skip or key in skip else "missing"
-                files.append(FileReport(key, kind, status, git=git))
+                files.append(FileReport(key, kind, status, **at))
         elif value == shipped.get(key):
-            pins = _pins(repo, template, key)
-            files.append(FileReport(key, kind, "current", git=git, pins=pins))
+            pins = _pins(root, template, key)
+            files.append(FileReport(key, kind, "current", pins=pins, **at))
         elif (release := manifest.match(key, value)) is not None:
             status = "matches" if key in shipped else "retired"
-            pins = _pins(repo, template, key) if key in shipped else None
-            files.append(FileReport(key, kind, status, release, git, pins))
+            pins = _pins(root, template, key) if key in shipped else None
+            files.append(FileReport(key, kind, status, release, pins=pins, **at))
         else:
-            files.append(FileReport(key, kind, "one-off", git=git))
+            files.append(FileReport(key, kind, "one-off", **at))
     for path in IGNORE:
         if (template / path).is_file():
             files.append(_ignore_report(repo, template, path, skip))
-    settings = {path: git_state(repo, path) for path in CLAUDE_SETTINGS}
+    settings = {
+        path: git_state(_root_for(repo, main, path), path) for path in CLAUDE_SETTINGS
+    }
     ruff = ruff_report(repo, template)
     return RepoReport(repo.name, str(repo), stamp, files, settings, ruff)
 

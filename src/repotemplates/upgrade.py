@@ -102,6 +102,14 @@ class UpgradePlan:
 
 
 def _skip_reason(f: FileReport) -> str:
+    reason = _status_reason(f)
+    if f.source is not None:
+        # The worktree ignores the file, so a write here would not reach the branch
+        reason += f"; read from the main checkout, {f.source}: fix it there"
+    return reason
+
+
+def _status_reason(f: FileReport) -> str:
     if f.status == "one-off":
         return "customized: matches no release; merge by hand"
     if f.status == "missing":
@@ -167,7 +175,7 @@ def plan_upgrade(
         if f.current:
             plan.actions.append(Action(f.path, "keep", f.status))
             continue
-        content = _new_content(root, template, f)
+        content = None if f.source else _new_content(root, template, f)
         if content is None:
             plan.actions.append(Action(f.path, "skip", _skip_reason(f)))
             continue

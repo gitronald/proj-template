@@ -5,7 +5,16 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from conftest import HOOK, NEW_HOOKS, OLD_HOOK, OLD_HOOKS, RETIRED, RETIRED_HOOK, write
+from conftest import (
+    HOOK,
+    NEW_HOOKS,
+    OLD_HOOK,
+    OLD_HOOKS,
+    RETIRED,
+    RETIRED_HOOK,
+    add_worktree,
+    write,
+)
 
 from repotemplates.check import (
     FileReport,
@@ -293,3 +302,43 @@ def test_table_without_version_is_not_stamped_yet(
     repo = make_repo("other-key", version=None)
     write(repo, "pyproject.toml", "[tool.repotemplates]\nother = 1\n")
     assert run(repo, template, manifest).stamp.status == "missing"
+
+
+def test_worktree_reads_ignored_files_from_the_main_checkout(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = make_repo("ignores", ignore=".claude/\n")
+    tree = add_worktree(repo, ".gitignore", "pyproject.toml")
+    assert not (tree / HOOK).exists()
+    report = run(tree, template, manifest)
+    main = str(repo.resolve())
+    assert [(f.path, f.status, f.git, f.source) for f in report.files] == [
+        (HOOK, "current", "ignored", main),
+        (SETTINGS_HOOKS, "current", "ignored", main),
+    ]
+    assert report.settings[".claude/settings.json"] == "ignored"
+    assert report.current
+    # The main checkout itself reads its own files
+    assert {f.source for f in run(repo, template, manifest).files} == {None}
+
+
+def test_worktree_reads_a_behind_copy_from_the_main_checkout(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = make_repo("ignores-old", hook=OLD_HOOK, ignore=".claude/\n")
+    tree = add_worktree(repo, ".gitignore", "pyproject.toml")
+    hook = by_path(run(tree, template, manifest))[HOOK]
+    assert (hook.status, hook.release, hook.source) == (
+        "matches",
+        "0.1.0",
+        str(repo.resolve()),
+    )
+
+
+def test_worktree_missing_file_not_ignored_stays_missing(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    # Untracked but not ignored: lost from the branch, not kept out of it
+    tree = add_worktree(make_repo("untracked"), "pyproject.toml")
+    files = by_path(run(tree, template, manifest))
+    assert (files[HOOK].status, files[HOOK].source) == ("missing", None)

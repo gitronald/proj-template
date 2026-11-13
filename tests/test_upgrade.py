@@ -17,6 +17,7 @@ from conftest import (
     OLD_HOOK,
     OLD_HOOKS,
     SETTINGS,
+    add_worktree,
     stamp,
     write,
 )
@@ -397,6 +398,29 @@ def test_stamp_still_refuses_a_file_behind(
     write(repo, "pyproject.toml", '[tool.repotemplates]\nomit = ["a.yml"]\n')
     plan = plan_stamp(repo, template, manifest, "0.2.0")
     assert plan.refused is not None and HOOK in plan.refused
+
+
+def test_worktree_stamps_with_current_files_in_the_main_checkout(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = make_repo("ignores", version="0.1.0", ignore=".claude/\n")
+    tree = add_worktree(repo, ".gitignore", "pyproject.toml")
+    plan = plan_stamp(tree, template, manifest, "0.2.0")
+    assert plan.refused is None and plan.stamp == "0.2.0"
+
+
+def test_worktree_leaves_a_behind_main_checkout_file_alone(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = make_repo("ignores-old", version="0.1.0", hook=OLD_HOOK, ignore=".claude/\n")
+    tree = add_worktree(repo, ".gitignore", "pyproject.toml")
+    plan = plan_upgrade(tree, template, manifest, "0.2.0", stamp=False)
+    skip = next(a for a in plan.actions if a.path == HOOK)
+    assert skip.action == "skip" and "fix it there" in skip.reason
+    assert str(repo.resolve()) in skip.reason
+    assert not plan.contents and not (tree / HOOK).exists()
+    refused = plan_stamp(tree, template, manifest, "0.2.0").refused
+    assert refused is not None and HOOK in refused
 
 
 # --- the command ---------------------------------------------------------------

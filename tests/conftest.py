@@ -114,3 +114,16 @@ def make_repo(tmp_path: Path) -> Callable[..., Path]:
         return repo
 
     return _make
+
+
+def add_worktree(repo: Path, *paths: str) -> Path:
+    """Commit ``paths`` in ``repo`` and add a linked worktree beside it.
+
+    The worktree gets the committed files only, as ``git worktree add`` gives.
+    """
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@example.com"]
+    subprocess.run(["git", "add", "--", *paths], cwd=repo, check=True)
+    subprocess.run([*git, "commit", "-qm", "init"], cwd=repo, check=True)
+    tree = repo.parent / f"{repo.name}-wt"
+    subprocess.run(["git", "worktree", "add", "-q", str(tree)], cwd=repo, check=True)
+    return tree

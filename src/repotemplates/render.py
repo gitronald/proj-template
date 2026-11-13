@@ -50,7 +50,7 @@ def _label(key: str) -> str:
 
 
 def _detail(f: FileReport) -> str:
-    parts = []
+    parts = [f"read from {f.source}"] if f.source else []
     if f.detail:
         parts.append(f"lacks {', '.join(f.detail)}")
     if f.waived:
