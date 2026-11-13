@@ -9,6 +9,8 @@ the repo's own in it would be lost:
   replaced;
 - a pinned file that is current but for pins behind the template has those pins
   raised, and keeps the ones that are ahead;
+- an ignored file absent from both checkouts (``local``) takes the template's
+  copy in the checkout where upgrade runs;
 - the ruff-pre-commit rev moves to the locked ruff, or to the template's rev
   when the lock is older, and ruff is relocked to exactly that version
   (``repotemplates.ruff`` has the rule).
@@ -28,6 +30,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 import tomllib
 from dataclasses import asdict, dataclass, field
@@ -91,6 +94,7 @@ class UpgradePlan:
     # The ruff version apply relocks to, or None
     relock: str | None = None
     contents: dict[str, str] = field(default_factory=dict, repr=False)
+    template: Path | None = field(default=None, repr=False)
 
     @property
     def complete(self) -> bool:
@@ -101,6 +105,7 @@ class UpgradePlan:
     def to_dict(self) -> dict[str, object]:
         out = asdict(self)
         del out["contents"]
+        del out["template"]
         out["complete"] = self.complete
         return out
 
@@ -147,6 +152,8 @@ def _settings_with_hooks(repo_raw: str, template_raw: str) -> str:
 
 def _new_content(repo: Path, template: Path, f: FileReport) -> str | None:
     """What upgrade writes for this file, or None to leave it alone."""
+    if f.status == "local":
+        return (template / file_path(f.path)).read_text()
     replaceable = (f.status == "matches" and f.pins != "differs") or (
         f.status == "current" and f.pins in RAISABLE_PINS
     )
@@ -174,7 +181,7 @@ def plan_upgrade(
     the ``install-template`` skill, which writes it once the rows ``check`` does
     not cover (``pyproject.toml`` tables, ``.python-version``) are settled too."""
     report: RepoReport = check_repo(repo, template, manifest, installed)
-    plan = UpgradePlan(repo=report.path, release=installed)
+    plan = UpgradePlan(repo=report.path, release=installed, template=template.resolve())
     # Compared with this release itself, not with the newest stable one the
     # stamp's status is read against: a prerelease stamp reads "alpha" whichever
     # side of the installed release it falls
@@ -197,7 +204,12 @@ def plan_upgrade(
             plan.actions.append(Action(f.path, "skip", _skip_reason(f)))
             continue
         plan.contents[file_path(f.path)] = content
-        reason = f"matches v{f.release}" if f.status == "matches" else f"pins {f.pins}"
+        if f.status == "local":
+            reason = "local: ignored; write the template's copy in this checkout"
+        else:
+            reason = (
+                f"matches v{f.release}" if f.status == "matches" else f"pins {f.pins}"
+            )
         plan.actions.append(Action(f.path, "write", reason))
     _plan_ruff(plan, report, root)
     skipped = sum(a.action == "skip" for a in plan.actions)
@@ -277,11 +289,12 @@ def plan_stamp(
     force: bool = False,
 ) -> UpgradePlan:
     """Write the stamp alone, the step the ``install-template`` skill takes last
-    after ``upgrade --no-stamp``. Refuses while ``check`` reports anything but
-    the stamp behind, since a stamp that overstates makes the next upgrade skip
-    the repo, unless ``force``."""
+    after ``upgrade --no-stamp``. Accepts ``local`` files awaiting a write in
+    each checkout after the merge. Otherwise refuses while ``check`` reports
+    anything but the stamp behind, since a stamp that overstates makes the
+    next upgrade skip the repo, unless ``force``."""
     report: RepoReport = check_repo(repo, template, manifest, installed)
-    plan = UpgradePlan(repo=report.path, release=installed)
+    plan = UpgradePlan(repo=report.path, release=installed, template=template.resolve())
     stamp_key = sort_key(report.stamp.version) if report.stamp.version else None
     release_key = sort_key(installed)
     if stamp_key and release_key and stamp_key > release_key:
@@ -291,7 +304,7 @@ def plan_stamp(
         )
         return plan
     for f in report.files:
-        if not f.current:
+        if not f.current and f.status != "local":
             plan.actions.append(Action(f.path, "skip", _skip_reason(f)))
     ruff = report.ruff
     if ruff is not None and ruff.status == "differs":
@@ -578,4 +591,10 @@ def apply(plan: UpgradePlan) -> None:
             plan.stamp_reason = f"held back: the ruff relock failed ({error})"
             plan.stamp = None
     for path, content in plan.contents.items():
-        (root / path).write_text(content)
+        destination = root / path
+        existed = destination.exists()
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(content)
+        source = plan.template / path if plan.template is not None else None
+        if not existed and source is not None and source.exists():
+            shutil.copymode(source, destination)

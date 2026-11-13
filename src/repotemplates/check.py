@@ -73,7 +73,7 @@ class StampReport:
 @dataclass(frozen=True)
 class FileReport:
     """``status``: current, matches, retired, one-off, kept, kept-behind, partial,
-    missing, omitted, or unreadable.
+    missing, local, omitted, or unreadable.
 
     ``matches`` and ``retired`` name a release: the newest one the file equals.
     ``retired`` is a path the template no longer ships. ``partial`` is an ignore
@@ -88,6 +88,9 @@ class FileReport:
     it tracks paths they would ignore. ``source`` is set when the repo is a
     linked worktree that ignores the file and so lacks it: the main worktree the
     file was read from instead, where its ``git`` state was read too.
+    ``local`` is an ignored file absent from both the repo and the main
+    worktree: ``stamp`` accepts it, but ``check`` keeps the pending checkout
+    write visible in ``detail`` and does not count it as current.
     """
 
     path: str
@@ -384,7 +387,15 @@ def check_repo(
         elif value is None:
             if key in shipped:
                 status = "omitted" if path in skip or key in skip else "missing"
-                files.append(FileReport(key, kind, status, **at))
+                detail = ()
+                if (
+                    status == "missing"
+                    and not (root / path).exists()
+                    and _git(repo, "check-ignore", "-q", "--", path) == 0
+                ):
+                    status = "local"
+                    detail = ("ignored; write it in each checkout after the merge",)
+                files.append(FileReport(key, kind, status, detail=detail, **at))
         elif value == shipped.get(key):
             pins = _pins(root, template, key)
             files.append(FileReport(key, kind, "current", pins=pins, **at))

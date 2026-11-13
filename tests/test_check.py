@@ -25,6 +25,7 @@ from repotemplates.check import (
     latest_release,
 )
 from repotemplates.manifest import SETTINGS_HOOKS, Manifest
+from repotemplates.render import render_repo
 
 MakeRepo = Callable[..., Path]
 
@@ -328,6 +329,56 @@ def test_worktree_reads_ignored_files_from_the_main_checkout(
     assert report.current
     # The main checkout itself reads its own files
     assert {f.source for f in run(repo, template, manifest).files} == {None}
+
+
+@pytest.mark.parametrize("linked", [False, True], ids=["main", "linked"])
+def test_first_adoption_ignored_files_are_local(
+    make_repo: MakeRepo, template: Path, manifest: Manifest, linked: bool
+) -> None:
+    repo = make_repo("first", hook=None, hooks=None, ignore=".claude/\n")
+    tree = add_worktree(repo, ".gitignore", "pyproject.toml") if linked else repo
+    report = run(tree, template, manifest)
+    assert [(f.path, f.status, f.source) for f in report.files] == [
+        (HOOK, "local", None),
+        (SETTINGS_HOOKS, "local", None),
+    ]
+    assert not report.current
+    assert not any(f.current for f in report.files)
+    assert not (repo / ".claude").exists()
+    assert not (tree / ".claude").exists()
+    note = "ignored; write it in each checkout after the merge"
+    assert all(f.detail == (note,) for f in report.files)
+    for markdown in (False, True):
+        output = render_repo(report, markdown=markdown)
+        assert output.count(note) == 2
+        assert output.count("local") >= 2
+
+
+@pytest.mark.parametrize("settings_key", [".claude/settings.json", SETTINGS_HOOKS])
+def test_omitted_wins_over_local(
+    make_repo: MakeRepo, template: Path, manifest: Manifest, settings_key: str
+) -> None:
+    repo = make_repo("omitted", hook=None, hooks=None, ignore=".claude/\n")
+    write(
+        repo,
+        "pyproject.toml",
+        f'[tool.repotemplates]\nomit = ["{HOOK}", "{settings_key}"]\n',
+    )
+    report = run(repo, template, manifest)
+    assert {f.status for f in report.files} == {"omitted"}
+    assert all(f.current and not f.detail for f in report.files)
+
+
+@pytest.mark.parametrize("linked", [False, True], ids=["main", "linked"])
+def test_ignored_settings_without_hooks_stays_missing(
+    make_repo: MakeRepo, template: Path, manifest: Manifest, linked: bool
+) -> None:
+    repo = make_repo("no-hooks", hooks=None, ignore=".claude/\n")
+    write(repo, ".claude/settings.json", '{"permissions": {}}')
+    tree = add_worktree(repo, ".gitignore", "pyproject.toml") if linked else repo
+    row = by_path(run(tree, template, manifest))[SETTINGS_HOOKS]
+    assert row.status == "missing"
+    assert row.source == (str(repo.resolve()) if linked else None)
 
 
 def test_worktree_under_a_path_with_spaces(
