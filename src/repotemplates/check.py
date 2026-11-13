@@ -257,6 +257,17 @@ def _root_for(repo: Path, main: Path | None, path: str) -> Path:
     return main if _git(repo, "check-ignore", "-q", "--", path) == 0 else repo
 
 
+def _absent(path: Path) -> bool:
+    """Absent with no dangling link or non-directory blocking its creation."""
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        return path.parent.is_dir() or _absent(path.parent)
+    except OSError:
+        return False
+    return False
+
+
 def git_state(repo: Path, path: str) -> str:
     """tracked, ignored, untracked, absent, or no git."""
     if not (repo / path).exists():
@@ -390,7 +401,8 @@ def check_repo(
                 detail = ()
                 if (
                     status == "missing"
-                    and not (root / path).exists()
+                    and _absent(repo / path)
+                    and (main is None or _absent(main / path))
                     and _git(repo, "check-ignore", "-q", "--", path) == 0
                 ):
                     status = "local"

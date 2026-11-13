@@ -464,6 +464,35 @@ def test_upgrade_copies_template_modes_for_local_files(
     assert not os.access(repo / SETTINGS, os.X_OK)
 
 
+@pytest.mark.parametrize("linked", [False, True], ids=["main", "linked"])
+@pytest.mark.parametrize("obstruction", ["dangling-hook", "parent-file"])
+def test_ignored_obstructed_file_is_not_local(
+    make_repo: MakeRepo,
+    template: Path,
+    manifest: Manifest,
+    linked: bool,
+    obstruction: str,
+) -> None:
+    repo = make_repo("obstructed", hook=None, ignore=".claude/\n")
+    tree = add_worktree(repo, ".gitignore", "pyproject.toml") if linked else repo
+    target = repo / "hook-target"
+    if obstruction == "dangling-hook":
+        (repo / HOOK).parent.mkdir(parents=True)
+        (repo / HOOK).symlink_to(target)
+    else:
+        write(repo, ".claude/hooks", "not a directory\n")
+    report = check_repo(tree, template, manifest, "0.2.0")
+    row = next(f for f in report.files if f.path == HOOK)
+    assert row.status == "missing"
+    assert plan_stamp(tree, template, manifest, "0.2.0").refused is not None
+    plan = plan_upgrade(tree, template, manifest, "0.2.0", stamp=False)
+    assert next(a for a in plan.actions if a.path == HOOK).action == "skip"
+    apply(plan)
+    assert not target.exists()
+    if linked:
+        assert not (tree / HOOK).exists()
+
+
 def test_upgrade_preserves_existing_file_modes(
     make_repo: MakeRepo, template: Path, manifest: Manifest
 ) -> None:
