@@ -49,7 +49,8 @@ running it from a tool. If the user chose renovate, finish with the
    release and every earlier one: `current`, `matches` (an earlier release's
    copy, named), `one-off` (customized), `kept` (a customization recorded in
    the stamp's `keep`), `kept-behind` (one the template has changed since it
-   was reviewed), `missing`, `omitted` (left out by
+   was reviewed), `missing`, `local` (ignored and absent from both checkouts),
+   `omitted` (left out by
    design), `partial` (an ignore file lacking template rules, listed in
    `detail`), and for pinned files a separate `pins` verdict, where `ahead` is
    not drift. Use it instead of hashing or diffing those files by hand; the
@@ -75,6 +76,13 @@ running it from a tool. If the user chose renovate, finish with the
    disk outside the branch. `check`, `upgrade`, and `stamp` run in the
    worktree read such a file from the main checkout (its row says so), so
    they see the copy you upgraded there; `upgrade` never writes it.
+   On a first adoption, an ignored file absent from both checkouts reads
+   `local` instead. Record these rows for the post-merge step below, before
+   the mechanical pass writes temporary copies in the worktree. Wait until
+   the PR merges to create them in the main checkout and other checkouts.
+   `stamp` accepts `local` without `--force`; `check` keeps the reminder and
+   exits 1 while these writes are pending. This also applies when working
+   directly in the main checkout.
 5. The upgrade writes no plan of its own. This skill is the process, and the
    PR body is the record of what it decided for this repo: the
    classification, the action taken per matrix row, the owner's answers to
@@ -96,8 +104,9 @@ Start with the mechanical pass, in the worktree:
 It rewrites only the template-owned files `check` shows hold nothing of the
 repo's own: a copy of an earlier release takes the template's (a pinned file
 keeping the repo's newer pins and its Python matrix list; `settings.json`
-having only its `hooks` block replaced), and pins behind the template are
-raised. It also keeps the `ruff-pre-commit` rev equal to the locked ruff (see
+having only its `hooks` block replaced), pins behind the template are
+raised, and `local` files take the template's copy in this checkout. It also
+keeps the `ruff-pre-commit` rev equal to the locked ruff (see
 *Verify*): the rev moves to the lock, or to the template's rev when the lock is
 older, and ruff is relocked to exactly that version (`uv lock
 --upgrade-package ruff==<version>`; the row names the command when uv cannot
@@ -113,9 +122,11 @@ repo leaves it out on purpose, like `publish.yml` in an app) listed in the
 stamp's `omit`, and a `partial` ignore file gets the merge its row describes.
 It refuses a prerelease without `--prerelease`, and a tracked file with
 uncommitted changes without `--allow-dirty`. When the target ignores `.claude/`,
-the worktree has no copy of those files, so the pass reads them from the main
-checkout and skips any that are behind; apply those rows in the main checkout,
-as preflight step 4 says.
+the worktree has no copy of those files, so the pass reads existing copies
+from the main checkout and skips any that are behind; apply those rows in the
+main checkout, as preflight step 4 says. If neither checkout has a copy, the
+row is `local` and the pass writes it here; the recorded post-merge write is
+still needed because the ignored copy does not travel with the branch.
 
 Then work through every file in `template/`, applying the action for the repo type.
 "Merge" means bring the template's entries/sections in without removing
@@ -198,8 +209,9 @@ Notes:
   <worktree>` (`--dry-run` first). It keeps `omit` and `keep`, writes the
   template's comment line in place of an old one (or above a table written by
   hand to hold `omit` or `keep` before the first stamp), renames a
-  `[tool.proj-template]` table, and refuses while `check` still reports
-  anything but the stamp behind. A customization the user chose to keep does
+  `[tool.proj-template]` table, and accepts `local` rows awaiting post-merge
+  writes. It otherwise refuses while `check` still reports anything but the
+  stamp behind. A customization the user chose to keep does
   not hold the stamp back once it is in `keep`. Stamp only if the upgrade
   actually landed in full — if a file is still behind for any other reason,
   stamp the older release the repo still matches, or leave the stamp
@@ -444,6 +456,14 @@ Then:
    base, so it refuses until the merge is pulled). Then check
    `.git/hooks/*` for an embedded worktree venv path and re-install hooks
    from the main checkout if found.
+3. After the merge, write the files recorded as `local` into each checkout
+   that needs them, including the main checkout. These are the ignored files
+   that had no copy when the upgrade began, commonly the Stop hook and
+   `.claude/settings.json`; a temporary worktree copy cannot deliver them.
+   `{cli} upgrade <checkout> --no-stamp --dry-run` shows these writes while
+   the rows are still `local`; apply with `{cli} upgrade <checkout> --no-stamp`.
+   Check for existing files before copying into another checkout, preserving
+   its customizations as the sync matrix requires, then rerun `{cli} check`.
 
 Report what was synced, what was adapted for the repo type, and what was
 deliberately skipped — and note when `.claude/` changes are on-disk only.

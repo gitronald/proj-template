@@ -1,11 +1,11 @@
 ---
 id: 15
 slug: stamp-first-adoption-ignored-claude
-status: active
+status: done
 branch: feature/015-stamp-first-adoption-ignored-claude
 created: 2026-11-13T14:36:38-08:00
-concluded:
-pr:
+concluded: 2026-11-13T15:10:51-08:00
+pr: https://github.com/gitronald/repotemplates/pull/72
 ---
 
 # Let a first stamp through when an ignored .claude/ exists in no checkout
@@ -77,3 +77,24 @@ behind", which was plan 014's goal, and it says what is left to do.
   - Base: `dev` at `c319762`
   - Worktree: `.worktrees/015-stamp-first-adoption-ignored-claude`
   - PR: pending
+- **2026-11-13T14:52:46-08:00** — Drafted by Codex (gpt-6-astra) from a brief, reviewed and verified in the main session. Pass 1: check_repo reads an ignored shipped file absent from both checkouts as local (main checkout too, omitted still wins); option b, plan_stamp accepts local while FileReport.current stays false so check keeps exiting 1 until the post-merge write; upgrade now writes a local file's template copy, which it never did for missing (the plan had assumed it did); README, CHANGELOG, and the install-template skill updated. Review found the new hook created 0644 while settings.json runs it by path; pass 2 copies the template's mode onto newly created files, with a test that failed first. A guard for a template path that does not exist added by hand. 179 tests, portability, init, and shellcheck pass. Scratch first-adoption probe (a fresh clone, no .claude in any checkout, linked worktree): 0.16.0 refuses the stamp; this branch reads both rows local, stamps without --force, and upgrade writes the hook 755 and settings.json 644.
+- **2026-11-13T14:52:52-08:00** — PR opened: https://github.com/gitronald/repotemplates/pull/72
+- **2026-11-13T14:55:06-08:00** — Implemented: 4 commits ahead of `dev`.
+- **2026-11-13T15:11:10-08:00** — Review gate run by Codex (gpt-6-astra) at the owner's request, verified in the main session; 185 tests, portability, and shellcheck pass.
+  - Review follow-up: raised three. (1) A dangling symlink or a non-directory in the way of an ignored file read local, so stamp passed and upgrade could follow the link or crash: actioned, local now requires the path to be creatable in both checkouts, four regression cases. (2) An ignored, absent pre-commit config written as local took the template's ruff rev without the relock: actioned, the ruff sync now reads the planned content, two regression cases. (3) pyrefly's always-False warning in an existing ruff test predates the branch: conscious no-op.
+
+## Retrospective
+
+- Option 1 held: keeping `local` out of `FileReport.current` while `stamp`
+  accepts it kept `--force` meaning "a file really is behind" and left `check`
+  pointing at the post-merge write.
+- The plan assumed `upgrade` already wrote a missing ignored file; it did not.
+  Adding that write is what widened the change, and every review finding (the
+  hook's mode, an obstructed path, the ruff rev of a created config) came from
+  creating files rather than from the status itself.
+- A first-adoption probe on a fresh clone, which carries no ignored files,
+  is the cheapest faithful reproduction of the case; keep it for any change to
+  the ignored-file path.
+- Next time a change starts creating files, test the file's mode, what stands
+  in the way of creating it, and the rules that tie it to other files.
+

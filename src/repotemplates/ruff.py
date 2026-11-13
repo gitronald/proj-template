@@ -161,12 +161,19 @@ def in_range(version: str, specs: list[str]) -> bool | None:
     return True
 
 
-def ruff_report(repo: Path, template: Path) -> RuffReport | None:
-    """The rev against the lock, or None when the repo pins no ruff-pre-commit."""
-    try:
-        rev = rev_of((repo / PRECOMMIT).read_text())
-    except (OSError, UnicodeDecodeError):
-        return None
+def ruff_report(
+    repo: Path, template: Path, *, precommit: str | None = None
+) -> RuffReport | None:
+    """The rev against the lock, or None when the repo pins no ruff-pre-commit.
+
+    ``precommit`` checks planned content before a local config is written.
+    """
+    if precommit is None:
+        try:
+            precommit = (repo / PRECOMMIT).read_text()
+        except (OSError, UnicodeDecodeError):
+            return None
+    rev = rev_of(precommit)
     if rev is None:
         return None
     try:

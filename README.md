@@ -114,7 +114,8 @@ For each repo it reports:
 - **Each template-owned file**: `current` (matches the template this release
   ships), `matches vX.Y.Z` (an earlier release), `one-off` (matches no release),
   `kept vX.Y.Z` or `kept-behind vX.Y.Z` (a customization the repo keeps, below),
-  `missing`, `omitted` (left out by design, below), or `retired` (a file the
+  `missing`, `local` (ignored and absent from both checkouts, below),
+  `omitted` (left out by design, below), or `retired` (a file the
   template no longer ships, still present). Each class has its own rule:
   - Claude hook scripts (`.claude/hooks/*.sh`), `.github/dependabot.yml`, and
     `.github/renovate.json`: exact content.
@@ -159,6 +160,14 @@ For each repo it reports:
   `.gitignore`, is not checked out. `check` reads it from the main worktree
   instead, and its row names where it was read; `upgrade` leaves it for that
   checkout.
+- **Ignored files absent from both checkouts**: a repo taking the template
+  for the first time may have no copy in either checkout. Those files read
+  `local`, in the main checkout too, unless declared `omitted`. The table and
+  `--json` detail say "ignored; write it in each checkout after the merge".
+  `stamp` accepts them without `--force`, while `check` keeps them noncurrent
+  (exit 1) so the pending writes stay visible. The settings hook-entries row
+  follows `.claude/settings.json`; an existing file without hooks stays
+  `missing`. A stale copy in the main checkout still blocks stamping.
 - **The ruff rev against the lock**: the `ruff-pre-commit` rev in
   `.pre-commit-config.yaml` always equals the ruff in `uv.lock`, since the
   commit hook runs the one and CI the other. The pair gets a row of its own:
@@ -193,6 +202,9 @@ repotemplates upgrade path/to/repo
   file keeps the repo's newer pins and its Python matrix list, and
   `.claude/settings.json` has only its `hooks` block replaced.
 - A pinned file whose pins are behind the template's has them raised.
+- A `local` file takes the template's copy in the checkout where `upgrade`
+  runs. Ignored files do not travel with a merge; write them into each checkout
+  after the merge even if the upgrade worktree had a temporary copy.
 - The `ruff-pre-commit` rev moves to the locked ruff, or to the template's rev
   when the lock is older (within the repo's `ruff` range in `pyproject.toml`),
   and ruff is relocked to exactly that version with
@@ -224,9 +236,10 @@ repotemplates stamp path/to/repo
 It sets `version` in `[tool.repotemplates]` to this release, keeps `omit` and
 `keep`, writes the template's comment line in place of an old one (or above a
 table written by hand), and renames a
-`[tool.proj-template]` table. It refuses (exit 2) while `check` still reports
-anything but the stamp behind, unless `--force`, and a repo stamped newer than
-the tool or a prerelease of the tool, as `upgrade` does.
+`[tool.proj-template]` table. It accepts `local` rows awaiting post-merge writes.
+It otherwise refuses (exit 2) while `check` still reports anything but the stamp
+behind, unless `--force`, and a repo stamped newer than the tool or a prerelease
+of the tool, as `upgrade` does.
 
 ## Skills
 
