@@ -98,3 +98,12 @@ updated with it. Each gets a test in `tests/test_check.py` or
   - Worktree: `.worktrees/014-stamp-without-force`
   - PR: pending
 - **2026-11-13T11:13:05-08:00** — PR opened: https://github.com/gitronald/repotemplates/pull/70
+- **2026-11-13T11:17:09-08:00** — Implemented all four gaps; checks green at f467935 (ruff, pyrefly, pytest 161 passed).
+
+  - Decisions (owner, 2026-11-13): `keep` is a table of path -> reviewed release, not a plain list; gap 1 reads the main worktree's copy rather than adding an `elsewhere` status.
+  - Gap 3: a stamp table with no `version` reads `missing` and carries its lists; a `version` that is not a string stays `unreadable`. A table with only unrelated keys now reads `missing` too (the old `no-version` test case moved).
+  - Gap 4: `set_stamp` writes the comment above any stamp table lacking one, even at the current release, so a hand-written table gains one line on the next upgrade. Existing tests that expected no comment were updated.
+  - Gap 1: `check` reads a file the linked worktree lacks and ignores from the main worktree (row gets `source`); `upgrade` skips such rows with a "fix it there" reason.
+  - Gap 2: `kept` counts as current; `kept-behind` once the template's masked digest at the reviewed release differs from the shipped one, or the release is unknown. Only a file that matches no release becomes kept (per the plan), and pins in a kept file are still compared.
+  - Found on the way: the release manifest had no v0.15.0 entry, so `test_manifest_is_fresh` was red on dev. Regenerated and committed on dev (3263126), merged into the branch.
+  - Verified the "Done when" shapes with the real CLI on scratch repos copied from the shipped template: omit with no version (stamps, comment added), keep at 0.15.0 (stamps) and at 0.10.0 (refused, kept-behind), worktree with ignored `.claude/` (stamps; refused once the main checkout's hook is edited). Each still refuses with a file genuinely behind.
