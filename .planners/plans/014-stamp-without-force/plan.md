@@ -1,7 +1,7 @@
 ---
 id: 14
 slug: stamp-without-force
-status: active
+status: implemented
 branch: feature/014-stamp-without-force
 created: 2026-11-13T10:32:22-08:00
 concluded:
@@ -107,3 +107,4 @@ updated with it. Each gets a test in `tests/test_check.py` or
   - Gap 2: `kept` counts as current; `kept-behind` once the template's masked digest at the reviewed release differs from the shipped one, or the release is unknown. Only a file that matches no release becomes kept (per the plan), and pins in a kept file are still compared.
   - Found on the way: the release manifest had no v0.15.0 entry, so `test_manifest_is_fresh` was red on dev. Regenerated and committed on dev (3263126), merged into the branch.
   - Verified the "Done when" shapes with the real CLI on scratch repos copied from the shipped template: omit with no version (stamps, comment added), keep at 0.15.0 (stamps) and at 0.10.0 (refused, kept-behind), worktree with ignored `.claude/` (stamps; refused once the main checkout's hook is edited). Each still refuses with a file genuinely behind.
+- **2026-11-13T11:17:11-08:00** — Implemented: 8 commits ahead of `dev`.
