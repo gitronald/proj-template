@@ -1,8 +1,8 @@
 ---
 id: 15
 slug: stamp-first-adoption-ignored-claude
-status: draft
-branch:
+status: active
+branch: feature/015-stamp-first-adoption-ignored-claude
 created: 2026-11-13T14:36:38-08:00
 concluded:
 pr:
@@ -69,3 +69,11 @@ behind", which was plan 014's goal, and it says what is left to do.
 
 - A repo that tracks `.claude/`: its files travel in the PR and need nothing
   new.
+
+## Log
+
+- **2026-11-13T14:44:43-08:00** — Activated.
+  - Branch: `feature/015-stamp-first-adoption-ignored-claude`
+  - Base: `dev` at `c319762`
+  - Worktree: `.worktrees/015-stamp-first-adoption-ignored-claude`
+  - PR: pending
