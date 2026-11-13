@@ -259,7 +259,10 @@ def test_malformed_stamp_table(
     for name, text in cases.items():
         repo = make_repo(name, version=None)
         write(repo, "pyproject.toml", text)
-        assert run(repo, template, manifest).stamp.status == "unreadable", name
+        stamp = run(repo, template, manifest).stamp
+        assert stamp.status == "unreadable", name
+        expected = "0.2.0" if name == "keep-a-list" else None
+        assert stamp.version == expected, name
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root reads a mode 000 file")

@@ -161,9 +161,13 @@ def read_stamp(repo: Path, latest: str | None) -> StampReport:
             continue
         section = tool[table]
         name = f"tool.{table}"
-        value = section.get("version") if isinstance(section, dict) else None
-        if not isinstance(section, dict) or stamp_error(section) is not None:
+        if not isinstance(section, dict):
             return StampReport(None, name, "unreadable", latest)
+        value = section.get("version")
+        if stamp_error(section) is not None:
+            # The version still reads when only omit or keep is malformed
+            version = value if isinstance(value, str) else None
+            return StampReport(version, name, "unreadable", latest)
         omit = tuple(section.get("omit", []))
         keep = dict(section.get("keep", {}))
         # A table written before the first stamp, to hold omit or keep, is not
