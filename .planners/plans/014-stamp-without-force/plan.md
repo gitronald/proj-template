@@ -108,3 +108,8 @@ updated with it. Each gets a test in `tests/test_check.py` or
   - Found on the way: the release manifest had no v0.15.0 entry, so `test_manifest_is_fresh` was red on dev. Regenerated and committed on dev (3263126), merged into the branch.
   - Verified the "Done when" shapes with the real CLI on scratch repos copied from the shipped template: omit with no version (stamps, comment added), keep at 0.15.0 (stamps) and at 0.10.0 (refused, kept-behind), worktree with ignored `.claude/` (stamps; refused once the main checkout's hook is edited). Each still refuses with a file genuinely behind.
 - **2026-11-13T11:17:11-08:00** — Implemented: 8 commits ahead of `dev`.
+- **2026-11-13T11:27:42-08:00** — Review gate (medium, /code-review on PR #70) found 3 issues; all fixed and pushed. Checks green: ruff, format, pyrefly, pytest 163 passed.
+  - Review follow-up: main_worktree split git's output on whitespace, so a linked worktree under a spaced path lost gap 1 (confirmed by probe); fixed with splitlines, with test_worktree_under_a_path_with_spaces, seen failing before the fix (69bb524).
+  - Review follow-up: a main-checkout row current but for raisable pins got the skip reason "current"; the reason now names the pins for any kept or main-checkout row, with test_worktree_names_stale_pins_in_a_main_checkout_file (72d5a0a).
+  - Review follow-up: _git and _git_out now share _run_git (69bb524).
+  - Conscious no-op: a version-less stamp table leaving the default fleet listing (it now reads missing) is what gap 3 specifies.
