@@ -202,22 +202,23 @@ def _stamp_status(value: str, latest: str | None) -> str:
     return "behind" if key < latest_key else "ahead"
 
 
-def _git(repo: Path, *args: str) -> int:
+def _run_git(repo: Path, *args: str) -> subprocess.CompletedProcess[str] | None:
+    """The git call's result, or None when git is not on PATH."""
     try:
-        return subprocess.run(["git", *args], cwd=repo, capture_output=True).returncode
+        return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True)
     except FileNotFoundError:
-        # No git on PATH: every query fails, so git_state reports "no git"
-        return 127
+        return None
+
+
+def _git(repo: Path, *args: str) -> int:
+    result = _run_git(repo, *args)
+    # No git on PATH: every query fails, so git_state reports "no git"
+    return 127 if result is None else result.returncode
 
 
 def _git_out(repo: Path, *args: str) -> str | None:
-    try:
-        result = subprocess.run(
-            ["git", *args], cwd=repo, capture_output=True, text=True
-        )
-    except FileNotFoundError:
-        return None
-    return result.stdout if result.returncode == 0 else None
+    result = _run_git(repo, *args)
+    return result.stdout if result is not None and result.returncode == 0 else None
 
 
 def main_worktree(repo: Path) -> Path | None:
@@ -229,7 +230,8 @@ def main_worktree(repo: Path) -> Path | None:
     dirs = _git_out(
         repo, "rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"
     )
-    if dirs is None or len(set(dirs.split())) != 2:
+    # One path per line: a path may hold spaces
+    if dirs is None or len(set(dirs.splitlines())) != 2:
         return None
     listing = _git_out(repo, "worktree", "list", "--porcelain")
     first = listing.split("\n\n", 1)[0].splitlines() if listing else []

@@ -327,6 +327,15 @@ def test_worktree_reads_ignored_files_from_the_main_checkout(
     assert {f.source for f in run(repo, template, manifest).files} == {None}
 
 
+def test_worktree_under_a_path_with_spaces(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = make_repo("with space/repo", ignore=".claude/\n")
+    tree = add_worktree(repo, ".gitignore", "pyproject.toml")
+    hook = by_path(run(tree, template, manifest))[HOOK]
+    assert (hook.status, hook.source) == ("current", str(repo.resolve()))
+
+
 def test_worktree_reads_a_behind_copy_from_the_main_checkout(
     make_repo: MakeRepo, template: Path, manifest: Manifest
 ) -> None:
