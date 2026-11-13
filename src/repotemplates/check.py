@@ -58,7 +58,8 @@ class StampReport:
     """``status``: latest, behind, ahead, alpha, unknown, unreadable, or missing.
 
     ``omit`` is the stamp table's list of template files the repo leaves out on
-    purpose.
+    purpose. ``keep`` maps each template file the repo keeps in its own form to
+    the release it was last reviewed against.
     """
 
     version: str | None
@@ -66,21 +67,27 @@ class StampReport:
     status: str
     latest: str | None
     omit: tuple[str, ...] = ()
+    keep: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
 class FileReport:
-    """``status``: current, matches, retired, one-off, partial, missing, omitted,
-    or unreadable.
+    """``status``: current, matches, retired, one-off, kept, kept-behind, partial,
+    missing, omitted, or unreadable.
 
     ``matches`` and ``retired`` name a release: the newest one the file equals.
     ``retired`` is a path the template no longer ships. ``partial`` is an ignore
     file missing some of the template's rules, listed in ``detail``. ``omitted``
     is a file the repo leaves out by design: declared in the stamp's ``omit``, or
-    the Dependabot or Renovate file of a repo that uses the other.
+    the Dependabot or Renovate file of a repo that uses the other. ``kept`` is a
+    file that matches no release and that the stamp's ``keep`` records, with the
+    release it was reviewed against as ``release``; it is ``kept-behind``, with
+    the reason in ``detail``, once the template's copy has changed since.
     ``pins`` is set for a pinned file: same, ahead, behind, mixed, or differs.
     ``waived`` lists an ignore file's template rules the repo leaves out because
-    it tracks paths they would ignore.
+    it tracks paths they would ignore. ``source`` is set when the repo is a
+    linked worktree that ignores the file and so lacks it: the main worktree the
+    file was read from instead, where its ``git`` state was read too.
     """
 
     path: str
@@ -91,10 +98,14 @@ class FileReport:
     pins: str | None = None
     detail: tuple[str, ...] = ()
     waived: tuple[str, ...] = ()
+    source: str | None = None
 
     @property
     def current(self) -> bool:
-        return self.status in ("current", "omitted") and self.pins not in STALE_PINS
+        return (
+            self.status in ("current", "omitted", "kept")
+            and self.pins not in STALE_PINS
+        )
 
 
 @dataclass(frozen=True)
@@ -148,17 +159,35 @@ def read_stamp(repo: Path, latest: str | None) -> StampReport:
     for table in STAMP_TABLES:
         if table not in tool:
             continue
-        # A stamp table with no string version is malformed, not missing
         section = tool[table]
+        name = f"tool.{table}"
         value = section.get("version") if isinstance(section, dict) else None
+        if not isinstance(section, dict) or stamp_error(section) is not None:
+            return StampReport(None, name, "unreadable", latest)
+        omit = tuple(section.get("omit", []))
+        keep = dict(section.get("keep", {}))
+        # A table written before the first stamp, to hold omit or keep, is not
+        # stamped yet; a version that is not a string is malformed
+        if "version" not in section:
+            return StampReport(None, name, "missing", latest, omit, keep)
         if not isinstance(value, str):
-            return StampReport(None, f"tool.{table}", "unreadable", latest)
-        omit = section.get("omit", [])
-        if not isinstance(omit, list) or not all(isinstance(o, str) for o in omit):
-            return StampReport(value, f"tool.{table}", "unreadable", latest)
+            return StampReport(None, name, "unreadable", latest)
         status = _stamp_status(value, latest)
-        return StampReport(value, f"tool.{table}", status, latest, tuple(omit))
+        return StampReport(value, name, status, latest, omit, keep)
     return StampReport(None, None, "missing", latest)
+
+
+def stamp_error(section: dict[str, object]) -> str | None:
+    """Why the stamp table's ``omit`` or ``keep`` cannot be read, or None."""
+    omit = section.get("omit", [])
+    if not isinstance(omit, list) or not all(isinstance(o, str) for o in omit):
+        return "omit is not a list of paths"
+    keep = section.get("keep", {})
+    if not isinstance(keep, dict) or not all(
+        isinstance(v, str) and sort_key(v) is not None for v in keep.values()
+    ):
+        return "keep is not a table of paths to releases"
+    return None
 
 
 def _stamp_status(value: str, latest: str | None) -> str:
@@ -173,12 +202,52 @@ def _stamp_status(value: str, latest: str | None) -> str:
     return "behind" if key < latest_key else "ahead"
 
 
-def _git(repo: Path, *args: str) -> int:
+def _run_git(repo: Path, *args: str) -> subprocess.CompletedProcess[str] | None:
+    """The git call's result, or None when git is not on PATH."""
     try:
-        return subprocess.run(["git", *args], cwd=repo, capture_output=True).returncode
+        return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True)
     except FileNotFoundError:
-        # No git on PATH: every query fails, so git_state reports "no git"
-        return 127
+        return None
+
+
+def _git(repo: Path, *args: str) -> int:
+    result = _run_git(repo, *args)
+    # No git on PATH: every query fails, so git_state reports "no git"
+    return 127 if result is None else result.returncode
+
+
+def _git_out(repo: Path, *args: str) -> str | None:
+    result = _run_git(repo, *args)
+    return result.stdout if result is not None and result.returncode == 0 else None
+
+
+def main_worktree(repo: Path) -> Path | None:
+    """The main worktree's root when ``repo`` is a linked worktree, else None.
+
+    A linked worktree's git dir differs from the common one. The main worktree
+    is the first ``git worktree list`` names, unless it is bare.
+    """
+    dirs = _git_out(
+        repo, "rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"
+    )
+    # One path per line: a path may hold spaces
+    if dirs is None or len(set(dirs.splitlines())) != 2:
+        return None
+    listing = _git_out(repo, "worktree", "list", "--porcelain")
+    first = listing.split("\n\n", 1)[0].splitlines() if listing else []
+    if not first or not first[0].startswith("worktree ") or "bare" in first:
+        return None
+    main = Path(first[0].removeprefix("worktree ")).resolve()
+    return main if main.is_dir() and main != repo.resolve() else None
+
+
+def _root_for(repo: Path, main: Path | None, path: str) -> Path:
+    """Where to read ``path``: the main worktree, for a file this linked
+    worktree ignores and so lacks (``git worktree add`` copies tracked files
+    only), else the repo. ``git check-ignore`` answers for an absent path."""
+    if main is None or (repo / path).exists() or not (main / path).exists():
+        return repo
+    return main if _git(repo, "check-ignore", "-q", "--", path) == 0 else repo
 
 
 def git_state(repo: Path, path: str) -> str:
@@ -249,6 +318,22 @@ def _pins(repo: Path, template: Path, key: str) -> str | None:
     return compare_pins(ours, theirs)
 
 
+def _moved_since(
+    manifest: Manifest, shipped: dict[str, str], key: str, release: str, installed: str
+) -> str | None:
+    """Why the template's copy of ``key`` has changed since ``release``, or None
+    when it has not. Pinned files compare masked, so a pin bump does not count."""
+    if key not in shipped:
+        return "the template no longer ships it"
+    if sort_key(release) == sort_key(installed):
+        return None
+    if release not in manifest.releases:
+        return f"v{release} is not a release this install knows"
+    if manifest.files.get(key, {}).get(release) != shipped[key]:
+        return f"the template's copy changed after v{release}"
+    return None
+
+
 def _ignore_report(repo: Path, template: Path, path: str, skip: set[str]) -> FileReport:
     git = git_state(repo, path)
     present = (repo / path).is_file()
@@ -282,30 +367,43 @@ def check_repo(
     latest = latest_release(manifest, installed)
     stamp = read_stamp(repo, latest)
     skip = omitted(repo, stamp.omit)
+    main = main_worktree(repo)
     files: list[FileReport] = []
     for key in _ordered(set(shipped) | set(manifest.files)):
-        value, readable = _repo_digest(repo, key)
         path, kind = file_path(key), _kind(key)
-        git = git_state(repo, path)
+        root = _root_for(repo, main, path)
+        value, readable = _repo_digest(root, key)
+        source = str(root) if root != repo else None
+        at = {"git": git_state(root, path), "source": source}
         if not readable:
-            files.append(FileReport(key, kind, "unreadable", git=git))
+            files.append(FileReport(key, kind, "unreadable", **at))
         elif value is None:
             if key in shipped:
                 status = "omitted" if path in skip or key in skip else "missing"
-                files.append(FileReport(key, kind, status, git=git))
+                files.append(FileReport(key, kind, status, **at))
         elif value == shipped.get(key):
-            pins = _pins(repo, template, key)
-            files.append(FileReport(key, kind, "current", git=git, pins=pins))
+            pins = _pins(root, template, key)
+            files.append(FileReport(key, kind, "current", pins=pins, **at))
         elif (release := manifest.match(key, value)) is not None:
             status = "matches" if key in shipped else "retired"
-            pins = _pins(repo, template, key) if key in shipped else None
-            files.append(FileReport(key, kind, status, release, git, pins))
+            pins = _pins(root, template, key) if key in shipped else None
+            files.append(FileReport(key, kind, status, release, pins=pins, **at))
+        elif (reviewed := stamp.keep.get(path, stamp.keep.get(key))) is not None:
+            pins = _pins(root, template, key) if key in shipped else None
+            moved = _moved_since(manifest, shipped, key, reviewed, installed)
+            status = "kept" if moved is None else "kept-behind"
+            detail = () if moved is None else (moved,)
+            files.append(
+                FileReport(key, kind, status, reviewed, pins=pins, detail=detail, **at)
+            )
         else:
-            files.append(FileReport(key, kind, "one-off", git=git))
+            files.append(FileReport(key, kind, "one-off", **at))
     for path in IGNORE:
         if (template / path).is_file():
             files.append(_ignore_report(repo, template, path, skip))
-    settings = {path: git_state(repo, path) for path in CLAUDE_SETTINGS}
+    settings = {
+        path: git_state(_root_for(repo, main, path), path) for path in CLAUDE_SETTINGS
+    }
     ruff = ruff_report(repo, template)
     return RepoReport(repo.name, str(repo), stamp, files, settings, ruff)
 

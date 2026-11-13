@@ -1,11 +1,11 @@
 ---
 id: 14
 slug: stamp-without-force
-status: active
+status: done
 branch: feature/014-stamp-without-force
 created: 2026-11-13T10:32:22-08:00
-concluded:
-pr:
+concluded: 2026-11-13T11:27:21-08:00
+pr: https://github.com/gitronald/repotemplates/pull/70
 ---
 
 # Let stamp finish a fleet upgrade without --force
@@ -97,3 +97,27 @@ updated with it. Each gets a test in `tests/test_check.py` or
   - Base: `dev` at `da133d7`
   - Worktree: `.worktrees/014-stamp-without-force`
   - PR: pending
+- **2026-11-13T11:13:05-08:00** — PR opened: https://github.com/gitronald/repotemplates/pull/70
+- **2026-11-13T11:17:09-08:00** — Implemented all four gaps; checks green at f467935 (ruff, pyrefly, pytest 161 passed).
+
+  - Decisions (owner, 2026-11-13): `keep` is a table of path -> reviewed release, not a plain list; gap 1 reads the main worktree's copy rather than adding an `elsewhere` status.
+  - Gap 3: a stamp table with no `version` reads `missing` and carries its lists; a `version` that is not a string stays `unreadable`. A table with only unrelated keys now reads `missing` too (the old `no-version` test case moved).
+  - Gap 4: `set_stamp` writes the comment above any stamp table lacking one, even at the current release, so a hand-written table gains one line on the next upgrade. Existing tests that expected no comment were updated.
+  - Gap 1: `check` reads a file the linked worktree lacks and ignores from the main worktree (row gets `source`); `upgrade` skips such rows with a "fix it there" reason.
+  - Gap 2: `kept` counts as current; `kept-behind` once the template's masked digest at the reviewed release differs from the shipped one, or the release is unknown. Only a file that matches no release becomes kept (per the plan), and pins in a kept file are still compared.
+  - Found on the way: the release manifest had no v0.15.0 entry, so `test_manifest_is_fresh` was red on dev. Regenerated and committed on dev (3263126), merged into the branch.
+  - Verified the "Done when" shapes with the real CLI on scratch repos copied from the shipped template: omit with no version (stamps, comment added), keep at 0.15.0 (stamps) and at 0.10.0 (refused, kept-behind), worktree with ignored `.claude/` (stamps; refused once the main checkout's hook is edited). Each still refuses with a file genuinely behind.
+- **2026-11-13T11:17:11-08:00** — Implemented: 8 commits ahead of `dev`.
+- **2026-11-13T11:27:42-08:00** — Review gate (medium, /code-review on PR #70) found 3 issues; all fixed and pushed. Checks green: ruff, format, pyrefly, pytest 163 passed.
+  - Review follow-up: main_worktree split git's output on whitespace, so a linked worktree under a spaced path lost gap 1 (confirmed by probe); fixed with splitlines, with test_worktree_under_a_path_with_spaces, seen failing before the fix (69bb524).
+  - Review follow-up: a main-checkout row current but for raisable pins got the skip reason "current"; the reason now names the pins for any kept or main-checkout row, with test_worktree_names_stale_pins_in_a_main_checkout_file (72d5a0a).
+  - Review follow-up: _git and _git_out now share _run_git (69bb524).
+  - Conscious no-op: a version-less stamp table leaving the default fleet listing (it now reads missing) is what gap 3 specifies.
+
+## Retrospective
+
+- All four gaps landed as planned. The two open design choices were settled by the owner before coding: `keep` maps a path to its reviewed release rather than being a plain list, and gap 1 reads the main worktree's copy instead of adding an `elsewhere` status.
+- The order (gaps 3 and 4 first) paid off: a first stamp of a repo with a hand-written `omit` exercises both, so fixing them together gave one end-to-end test of that path.
+- Gap 4 has a visible side effect: every hand-written stamp table gains the comment line on its next upgrade, even when already current. Several existing `set_stamp` expectations changed with it.
+- Reading git output needs `splitlines()`, never `split()`: the review caught a whitespace split that would have dropped gap 1 for any repo under a path with a space. Worktree tests should include a spaced path from the start.
+- Not verified: a real fleet pass on 0.15.x+ stamping without `--force`. The "Done when" shapes were checked on scratch repos built from the shipped template, not on fleet repos; the next template batch is the real test.

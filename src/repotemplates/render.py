@@ -30,6 +30,8 @@ def _status(f: FileReport) -> str:
         text = f"matches v{f.release}"
     elif f.status == "retired":
         text = f"retired, matches v{f.release}"
+    elif f.status in ("kept", "kept-behind"):
+        text = f"{f.status} v{f.release}"
     else:
         text = f.status
     if f.pins not in (None, "same"):
@@ -50,9 +52,11 @@ def _label(key: str) -> str:
 
 
 def _detail(f: FileReport) -> str:
-    parts = []
-    if f.detail:
+    parts = [f"read from {f.source}"] if f.source else []
+    if f.detail and f.kind == "ignore":
         parts.append(f"lacks {', '.join(f.detail)}")
+    elif f.detail:
+        parts.append("; ".join(f.detail))
     if f.waived:
         parts.append(f"waived {', '.join(f.waived)} (tracked)")
     return "; ".join(parts)
