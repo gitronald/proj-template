@@ -132,8 +132,10 @@ def _status_reason(f: FileReport) -> str:
         return f"retired after v{f.release}; remove it if nothing uses it"
     if f.pins == "differs":
         return "a pin is not a version (a bare ref); compare it by hand"
-    if f.status == "kept":
-        return f"kept, with pins {f.pins}; raise them by hand"
+    if f.pins in RAISABLE_PINS:
+        # A kept file, or one read from the main checkout, which upgrade does
+        # not write
+        return f"{f.status}, with pins {f.pins}; raise them by hand"
     return f.status
 
 

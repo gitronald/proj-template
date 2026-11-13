@@ -423,6 +423,21 @@ def test_worktree_leaves_a_behind_main_checkout_file_alone(
     assert refused is not None and HOOK in refused
 
 
+def test_worktree_names_stale_pins_in_a_main_checkout_file(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    # A pinned file the repo ignores, current but for its pins
+    write(template, TEST_YML, WORKFLOW)
+    repo = make_repo("ignores-pins", ignore=f"{TEST_YML}\n")
+    write(repo, TEST_YML, bump(WORKFLOW, "aaaa  # v7.0.1", "dddd  # v6.0.0"))
+    tree = add_worktree(repo, ".gitignore", "pyproject.toml", HOOK, SETTINGS)
+    plan = plan_upgrade(tree, template, manifest, "0.2.0", stamp=False)
+    skip = next(a for a in plan.actions if a.path == TEST_YML)
+    assert skip.action == "skip"
+    assert skip.reason.startswith("current, with pins behind; raise them by hand")
+    assert "fix it there" in skip.reason
+
+
 def kept(make_repo: MakeRepo, name: str, release: str) -> Path:
     repo = make_repo(name, version=None, hook=b"echo mine\n")
     write(
