@@ -14,8 +14,12 @@ the repo's own in it would be lost:
   (``repotemplates.ruff`` has the rule).
 
 Everything else is reported and left alone, for the ``install-template`` skill:
-a one-off (customized) file, a missing one (copy it, or declare it in ``omit``),
-an ignore file lacking rules, a retired one, a pin that is not a version. The
+a one-off (customized) file (merge it, or record it in ``keep``), a kept file
+whose template copy has changed since it was reviewed, a missing one (copy it,
+or declare it in ``omit``), an ignore file lacking rules, a retired one, a pin
+that is not a version, and a file a linked worktree reads from the main
+checkout because it ignores it. A file ``keep`` records is otherwise left as
+it is and counts as current. The
 stamp moves to this release last, and only when every file then reads current or
 omitted, so a stamp never overstates what the repo carries.
 """
@@ -35,6 +39,7 @@ from repotemplates.check import (
     FileReport,
     RepoReport,
     check_repo,
+    stamp_error,
 )
 from repotemplates.classes import merge_pinned
 from repotemplates.manifest import SETTINGS, SETTINGS_HOOKS, Manifest, file_path
@@ -101,8 +106,24 @@ class UpgradePlan:
 
 
 def _skip_reason(f: FileReport) -> str:
+    reason = _status_reason(f)
+    if f.source is not None:
+        # The worktree ignores the file, so a write here would not reach the branch
+        reason += f"; read from the main checkout, {f.source}: fix it there"
+    return reason
+
+
+def _status_reason(f: FileReport) -> str:
     if f.status == "one-off":
-        return "customized: matches no release; merge by hand"
+        return (
+            "customized: matches no release; merge by hand, or record it in the "
+            "stamp's keep"
+        )
+    if f.status == "kept-behind":
+        return (
+            f"kept as reviewed against v{f.release}, and {f.detail[0]}: review "
+            "the change, then move its keep release to this one"
+        )
     if f.status == "missing":
         return "missing: copy it in, or list it in the stamp's omit"
     if f.status == "partial":
@@ -111,6 +132,10 @@ def _skip_reason(f: FileReport) -> str:
         return f"retired after v{f.release}; remove it if nothing uses it"
     if f.pins == "differs":
         return "a pin is not a version (a bare ref); compare it by hand"
+    if f.pins in RAISABLE_PINS:
+        # A kept file, or one read from the main checkout, which upgrade does
+        # not write
+        return f"{f.status}, with pins {f.pins}; raise them by hand"
     return f.status
 
 
@@ -164,9 +189,10 @@ def plan_upgrade(
     root = Path(report.path)
     for f in report.files:
         if f.current:
-            plan.actions.append(Action(f.path, "keep", f.status))
+            reason = f"kept as of v{f.release}" if f.status == "kept" else f.status
+            plan.actions.append(Action(f.path, "keep", reason))
             continue
-        content = _new_content(root, template, f)
+        content = None if f.source else _new_content(root, template, f)
         if content is None:
             plan.actions.append(Action(f.path, "skip", _skip_reason(f)))
             continue
@@ -412,9 +438,8 @@ def _stamps(text: str) -> dict[str, dict[str, object]]:
         section = tool[name]
         if not isinstance(section, dict):
             raise ValueError(f"tool.{name} is not a table")
-        omit = section.get("omit", [])
-        if not isinstance(omit, list) or not all(isinstance(o, str) for o in omit):
-            raise ValueError(f"tool.{name} omit is not a list of paths")
+        if (error := stamp_error(section)) is not None:
+            raise ValueError(f"tool.{name} {error}")
         found[name] = section
     return found
 
@@ -463,7 +488,14 @@ def set_stamp(text: str, release: str) -> str:
         if old != _NEW:
             lines[at] = "[tool.repotemplates]"
         start = _comment_start(lines, at, inside)
-        if start is not None and lines[start:at] != [STAMP_COMMENT]:
+        if start is None:
+            # A table written by hand, often to hold omit before the first
+            # stamp: the comment goes directly above it, below any of the repo's
+            lines.insert(at, STAMP_COMMENT)
+            end += 1
+            at += 1
+            inside = _in_strings(lines)
+        elif lines[start:at] != [STAMP_COMMENT]:
             lines[start:at] = [STAMP_COMMENT]
             end -= at - start - 1
             at = start + 1

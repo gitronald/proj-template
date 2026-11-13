@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-13
+
+### Added
+
+- The stamp table takes a `keep` table mapping a template file the repo keeps
+  in its own form to the release it was last reviewed against
+  (`keep = {".github/workflows/test.yml" = "0.15.0"}`). `check` reads such a
+  file `kept`, which counts as current, so `stamp` no longer needs `--force`
+  for it. Once a later release changes the template's copy, the file reads
+  `kept-behind` until it is reviewed and the entry moves forward. `upgrade`
+  leaves a kept file as it is.
+
+### Changed
+
+- In a linked worktree, `check`, `upgrade`, and `stamp` read a template file
+  the repo gitignores (an ignored `.claude/`) from the main worktree, which
+  holds the only copy, instead of reporting it `missing`. The row names where
+  it was read, and `upgrade` leaves it for that checkout.
+- A stamp table with no `version` yet, written to hold `omit` or `keep` before
+  the first stamp, reads `missing` rather than `unreadable`, and its lists
+  count. The first stamp of a repo that leaves a file out no longer needs
+  `--force`.
+- `stamp` and `upgrade` write the template's comment line above a stamp table
+  that has none, such as one written by hand, keeping the repo's own comments
+  above it.
+
 ## [0.15.0] - 2026-11-11
 
 ### Added

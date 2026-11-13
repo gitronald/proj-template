@@ -17,6 +17,7 @@ from conftest import (
     OLD_HOOK,
     OLD_HOOKS,
     SETTINGS,
+    add_worktree,
     stamp,
     write,
 )
@@ -26,7 +27,13 @@ from typer.testing import CliRunner
 from repotemplates import paths
 from repotemplates.cli import app
 from repotemplates.manifest import SETTINGS_HOOKS, Manifest
-from repotemplates.upgrade import STAMP_COMMENT, apply, plan_upgrade, set_stamp
+from repotemplates.upgrade import (
+    STAMP_COMMENT,
+    apply,
+    plan_stamp,
+    plan_upgrade,
+    set_stamp,
+)
 
 MakeRepo = Callable[..., Path]
 TEST_YML = ".github/workflows/test.yml"
@@ -154,7 +161,8 @@ def test_no_pyproject_is_not_complete(
     [
         (
             '[project]\nname = "x"\n\n[tool.repotemplates]\nversion = "0.1.0"\n',
-            '[project]\nname = "x"\n\n[tool.repotemplates]\nversion = "0.2.0"\n',
+            '[project]\nname = "x"\n\n'
+            f'{STAMP_COMMENT}\n[tool.repotemplates]\nversion = "0.2.0"\n',
         ),
         (
             "# proj-template release stamp, set by proj-init.sh and install-template; "
@@ -174,7 +182,8 @@ def test_no_pyproject_is_not_complete(
         ),
         (
             '# our own note\n[tool.proj-template]\nversion = "0.1.0"\n',
-            '# our own note\n[tool.repotemplates]\nversion = "0.2.0"\n',
+            f"# our own note\n{STAMP_COMMENT}\n"
+            '[tool.repotemplates]\nversion = "0.2.0"\n',
         ),
         (
             "# our own note\n# proj-template release stamp, set by proj-init.sh\n"
@@ -184,10 +193,12 @@ def test_no_pyproject_is_not_complete(
         ),
         (
             '# our release stamp, keep\n[tool.repotemplates]\nversion = "0.1.0"\n',
-            '# our release stamp, keep\n[tool.repotemplates]\nversion = "0.2.0"\n',
+            f"# our release stamp, keep\n{STAMP_COMMENT}\n"
+            '[tool.repotemplates]\nversion = "0.2.0"\n',
         ),
         (
             "[tool.repotemplates]  # ours\nversion='0.2.0'  # pinned\n",
+            f"{STAMP_COMMENT}\n"
             "[tool.repotemplates]  # ours\nversion='0.2.0'  # pinned\n",
         ),
         (
@@ -229,7 +240,7 @@ def test_stale_stamp_comment_is_refreshed(
     assert again.stamp is None and again.stamp_reason == "already 0.2.0"
 
 
-def test_current_stamp_in_another_format_is_left_alone(
+def test_current_stamp_in_another_format_gains_only_the_comment(
     make_repo: MakeRepo, template: Path, manifest: Manifest
 ) -> None:
     repo = make_repo("terse", version="0.2.0")
@@ -238,7 +249,11 @@ def test_current_stamp_in_another_format_is_left_alone(
         text.replace('version = "0.2.0"', "version='0.2.0'  # pinned")
     )
     plan = plan_upgrade(repo, template, manifest, "0.2.0")
-    assert plan.stamp is None and plan.stamp_reason == "already 0.2.0"
+    assert plan.stamp == "0.2.0" and "comment refreshed" in plan.stamp_reason
+    assert "version='0.2.0'  # pinned" in plan.contents["pyproject.toml"]
+    apply(plan)
+    again = plan_upgrade(repo, template, manifest, "0.2.0")
+    assert again.stamp is None and again.stamp_reason == "already 0.2.0"
 
 
 def test_old_table_at_this_release_is_renamed(
@@ -283,37 +298,39 @@ def test_set_stamp_keeps_omit() -> None:
             "[project]\ndescription = '''\n[tool.repotemplates]\n"
             'version = "0.1.0"\n\'\'\'\n\n[tool.repotemplates]\nversion = "0.1.0"\n',
             "[project]\ndescription = '''\n[tool.repotemplates]\n"
-            'version = "0.1.0"\n\'\'\'\n\n[tool.repotemplates]\nversion = "0.2.0"\n',
+            "version = \"0.1.0\"\n'''\n\n"
+            f'{STAMP_COMMENT}\n[tool.repotemplates]\nversion = "0.2.0"\n',
         ),
         (
             '[project]\nx = """a\n[tool.repotemplates]\\""""\n\n'
             '[tool.repotemplates]\nversion = "0.1.0"\n',
             '[project]\nx = """a\n[tool.repotemplates]\\""""\n\n'
-            '[tool.repotemplates]\nversion = "0.2.0"\n',
+            f'{STAMP_COMMENT}\n[tool.repotemplates]\nversion = "0.2.0"\n',
         ),
         # Header and key spelled with quotes
         (
             '[ tool . "repotemplates" ]\n"version" = "0.1.0"\n',
-            '[ tool . "repotemplates" ]\nversion = "0.2.0"\n',
+            f'{STAMP_COMMENT}\n[ tool . "repotemplates" ]\nversion = "0.2.0"\n',
         ),
         # Both tables: the old one goes, the new one is read and kept
         (
             '[tool.repotemplates]\nversion = "0.1.0"\n\n'
             '[tool.proj-template]\nversion = "0.0.1"\n\n[tool.ruff]\n',
-            '[tool.repotemplates]\nversion = "0.2.0"\n\n[tool.ruff]\n',
+            f'{STAMP_COMMENT}\n[tool.repotemplates]\nversion = "0.2.0"\n'
+            "\n[tool.ruff]\n",
         ),
         (
             "# proj-template release stamp, set by proj-init.sh\n"
             '[tool.proj-template]\nversion = "0.0.1"\n\n'
             '[tool.repotemplates]\nversion = "0.1.0"\n',
-            '[tool.repotemplates]\nversion = "0.2.0"\n',
+            f'{STAMP_COMMENT}\n[tool.repotemplates]\nversion = "0.2.0"\n',
         ),
         # CRLF line endings stay CRLF
         (
             '[project]\r\nname = "x"\r\n\r\n[tool.repotemplates]\r\nversion = "0.1.0"'
             "\r\n",
-            '[project]\r\nname = "x"\r\n\r\n[tool.repotemplates]\r\nversion = "0.2.0"'
-            "\r\n",
+            '[project]\r\nname = "x"\r\n\r\n'
+            f'{STAMP_COMMENT}\r\n[tool.repotemplates]\r\nversion = "0.2.0"\r\n',
         ),
         # A current stamp written inline is left as it is
         (
@@ -358,6 +375,122 @@ def test_malformed_omit_is_left_unstamped(
     (repo / "pyproject.toml").write_text(text + "omit = [1]\n")
     plan = plan_upgrade(repo, template, manifest, "0.2.0")
     assert plan.stamp is None and not plan.complete
+
+
+def test_first_stamp_keeps_a_hand_written_omit(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = make_repo("first", version=None, hook=None)
+    write(repo, "pyproject.toml", f'[tool.repotemplates]\nomit = ["{HOOK}"]\n')
+    plan = plan_stamp(repo, template, manifest, "0.2.0")
+    assert plan.refused is None and plan.stamp == "0.2.0"
+    assert plan.stamp_reason == "none -> 0.2.0"
+    apply(plan)
+    assert (repo / "pyproject.toml").read_text() == (
+        f'{STAMP_COMMENT}\n[tool.repotemplates]\nversion = "0.2.0"\nomit = ["{HOOK}"]\n'
+    )
+
+
+def test_stamp_still_refuses_a_file_behind(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = make_repo("behind", version=None, hook=OLD_HOOK)
+    write(repo, "pyproject.toml", '[tool.repotemplates]\nomit = ["a.yml"]\n')
+    plan = plan_stamp(repo, template, manifest, "0.2.0")
+    assert plan.refused is not None and HOOK in plan.refused
+
+
+def test_worktree_stamps_with_current_files_in_the_main_checkout(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = make_repo("ignores", version="0.1.0", ignore=".claude/\n")
+    tree = add_worktree(repo, ".gitignore", "pyproject.toml")
+    plan = plan_stamp(tree, template, manifest, "0.2.0")
+    assert plan.refused is None and plan.stamp == "0.2.0"
+
+
+def test_worktree_leaves_a_behind_main_checkout_file_alone(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = make_repo("ignores-old", version="0.1.0", hook=OLD_HOOK, ignore=".claude/\n")
+    tree = add_worktree(repo, ".gitignore", "pyproject.toml")
+    plan = plan_upgrade(tree, template, manifest, "0.2.0", stamp=False)
+    skip = next(a for a in plan.actions if a.path == HOOK)
+    assert skip.action == "skip" and "fix it there" in skip.reason
+    assert str(repo.resolve()) in skip.reason
+    assert not plan.contents and not (tree / HOOK).exists()
+    refused = plan_stamp(tree, template, manifest, "0.2.0").refused
+    assert refused is not None and HOOK in refused
+
+
+def test_worktree_names_stale_pins_in_a_main_checkout_file(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    # A pinned file the repo ignores, current but for its pins
+    write(template, TEST_YML, WORKFLOW)
+    repo = make_repo("ignores-pins", ignore=f"{TEST_YML}\n")
+    write(repo, TEST_YML, bump(WORKFLOW, "aaaa  # v7.0.1", "dddd  # v6.0.0"))
+    tree = add_worktree(repo, ".gitignore", "pyproject.toml", HOOK, SETTINGS)
+    plan = plan_upgrade(tree, template, manifest, "0.2.0", stamp=False)
+    skip = next(a for a in plan.actions if a.path == TEST_YML)
+    assert skip.action == "skip"
+    assert skip.reason.startswith("current, with pins behind; raise them by hand")
+    assert "fix it there" in skip.reason
+
+
+def kept(make_repo: MakeRepo, name: str, release: str) -> Path:
+    repo = make_repo(name, version=None, hook=b"echo mine\n")
+    write(
+        repo,
+        "pyproject.toml",
+        f'[tool.repotemplates]\nversion = "0.1.0"\nkeep = {{"{HOOK}" = "{release}"}}\n',
+    )
+    return repo
+
+
+def test_kept_file_is_left_and_stamped(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = kept(make_repo, "kept", "0.2.0")
+    plan = plan_upgrade(repo, template, manifest, "0.2.0")
+    action = next(a for a in plan.actions if a.path == HOOK)
+    assert (action.action, action.reason) == ("keep", "kept as of v0.2.0")
+    assert plan.complete and plan.stamp == "0.2.0"
+    assert plan_stamp(repo, template, manifest, "0.2.0").refused is None
+    apply(plan)
+    assert (repo / HOOK).read_bytes() == b"echo mine\n"
+    data = tomllib.loads((repo / "pyproject.toml").read_text())
+    assert data["tool"]["repotemplates"]["keep"] == {HOOK: "0.2.0"}
+
+
+def test_kept_file_behind_holds_the_stamp(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = kept(make_repo, "kept-old", "0.1.0")
+    plan = plan_upgrade(repo, template, manifest, "0.2.0")
+    skip = next(a for a in plan.actions if a.path == HOOK)
+    assert skip.action == "skip" and "reviewed against v0.1.0" in skip.reason
+    assert plan.stamp is None
+    refused = plan_stamp(repo, template, manifest, "0.2.0").refused
+    assert refused is not None and HOOK in refused
+
+
+def test_kept_pinned_file_with_pins_behind_is_left(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    write(template, TEST_YML, WORKFLOW)
+    repo = make_repo("kept-pins", version=None)
+    write(
+        repo,
+        "pyproject.toml",
+        f'[tool.repotemplates]\nversion = "0.2.0"\nkeep = {{"{TEST_YML}" = "0.2.0"}}\n',
+    )
+    custom = bump(WORKFLOW, "aaaa  # v7.0.1", "dddd  # v6.0.0") + "      - run: extra\n"
+    write(repo, TEST_YML, custom)
+    plan = plan_upgrade(repo, template, manifest, "0.2.0")
+    skip = next(a for a in plan.actions if a.path == TEST_YML)
+    assert skip.action == "skip" and "pins behind" in skip.reason
+    assert TEST_YML not in plan.contents
 
 
 # --- the command ---------------------------------------------------------------
