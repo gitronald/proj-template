@@ -1,10 +1,10 @@
 ---
 id: 15
 slug: stamp-first-adoption-ignored-claude
-status: implemented
+status: done
 branch: feature/015-stamp-first-adoption-ignored-claude
 created: 2026-11-13T14:36:38-08:00
-concluded:
+concluded: 2026-11-13T15:10:51-08:00
 pr: https://github.com/gitronald/repotemplates/pull/72
 ---
 
@@ -82,3 +82,19 @@ behind", which was plan 014's goal, and it says what is left to do.
 - **2026-11-13T14:55:06-08:00** — Implemented: 4 commits ahead of `dev`.
 - **2026-11-13T15:11:10-08:00** — Review gate run by Codex (gpt-6-astra) at the owner's request, verified in the main session; 185 tests, portability, and shellcheck pass.
   - Review follow-up: raised three. (1) A dangling symlink or a non-directory in the way of an ignored file read local, so stamp passed and upgrade could follow the link or crash: actioned, local now requires the path to be creatable in both checkouts, four regression cases. (2) An ignored, absent pre-commit config written as local took the template's ruff rev without the relock: actioned, the ruff sync now reads the planned content, two regression cases. (3) pyrefly's always-False warning in an existing ruff test predates the branch: conscious no-op.
+
+## Retrospective
+
+- Option 1 held: keeping `local` out of `FileReport.current` while `stamp`
+  accepts it kept `--force` meaning "a file really is behind" and left `check`
+  pointing at the post-merge write.
+- The plan assumed `upgrade` already wrote a missing ignored file; it did not.
+  Adding that write is what widened the change, and every review finding (the
+  hook's mode, an obstructed path, the ruff rev of a created config) came from
+  creating files rather than from the status itself.
+- A first-adoption probe on a fresh clone, which carries no ignored files,
+  is the cheapest faithful reproduction of the case; keep it for any change to
+  the ignored-file path.
+- Next time a change starts creating files, test the file's mode, what stands
+  in the way of creating it, and the rules that tie it to other files.
+
