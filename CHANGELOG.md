@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-13
+
 ### Added
 
 - The stamp table takes a `keep` table mapping a template file the repo keeps
