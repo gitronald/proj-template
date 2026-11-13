@@ -35,6 +35,7 @@ from repotemplates.check import (
     FileReport,
     RepoReport,
     check_repo,
+    stamp_error,
 )
 from repotemplates.classes import merge_pinned
 from repotemplates.manifest import SETTINGS, SETTINGS_HOOKS, Manifest, file_path
@@ -412,9 +413,8 @@ def _stamps(text: str) -> dict[str, dict[str, object]]:
         section = tool[name]
         if not isinstance(section, dict):
             raise ValueError(f"tool.{name} is not a table")
-        omit = section.get("omit", [])
-        if not isinstance(omit, list) or not all(isinstance(o, str) for o in omit):
-            raise ValueError(f"tool.{name} omit is not a list of paths")
+        if (error := stamp_error(section)) is not None:
+            raise ValueError(f"tool.{name} {error}")
         found[name] = section
     return found
 
@@ -463,7 +463,14 @@ def set_stamp(text: str, release: str) -> str:
         if old != _NEW:
             lines[at] = "[tool.repotemplates]"
         start = _comment_start(lines, at, inside)
-        if start is not None and lines[start:at] != [STAMP_COMMENT]:
+        if start is None:
+            # A table written by hand, often to hold omit before the first
+            # stamp: the comment goes directly above it, below any of the repo's
+            lines.insert(at, STAMP_COMMENT)
+            end += 1
+            at += 1
+            inside = _in_strings(lines)
+        elif lines[start:at] != [STAMP_COMMENT]:
             lines[start:at] = [STAMP_COMMENT]
             end -= at - start - 1
             at = start + 1
