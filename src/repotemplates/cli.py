@@ -214,10 +214,10 @@ def stamp(
     """Write the template stamp, the last step after ``upgrade --no-stamp``.
 
     Sets ``version`` in ``[tool.repotemplates]`` to this release, keeping
-    ``omit`` and writing the template's comment line, and renames an old
-    ``[tool.proj-template]`` table. Refuses while check still reports anything
-    but the stamp behind (pass --force to stamp anyway). Exits 0 when stamped or
-    already stamped, 2 on a usage error or a refusal.
+    ``omit`` and ``keep`` and writing the template's comment line, and renames
+    an old ``[tool.proj-template]`` table. Refuses while check still reports
+    anything but the stamp behind (pass --force to stamp anyway). Exits 0 when
+    stamped or already stamped, 2 on a usage error or a refusal.
     """
     if not repo.is_dir():
         raise typer.BadParameter(f"not a directory: {repo}")

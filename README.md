@@ -108,9 +108,12 @@ For each repo it reports:
 
 - **The stamp**: `latest`, `behind` or `ahead` of the newest release the tool
   knows, `alpha`, `unknown`, or `missing`. Both `[tool.repotemplates]` and the
-  older `[tool.proj-template]` are read.
+  older `[tool.proj-template]` are read. A table with no `version` yet (written
+  to hold `omit` or `keep` before the first stamp) reads `missing`, and its
+  lists still count.
 - **Each template-owned file**: `current` (matches the template this release
   ships), `matches vX.Y.Z` (an earlier release), `one-off` (matches no release),
+  `kept vX.Y.Z` or `kept-behind vX.Y.Z` (a customization the repo keeps, below),
   `missing`, `omitted` (left out by design, below), or `retired` (a file the
   template no longer ships, still present). Each class has its own rule:
   - Claude hook scripts (`.claude/hooks/*.sh`), `.github/dependabot.yml`, and
@@ -137,6 +140,25 @@ For each repo it reports:
   version = "0.13.0"
   omit = [".github/workflows/publish.yml"]   # this repo does not publish
   ```
+- **Files kept in the repo's own form**: a template file the repo customizes on
+  purpose (a Stop hook with an extra step, a workflow with an added job) is
+  recorded in the stamp table's `keep`, with the release it was last reviewed
+  against. Such a file that matches no release reads `kept` while the
+  template's copy is unchanged since that release, and counts as current. Once
+  a later release changes the template's copy (pins aside), it reads
+  `kept-behind` and is drift again until someone reviews the change and moves
+  the release forward. Pins in a kept file are still compared.
+
+  ```toml
+  [tool.repotemplates]
+  version = "0.15.0"
+  keep = {".github/workflows/test.yml" = "0.15.0"}   # adds a docs job
+  ```
+- **Files a worktree ignores**: in a linked worktree (`git worktree add`), a
+  template file the repo gitignores, such as `.claude/` in the template's own
+  `.gitignore`, is not checked out. `check` reads it from the main worktree
+  instead, and its row names where it was read; `upgrade` leaves it for that
+  checkout.
 - **The ruff rev against the lock**: the `ruff-pre-commit` rev in
   `.pre-commit-config.yaml` always equals the ruff in `uv.lock`, since the
   commit hook runs the one and CI the other. The pair gets a row of its own:
@@ -176,8 +198,10 @@ repotemplates upgrade path/to/repo
   and ruff is relocked to exactly that version with
   `uv lock --upgrade-package ruff==<version>`. When uv cannot run, the row names
   that command and the stamp waits.
-- Anything else (a customized file, a missing one, an ignore file lacking
-  rules) is left, with the reason, for the `install-template` skill.
+- A file `keep` records is left as it is.
+- Anything else (a customized file, a kept one whose template copy has changed,
+  a missing one, an ignore file lacking rules, a file read from the main
+  worktree) is left, with the reason, for the `install-template` skill.
 - The stamp moves to this release only when every file then reads current or
   omitted, so it never overstates what the repo carries. `--no-stamp` leaves it
   alone, for an upgrade with more to do than the files `upgrade` tracks: the
@@ -197,8 +221,9 @@ repotemplates stamp path/to/repo --dry-run
 repotemplates stamp path/to/repo
 ```
 
-It sets `version` in `[tool.repotemplates]` to this release, keeps `omit`,
-writes the template's comment line in place of an old one, and renames a
+It sets `version` in `[tool.repotemplates]` to this release, keeps `omit` and
+`keep`, writes the template's comment line in place of an old one (or above a
+table written by hand), and renames a
 `[tool.proj-template]` table. It refuses (exit 2) while `check` still reports
 anything but the stamp behind, unless `--force`, and a repo stamped newer than
 the tool or a prerelease of the tool, as `upgrade` does.

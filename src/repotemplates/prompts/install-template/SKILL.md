@@ -47,7 +47,9 @@ running it from a tool. If the user chose renovate, finish with the
 2. Read the repo's state with `{cli} check <path> --json` (read-only). It
    reports the stamp and classifies every template-owned file against this
    release and every earlier one: `current`, `matches` (an earlier release's
-   copy, named), `one-off` (customized), `missing`, `omitted` (left out by
+   copy, named), `one-off` (customized), `kept` (a customization recorded in
+   the stamp's `keep`), `kept-behind` (one the template has changed since it
+   was reviewed), `missing`, `omitted` (left out by
    design), `partial` (an ignore file lacking template rules, listed in
    `detail`), and for pinned files a separate `pins` verdict, where `ahead` is
    not drift. Use it instead of hashing or diffing those files by hand; the
@@ -70,7 +72,9 @@ running it from a tool. If the user chose renovate, finish with the
    `settings.json`, or `hooks/`, and anything written
    there vanishes when the worktree is removed. Apply the `.claude/*` rows in
    the main checkout instead, and note in the PR that those files changed on
-   disk outside the branch.
+   disk outside the branch. `check`, `upgrade`, and `stamp` run in the
+   worktree read such a file from the main checkout (its row says so), so
+   they see the copy you upgraded there; `upgrade` never writes it.
 5. The upgrade writes no plan of its own. This skill is the process, and the
    PR body is the record of what it decided for this repo: the
    classification, the action taken per matrix row, the owner's answers to
@@ -103,13 +107,15 @@ ahead, so the stamp waits for the rule below. Without the flag it stamps the
 release once every tracked file is current, which is right only when the pass
 is the whole upgrade. Everything it skips is listed with the
 reason, and those files are what the rest of this section decides: a `one-off`
-goes to the diverging-file triage, a `missing` file is copied in or (when the
+or `kept-behind` file goes to the diverging-file triage, a `missing` file is
+copied in or (when the
 repo leaves it out on purpose, like `publish.yml` in an app) listed in the
 stamp's `omit`, and a `partial` ignore file gets the merge its row describes.
 It refuses a prerelease without `--prerelease`, and a tracked file with
 uncommitted changes without `--allow-dirty`. When the target ignores `.claude/`,
-the worktree has no copy of those files and the pass reports them missing;
-apply those rows in the main checkout, as preflight step 4 says.
+the worktree has no copy of those files, so the pass reads them from the main
+checkout and skips any that are behind; apply those rows in the main checkout,
+as preflight step 4 says.
 
 Then work through every file in `template/`, applying the action for the repo type.
 "Merge" means bring the template's entries/sections in without removing
@@ -174,7 +180,14 @@ Notes:
   **merge** the template's change while keeping the repo's customization, or
   **keep** the repo's file as-is. Show the specific conflicting lines in the
   question so the choice is informed, and record each answer in the PR body
-  with the reason, so the next upgrade doesn't re-litigate it.
+  with the reason, so the next upgrade doesn't re-litigate it. A **keep** (or
+  a **merge** that leaves the file matching no release) also goes in the
+  stamp table's `keep`, mapping the path to the release being applied:
+  `keep = {".github/workflows/test.yml" = "0.15.0"}`. `check` then reads the
+  file `kept` and `stamp` accepts it, until a later release changes the
+  template's copy; then it reads `kept-behind`, and that upgrade reviews the
+  template's change and moves the entry to its own release. Write the entry
+  as an inline table as shown, not as a `[tool.repotemplates.keep]` table.
 - **The `[tool.repotemplates]` stamp is exempt from the question above, and is
   written last.** It records which template release the repo carries, so it is
   never a merge and never a customization to preserve: overwrite whatever
@@ -182,13 +195,17 @@ Notes:
   predates it. The mechanical pass ran with `--no-stamp`, so it still holds the
   release the repo started from. Write it only *after* the rest of the matrix
   has been applied and any batched questions answered, with `{cli} stamp
-  <worktree>` (`--dry-run` first). It keeps `omit`, writes the template's comment
-  line in place of an old one, renames a `[tool.proj-template]` table, and
-  refuses while `check` still reports anything but the stamp behind. Stamp only
-  if the upgrade actually landed in full — if the user chose **keep** on rows that leave the
-  repo behind the template, stamp the older release the repo still matches, or
-  leave the stamp untouched and say so in the report (`--force` stamps past
-  what `check` reports, so use it only for a release the repo does match). A
+  <worktree>` (`--dry-run` first). It keeps `omit` and `keep`, writes the
+  template's comment line in place of an old one (or above a table written by
+  hand to hold `omit` or `keep` before the first stamp), renames a
+  `[tool.proj-template]` table, and refuses while `check` still reports
+  anything but the stamp behind. A customization the user chose to keep does
+  not hold the stamp back once it is in `keep`. Stamp only if the upgrade
+  actually landed in full — if a file is still behind for any other reason,
+  stamp the older release the repo still matches, or leave the stamp
+  untouched, and say so in the report. `--force` stamps past
+  what `check` reports; a finished upgrade should not need it, so treat the
+  need as a sign that something is unfinished or that `check` is wrong. A
   stamp that overstates is worse than an
   absent one, since it makes the next upgrade skip the repo. The template ships
   the literal `TEMPLATE_VERSION` placeholder there (`init.sh` substitutes
