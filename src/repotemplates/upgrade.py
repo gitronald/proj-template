@@ -46,7 +46,7 @@ from repotemplates.check import (
 )
 from repotemplates.classes import merge_pinned
 from repotemplates.manifest import SETTINGS, SETTINGS_HOOKS, Manifest, file_path
-from repotemplates.ruff import PRECOMMIT, relock_command, set_rev
+from repotemplates.ruff import PRECOMMIT, relock_command, ruff_report, set_rev
 from repotemplates.versions import sort_key
 
 __all__ = [
@@ -211,7 +211,7 @@ def plan_upgrade(
                 f"matches v{f.release}" if f.status == "matches" else f"pins {f.pins}"
             )
         plan.actions.append(Action(f.path, "write", reason))
-    _plan_ruff(plan, report, root)
+    _plan_ruff(plan, report, root, template)
     skipped = sum(a.action == "skip" for a in plan.actions)
     if skipped:
         plan.stamp_reason = (
@@ -250,10 +250,14 @@ def plan_upgrade(
     return plan
 
 
-def _plan_ruff(plan: UpgradePlan, report: RepoReport, root: Path) -> None:
+def _plan_ruff(
+    plan: UpgradePlan, report: RepoReport, root: Path, template: Path
+) -> None:
     """Move the ruff-pre-commit rev to the target and plan the relock. A
     pre-commit config upgrade leaves alone (a one-off) is left for the skill."""
     ruff = report.ruff
+    if ruff is None and PRECOMMIT in plan.contents:
+        ruff = ruff_report(root, template, precommit=plan.contents[PRECOMMIT])
     if ruff is None:
         return
     if ruff.detail:

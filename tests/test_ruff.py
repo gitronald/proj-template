@@ -86,6 +86,26 @@ def rev_in(repo: Path) -> str | None:
 # --- the rule ---------------------------------------------------------------
 
 
+@pytest.mark.parametrize("locked", ["0.17.1", "0.17.4"])
+def test_local_precommit_keeps_rev_and_lock_equal(
+    make_repo: MakeRepo,
+    ruff_template: Path,
+    manifest: Manifest,
+    relocks: list[str],
+    locked: str,
+) -> None:
+    repo = make_repo("local-precommit", ignore=f"{PRECOMMIT}\n")
+    write(repo, "uv.lock", lock(locked))
+    plan = plan_upgrade(repo, ruff_template, manifest, "0.2.0")
+    assert plan.complete
+    apply(plan)
+    target = "0.17.3" if locked == "0.17.1" else locked
+    assert rev_in(repo) == f"v{target}"
+    assert locked_ruff(repo) == (target,)
+    assert relocks == ([target] if locked != target else [])
+    assert check_repo(repo, ruff_template, manifest, "0.2.0").current
+
+
 def test_lock_and_rev_behind_move_to_the_template(
     make_repo: MakeRepo,
     ruff_template: Path,
