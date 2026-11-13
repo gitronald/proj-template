@@ -238,7 +238,7 @@ def test_malformed_stamp_table(
 ) -> None:
     cases = {
         "not-a-table": '[tool]\nrepotemplates = "0.2.0"\n',
-        "no-version": "[tool.repotemplates]\nother = 1\n",
+        "omit-not-a-list": '[tool.repotemplates]\nomit = "a.yml"\n',
         "number-version": "[tool.proj-template]\nversion = 2\n",
         "tool-not-a-table": 'tool = "x"\n',
     }
@@ -274,3 +274,22 @@ def test_git_not_on_path(
     report = run(repo, template, manifest)
     assert report.settings[".claude/settings.json"] == "no git"
     assert {f.git for f in report.files} == {"no git"}
+
+
+def test_table_without_version_is_not_stamped_yet(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    # Written by hand before the first stamp, to hold omit: missing, not
+    # unreadable, and the omit still counts
+    repo = make_repo("first", version=None, hook=None)
+    write(repo, "pyproject.toml", f'[tool.repotemplates]\nomit = ["{HOOK}"]\n')
+    report = run(repo, template, manifest)
+    assert (report.stamp.status, report.stamp.table, report.stamp.omit) == (
+        "missing",
+        "tool.repotemplates",
+        (HOOK,),
+    )
+    assert by_path(report)[HOOK].status == "omitted"
+    repo = make_repo("other-key", version=None)
+    write(repo, "pyproject.toml", "[tool.repotemplates]\nother = 1\n")
+    assert run(repo, template, manifest).stamp.status == "missing"

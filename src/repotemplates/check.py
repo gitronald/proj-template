@@ -148,17 +148,28 @@ def read_stamp(repo: Path, latest: str | None) -> StampReport:
     for table in STAMP_TABLES:
         if table not in tool:
             continue
-        # A stamp table with no string version is malformed, not missing
         section = tool[table]
+        name = f"tool.{table}"
         value = section.get("version") if isinstance(section, dict) else None
+        if not isinstance(section, dict) or stamp_error(section) is not None:
+            return StampReport(None, name, "unreadable", latest)
+        omit = tuple(section.get("omit", []))
+        # A table written before the first stamp, to hold omit, is not stamped
+        # yet; a version that is not a string is malformed
+        if "version" not in section:
+            return StampReport(None, name, "missing", latest, omit)
         if not isinstance(value, str):
-            return StampReport(None, f"tool.{table}", "unreadable", latest)
-        omit = section.get("omit", [])
-        if not isinstance(omit, list) or not all(isinstance(o, str) for o in omit):
-            return StampReport(value, f"tool.{table}", "unreadable", latest)
-        status = _stamp_status(value, latest)
-        return StampReport(value, f"tool.{table}", status, latest, tuple(omit))
+            return StampReport(None, name, "unreadable", latest)
+        return StampReport(value, name, _stamp_status(value, latest), latest, omit)
     return StampReport(None, None, "missing", latest)
+
+
+def stamp_error(section: dict[str, object]) -> str | None:
+    """Why the stamp table's lists cannot be read, or None when they can."""
+    omit = section.get("omit", [])
+    if not isinstance(omit, list) or not all(isinstance(o, str) for o in omit):
+        return "omit is not a list of paths"
+    return None
 
 
 def _stamp_status(value: str, latest: str | None) -> str:
