@@ -2,6 +2,7 @@
 
 | # | Plan | Status | Concluded | PR |
 |---|---|---|---|---|
+| 015 | [Let a first stamp through when an ignored .claude/ exists in no checkout](plans/015-stamp-first-adoption-ignored-claude/plan.md) | draft | — | — |
 | 011 | [Ship multiple templates: python-package, bash, and python-workspace](plans/011-multiple-templates/plan.md) | draft | — | — |
 | 009 | [Offer CodeQL default setup on public repos](plans/009-codeql-default-setup/plan.md) | draft | — | — |
 | 014 | [Let stamp finish a fleet upgrade without --force](plans/014-stamp-without-force/plan.md) | done | 2026-11-13 11:27 PT | [#70](https://github.com/gitronald/repotemplates/pull/70) |
