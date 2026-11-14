@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import tomllib
@@ -25,6 +26,7 @@ from test_classes import WORKFLOW, bump
 from typer.testing import CliRunner
 
 from repotemplates import paths
+from repotemplates.check import check_repo
 from repotemplates.cli import app
 from repotemplates.manifest import SETTINGS_HOOKS, Manifest
 from repotemplates.upgrade import (
@@ -409,6 +411,135 @@ def test_worktree_stamps_with_current_files_in_the_main_checkout(
     assert plan.refused is None and plan.stamp == "0.2.0"
 
 
+@pytest.mark.parametrize("linked", [False, True], ids=["main", "linked"])
+def test_first_adoption_stamps_with_local_files(
+    make_repo: MakeRepo, template: Path, manifest: Manifest, linked: bool
+) -> None:
+    repo = make_repo("first", version=None, hook=None, hooks=None, ignore=".claude/\n")
+    write(repo, "pyproject.toml", '[project]\nname = "demo"\n')
+    tree = add_worktree(repo, ".gitignore", "pyproject.toml") if linked else repo
+    plan = plan_stamp(tree, template, manifest, "0.2.0")
+    assert plan.refused is None and plan.stamp == "0.2.0"
+    assert plan.complete and not plan.actions
+    apply(plan)
+    assert stamp_of(tree) == "0.2.0"
+    assert not (repo / ".claude").exists()
+    assert not (tree / ".claude").exists()
+
+
+@pytest.mark.parametrize("linked", [False, True], ids=["main", "linked"])
+def test_upgrade_writes_local_files_in_its_checkout(
+    make_repo: MakeRepo, template: Path, manifest: Manifest, linked: bool
+) -> None:
+    write(template, TEST_YML, WORKFLOW)
+    repo = make_repo("local", hook=None, hooks=None, ignore=f".claude/\n{TEST_YML}\n")
+    tree = add_worktree(repo, ".gitignore", "pyproject.toml") if linked else repo
+    plan = plan_upgrade(tree, template, manifest, "0.2.0", stamp=False)
+    assert plan.complete and plan.stamp is None
+    assert {a.path: a.action for a in plan.actions} == {
+        HOOK: "write",
+        SETTINGS_HOOKS: "write",
+        TEST_YML: "write",
+    }
+    assert all(a.reason.startswith("local:") for a in plan.actions)
+    assert not (tree / ".claude").exists()
+    apply(plan)
+    for path in (HOOK, SETTINGS, TEST_YML):
+        assert (tree / path).read_bytes() == (template / path).read_bytes()
+        if linked:
+            assert not (repo / path).exists()
+    assert check_repo(tree, template, manifest, "0.2.0").current
+
+
+def test_upgrade_copies_template_modes_for_local_files(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    (template / HOOK).chmod(0o755)
+    (template / SETTINGS).chmod(0o644)
+    repo = make_repo("local-modes", hook=None, hooks=None, ignore=".claude/\n")
+    plan = plan_upgrade(repo, template, manifest, "0.2.0")
+    assert all(a.reason.startswith("local:") for a in plan.actions)
+    apply(plan)
+    assert os.access(repo / HOOK, os.X_OK)
+    assert not os.access(repo / SETTINGS, os.X_OK)
+
+
+@pytest.mark.parametrize("linked", [False, True], ids=["main", "linked"])
+@pytest.mark.parametrize("obstruction", ["dangling-hook", "parent-file"])
+def test_ignored_obstructed_file_is_not_local(
+    make_repo: MakeRepo,
+    template: Path,
+    manifest: Manifest,
+    linked: bool,
+    obstruction: str,
+) -> None:
+    repo = make_repo("obstructed", hook=None, ignore=".claude/\n")
+    tree = add_worktree(repo, ".gitignore", "pyproject.toml") if linked else repo
+    target = repo / "hook-target"
+    if obstruction == "dangling-hook":
+        (repo / HOOK).parent.mkdir(parents=True)
+        (repo / HOOK).symlink_to(target)
+    else:
+        write(repo, ".claude/hooks", "not a directory\n")
+    report = check_repo(tree, template, manifest, "0.2.0")
+    row = next(f for f in report.files if f.path == HOOK)
+    assert row.status == "missing"
+    assert plan_stamp(tree, template, manifest, "0.2.0").refused is not None
+    plan = plan_upgrade(tree, template, manifest, "0.2.0", stamp=False)
+    assert next(a for a in plan.actions if a.path == HOOK).action == "skip"
+    apply(plan)
+    assert not target.exists()
+    if linked:
+        assert not (tree / HOOK).exists()
+
+
+def test_upgrade_preserves_existing_file_modes(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    (template / HOOK).chmod(0o755)
+    (template / SETTINGS).chmod(0o644)
+    repo = make_repo("existing-modes", hook=OLD_HOOK, hooks=OLD_HOOKS)
+    (repo / HOOK).chmod(0o640)
+    (repo / SETTINGS).chmod(0o600)
+    plan = plan_upgrade(repo, template, manifest, "0.2.0")
+    apply(plan)
+    assert (repo / HOOK).read_bytes() == NEW_HOOK
+    assert json.loads((repo / SETTINGS).read_text())["hooks"] == NEW_HOOKS
+    assert (repo / HOOK).stat().st_mode & 0o777 == 0o640
+    assert (repo / SETTINGS).stat().st_mode & 0o777 == 0o600
+
+
+def test_first_adoption_still_refuses_a_stale_main_checkout_hook(
+    make_repo: MakeRepo, template: Path, manifest: Manifest
+) -> None:
+    repo = make_repo("stale", hook=OLD_HOOK, hooks=None, ignore=".claude/\n")
+    tree = add_worktree(repo, ".gitignore", "pyproject.toml")
+    files = {f.path: f for f in check_repo(tree, template, manifest, "0.2.0").files}
+    assert (files[HOOK].status, files[HOOK].source) == (
+        "matches",
+        str(repo.resolve()),
+    )
+    assert files[SETTINGS_HOOKS].status == "local"
+    plan = plan_stamp(tree, template, manifest, "0.2.0")
+    assert plan.refused is not None and HOOK in plan.refused
+    assert [a.path for a in plan.actions] == [HOOK]
+    assert not plan.contents
+
+
+@pytest.mark.parametrize("linked", [False, True], ids=["main", "linked"])
+def test_stamp_refuses_missing_files_that_are_not_ignored(
+    make_repo: MakeRepo, template: Path, manifest: Manifest, linked: bool
+) -> None:
+    repo = make_repo("missing", hook=None, hooks=None)
+    tree = add_worktree(repo, "pyproject.toml") if linked else repo
+    report = check_repo(tree, template, manifest, "0.2.0")
+    assert {f.status for f in report.files} == {"missing"}
+    plan = plan_stamp(tree, template, manifest, "0.2.0")
+    assert plan.refused is not None and HOOK in plan.refused
+    assert {a.path for a in plan.actions} == {HOOK, SETTINGS_HOOKS}
+    assert not plan.contents
+
+
 def test_worktree_leaves_a_behind_main_checkout_file_alone(
     make_repo: MakeRepo, template: Path, manifest: Manifest
 ) -> None:
@@ -526,6 +657,25 @@ def test_command_stamps_a_current_repo(scaffolded: Path) -> None:
     assert code == 0, out
     assert json.loads(out)["complete"] is True
     assert stamp_of(scaffolded) == paths.version()
+
+
+def test_command_stamps_local_files_and_check_keeps_the_reminder(
+    scaffolded: Path,
+) -> None:
+    (scaffolded / HOOK).unlink()
+    (scaffolded / SETTINGS).unlink()
+    code, out = run("stamp", str(scaffolded), "--prerelease")
+    assert code == 0, out
+    code, out = run("check", str(scaffolded), "--json")
+    assert code == 1
+    report = json.loads(out)
+    assert report["current"] is False
+    rows = {f["path"]: f for f in report["files"]}
+    for path in (HOOK, SETTINGS_HOOKS):
+        assert rows[path]["status"] == "local"
+        assert rows[path]["detail"] == [
+            "ignored; write it in each checkout after the merge"
+        ]
 
 
 def test_command_no_stamp_leaves_the_stamp(scaffolded: Path) -> None:

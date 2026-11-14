@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-13
+
+### Added
+
+- `check` reports an ignored template file absent from both the repo and its
+  main worktree as `local`, including in the main checkout on a first adoption.
+  The table and JSON detail name the pending write in each checkout after the
+  merge. `stamp` accepts these rows without `--force`, while `check` keeps
+  them noncurrent and `upgrade` writes them into the checkout where it runs.
+  Declared omissions and stale files in the main checkout keep their existing
+  behavior. The install-template skill records `local` rows for the post-merge
+  writes.
+
 ## [0.16.0] - 2026-11-13
 
 ### Added
