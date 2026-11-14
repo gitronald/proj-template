@@ -4,11 +4,10 @@ them equal, and stamp writes the stamp alone."""
 from __future__ import annotations
 
 import tomllib
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from conftest import stamp, write
+from conftest import MakeRepo, stamp, write
 from test_classes import PRECOMMIT as PRECOMMIT_TEXT
 from test_classes import bump
 
@@ -27,7 +26,6 @@ from repotemplates.ruff import (
 )
 from repotemplates.upgrade import apply, plan_stamp, plan_upgrade
 
-MakeRepo = Callable[..., Path]
 # The fixture template's rev
 TEMPLATE_REV = "v0.17.3"
 

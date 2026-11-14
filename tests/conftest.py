@@ -12,8 +12,13 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from typer.testing import CliRunner
 
+from repotemplates.cli import app
 from repotemplates.manifest import DirSource, Manifest, fingerprint
+
+# The make_repo fixture's type
+MakeRepo = Callable[..., Path]
 
 HOOK = ".claude/hooks/lint-typecheck.sh"
 SETTINGS = ".claude/settings.json"
@@ -26,6 +31,12 @@ OLD_HOOKS = {"Stop": [{"hooks": [{"type": "command", "command": "old.sh"}]}]}
 NEW_HOOKS = {
     "Stop": [{"hooks": [{"type": "command", "command": "new.sh", "timeout": 120}]}]
 }
+
+
+def run_cli(*argv: str) -> tuple[int, str]:
+    """Run the repotemplates command: its exit code and output."""
+    result = CliRunner().invoke(app, list(argv))
+    return result.exit_code, result.output
 
 
 def write(root: Path, rel: str, data: bytes | str) -> None:

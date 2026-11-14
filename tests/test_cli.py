@@ -3,22 +3,13 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from typer.testing import CliRunner
+from conftest import run_cli
 
 from repotemplates import paths
-from repotemplates.cli import app
 from repotemplates.manifest import SETTINGS_HOOKS
-
-MakeRepo = Callable[..., Path]
-
-
-def run(*argv: str) -> tuple[int, str]:
-    result = CliRunner().invoke(app, list(argv))
-    return result.exit_code, result.output
 
 
 @pytest.fixture
@@ -32,8 +23,8 @@ def real_repo(tmp_path: Path) -> Path:
 
 
 def test_version() -> None:
-    assert run("version") == (0, f"{paths.version()}\n")
-    assert run("--version") == (0, f"repotemplates {paths.version()}\n")
+    assert run_cli("version") == (0, f"{paths.version()}\n")
+    assert run_cli("--version") == (0, f"repotemplates {paths.version()}\n")
 
 
 @pytest.mark.parametrize(
@@ -41,12 +32,12 @@ def test_version() -> None:
     [("template", paths.template_root()), ("scripts", paths.scripts_root())],
 )
 def test_path(what: str, expected: Path) -> None:
-    assert run("path", what) == (0, f"{expected}\n")
+    assert run_cli("path", what) == (0, f"{expected}\n")
     assert (paths.scripts_root() / "init.sh").is_file()
 
 
 def test_shipped_template_checks_current(real_repo: Path) -> None:
-    code, out = run("check", str(real_repo), "--json")
+    code, out = run_cli("check", str(real_repo), "--json")
     report = json.loads(out)
     statuses = {f["path"]: f["status"] for f in report["files"]}
     assert statuses[SETTINGS_HOOKS] == "current"
@@ -57,26 +48,26 @@ def test_shipped_template_checks_current(real_repo: Path) -> None:
 
 def test_drift_exits_1(real_repo: Path) -> None:
     (real_repo / ".claude/hooks/lint-typecheck.sh").write_text("echo edited\n")
-    code, out = run("check", str(real_repo))
+    code, out = run_cli("check", str(real_repo))
     assert code == 1
     assert "one-off" in out
     assert out.startswith("repo: scaffolded")
 
 
 def test_markdown(real_repo: Path) -> None:
-    _, out = run("check", str(real_repo), "--markdown")
+    _, out = run_cli("check", str(real_repo), "--markdown")
     assert "| file | status | git |" in out
     assert "- stamp: 0.12.0" in out
 
 
 def test_fleet_json_is_an_array(real_repo: Path) -> None:
-    _, out = run("check", "--repos-dir", str(real_repo.parent), "--json")
+    _, out = run_cli("check", "--repos-dir", str(real_repo.parent), "--json")
     reports = json.loads(out)
     assert [r["name"] for r in reports] == ["scaffolded"]
 
 
 def test_fleet_table(real_repo: Path) -> None:
-    _, out = run("check", "--repos-dir", str(real_repo.parent))
+    _, out = run_cli("check", "--repos-dir", str(real_repo.parent))
     assert out.splitlines()[0].split()[:3] == ["repo", "stamp", "stamp"]
     assert "scaffolded" in out
 
@@ -94,12 +85,12 @@ def test_fleet_table(real_repo: Path) -> None:
     ],
 )
 def test_usage_errors_exit_2(argv: list[str]) -> None:
-    assert run(*argv)[0] == 2
+    assert run_cli(*argv)[0] == 2
 
 
 def test_empty_fleet_exits_1(tmp_path: Path) -> None:
     (tmp_path / "empty").mkdir()
-    code, out = run("check", "--repos-dir", str(tmp_path / "empty"))
+    code, out = run_cli("check", "--repos-dir", str(tmp_path / "empty"))
     assert code == 1
     assert "no repos to check" in out
 
@@ -126,7 +117,7 @@ def test_init_runs_shipped_script_on_shipped_template(
     monkeypatch.setattr("repotemplates.cli.paths.stray_files", no_strays)
     monkeypatch.setattr("repotemplates.cli.subprocess.run", fake_run)
     dest = tmp_path / "new-repo"
-    exit_code, _ = run("init", str(dest), "--deps", "renovate", "--license", "bsd")
+    exit_code, _ = run_cli("init", str(dest), "--deps", "renovate", "--license", "bsd")
     assert exit_code == code
     assert calls == [
         [
@@ -156,7 +147,7 @@ def test_init_leaves_deps_to_the_script(
 
     monkeypatch.setattr("repotemplates.cli.paths.stray_files", no_strays)
     monkeypatch.setattr("repotemplates.cli.subprocess.run", fake_run)
-    assert run("init", str(tmp_path / "x"))[0] == 0
+    assert run_cli("init", str(tmp_path / "x"))[0] == 0
     assert "--deps" not in calls[0]
 
 
@@ -167,7 +158,7 @@ def test_init_refuses_stray_template_files(
         return ["template/uv.lock"]
 
     monkeypatch.setattr("repotemplates.cli.paths.stray_files", stray)
-    code, out = run("init", str(tmp_path / "x"))
+    code, out = run_cli("init", str(tmp_path / "x"))
     assert code == 2 and "template/uv.lock" in out
     assert not (tmp_path / "x").exists()
 

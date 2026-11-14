@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import subprocess
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from conftest import git_init, write
+from conftest import MakeRepo, git_init, write
 
 from repotemplates.check import check_repo, omitted
 from repotemplates.classes import (
@@ -19,8 +18,6 @@ from repotemplates.classes import (
     pins,
 )
 from repotemplates.manifest import DirSource, Manifest, fingerprint
-
-MakeRepo = Callable[..., Path]
 
 WORKFLOW = """\
 jobs:

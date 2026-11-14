@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -12,6 +11,7 @@ from conftest import (
     OLD_HOOKS,
     RETIRED,
     RETIRED_HOOK,
+    MakeRepo,
     add_worktree,
     write,
 )
@@ -26,8 +26,6 @@ from repotemplates.check import (
 )
 from repotemplates.manifest import SETTINGS_HOOKS, Manifest
 from repotemplates.render import render_repo
-
-MakeRepo = Callable[..., Path]
 
 
 def run(

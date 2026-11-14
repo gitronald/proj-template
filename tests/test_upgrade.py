@@ -7,7 +7,6 @@ import os
 import shutil
 import subprocess
 import tomllib
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -18,16 +17,16 @@ from conftest import (
     OLD_HOOK,
     OLD_HOOKS,
     SETTINGS,
+    MakeRepo,
     add_worktree,
+    run_cli,
     stamp,
     write,
 )
 from test_classes import WORKFLOW, bump
-from typer.testing import CliRunner
 
 from repotemplates import paths
 from repotemplates.check import check_repo
-from repotemplates.cli import app
 from repotemplates.manifest import SETTINGS_HOOKS, Manifest
 from repotemplates.upgrade import (
     STAMP_COMMENT,
@@ -37,7 +36,6 @@ from repotemplates.upgrade import (
     set_stamp,
 )
 
-MakeRepo = Callable[..., Path]
 TEST_YML = ".github/workflows/test.yml"
 
 
@@ -640,20 +638,15 @@ def scaffolded(tmp_path: Path) -> Path:
     return repo
 
 
-def run(*argv: str) -> tuple[int, str]:
-    result = CliRunner().invoke(app, list(argv))
-    return result.exit_code, result.output
-
-
 def test_command_dry_run_writes_nothing(scaffolded: Path) -> None:
-    code, out = run("upgrade", str(scaffolded), "--dry-run", "--prerelease")
+    code, out = run_cli("upgrade", str(scaffolded), "--dry-run", "--prerelease")
     assert code == 0, out
     assert "dry run" in out and f"0.1.0 -> {paths.version()}" in out
     assert stamp_of(scaffolded) == "0.1.0"
 
 
 def test_command_stamps_a_current_repo(scaffolded: Path) -> None:
-    code, out = run("upgrade", str(scaffolded), "--prerelease", "--json")
+    code, out = run_cli("upgrade", str(scaffolded), "--prerelease", "--json")
     assert code == 0, out
     assert json.loads(out)["complete"] is True
     assert stamp_of(scaffolded) == paths.version()
@@ -664,9 +657,9 @@ def test_command_stamps_local_files_and_check_keeps_the_reminder(
 ) -> None:
     (scaffolded / HOOK).unlink()
     (scaffolded / SETTINGS).unlink()
-    code, out = run("stamp", str(scaffolded), "--prerelease")
+    code, out = run_cli("stamp", str(scaffolded), "--prerelease")
     assert code == 0, out
-    code, out = run("check", str(scaffolded), "--json")
+    code, out = run_cli("check", str(scaffolded), "--json")
     assert code == 1
     report = json.loads(out)
     assert report["current"] is False
@@ -680,7 +673,9 @@ def test_command_stamps_local_files_and_check_keeps_the_reminder(
 
 def test_command_no_stamp_leaves_the_stamp(scaffolded: Path) -> None:
     # Current but for the stamp, which upgrade would otherwise move
-    code, out = run("upgrade", str(scaffolded), "--prerelease", "--no-stamp", "--json")
+    code, out = run_cli(
+        "upgrade", str(scaffolded), "--prerelease", "--no-stamp", "--json"
+    )
     assert code == 0, out
     plan = json.loads(out)
     assert plan["complete"] is True and plan["stamp"] is None
@@ -692,18 +687,18 @@ def test_command_refuses_dirty_tracked_files(scaffolded: Path) -> None:
     (scaffolded / "pyproject.toml").write_text(
         '[tool.repotemplates]\nversion = "0.1.0"\n# edited\n'
     )
-    code, out = run("upgrade", str(scaffolded), "--prerelease")
+    code, out = run_cli("upgrade", str(scaffolded), "--prerelease")
     assert code == 2 and "uncommitted changes in pyproject.toml" in out
-    assert run("upgrade", str(scaffolded), "--prerelease", "--allow-dirty")[0] == 0
+    assert run_cli("upgrade", str(scaffolded), "--prerelease", "--allow-dirty")[0] == 0
 
 
 def test_command_refuses_a_prerelease(
     scaffolded: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr("repotemplates.cli.paths.version", lambda: "0.9.0a1")
-    code, out = run("upgrade", str(scaffolded))
+    code, out = run_cli("upgrade", str(scaffolded))
     assert code == 2 and "0.9.0a1 is a prerelease" in out
     assert stamp_of(scaffolded) == "0.1.0"
     # A dry run still shows the plan
-    code, out = run("upgrade", str(scaffolded), "--dry-run")
+    code, out = run_cli("upgrade", str(scaffolded), "--dry-run")
     assert code == 0 and "needs" not in out and "pass --prerelease" in out
