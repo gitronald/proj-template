@@ -1,5 +1,4 @@
 .archive/
-# .claude/
 .hypothesis/
 .pytest_cache/
 .ruff_cache/
@@ -17,13 +16,10 @@ dist/
 .coverage
 .coverage.*
 
-# template/ is a real, resolvable uv project, so any uv command run from inside
-# it (export, sync, run, lock) writes template/uv.lock as a side effect. That
-# lock is scaffolding input, never an artifact of this repo: init.sh
-# rsyncs template/ into each new project and only excludes __pycache__, so a
-# committed lock would seed every scaffolded repo with stale, PROJECT-named
-# pins instead of the one `uv sync` builds for it. Ignore here, not in
-# template/.gitignore — scaffolded projects do commit their own uv.lock.
+# template/ is a resolvable uv project, so a uv command run from inside it
+# writes template/uv.lock. init.sh copies template/ into each new project, so a
+# committed lock would seed every scaffolded repo with stale pins. Ignore it
+# here, not in template/.gitignore: scaffolded projects commit their own uv.lock.
 /template/uv.lock
 
 .env

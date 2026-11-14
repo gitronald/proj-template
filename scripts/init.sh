@@ -5,8 +5,9 @@
 # MODULE__NAME placeholders with its module form (dashes become underscores),
 # initializes git, installs dependencies, and makes the initial commit.
 #
-# Usage: init.sh <path>
+# Usage: init.sh [options] <path>
 #   path  Target directory (e.g., ~/repos/gdrive). Basename becomes the project name.
+#   Run with --help for the options.
 #
 # Targets bash 3.2+ (stock macOS /bin/bash), not POSIX sh. Under a shell that is
 # not bash at all (dash, zsh), the first bash-only line would fail with a
@@ -20,7 +21,7 @@ fi
 
 # -u catches a typo'd or never-assigned variable instead of expanding it to "";
 # -o pipefail makes a pipeline fail when any stage does, not just the last, so a
-# failing producer can no longer be masked by a successful consumer.
+# successful consumer cannot mask a failing producer.
 set -euo pipefail
 # The placeholder pass overwrites existing files ("cat tmp > f"). An inherited
 # noclobber (via an exported SHELLOPTS) would make that redirect fail mid-scaffold.
@@ -86,17 +87,22 @@ BRANCH=""
 DEPS=""
 TEMPLATE_DIR_ARG=""
 TEMPLATE_VERSION_ARG=""
+
+# need_value <option> [value]: an empty value is rejected, not read as "not
+# given". Empty is how these variables spell "use the default", so
+# --branch "$UNSET" would otherwise silently scaffold the default branch.
+need_value() {
+    [ -n "${2:-}" ] || { echo "Error: $1 requires a value"; exit 1; }
+}
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        # An empty value is rejected, not read as "not given": empty is how these
-        # variables spell "use the default", so --branch "$UNSET" would otherwise
-        # silently scaffold the default branch.
-        --license) [ -n "${2:-}" ] || { echo "Error: --license requires a value"; exit 1; }; LICENSE="$2"; shift 2 ;;
-        --source)  [ -n "${2:-}" ] || { echo "Error: --source requires a value"; exit 1; }; SOURCE="$2"; shift 2 ;;
-        --branch)  [ -n "${2:-}" ] || { echo "Error: --branch requires a value"; exit 1; }; BRANCH="$2"; shift 2 ;;
-        --deps)    [ -n "${2:-}" ] || { echo "Error: --deps requires a value"; exit 1; }; DEPS="$2"; shift 2 ;;
-        --template-dir)     [ -n "${2:-}" ] || { echo "Error: --template-dir requires a value"; exit 1; }; TEMPLATE_DIR_ARG="$2"; shift 2 ;;
-        --template-version) [ -n "${2:-}" ] || { echo "Error: --template-version requires a value"; exit 1; }; TEMPLATE_VERSION_ARG="$2"; shift 2 ;;
+        --license) need_value "$@"; LICENSE="$2"; shift 2 ;;
+        --source)  need_value "$@"; SOURCE="$2"; shift 2 ;;
+        --branch)  need_value "$@"; BRANCH="$2"; shift 2 ;;
+        --deps)    need_value "$@"; DEPS="$2"; shift 2 ;;
+        --template-dir)     need_value "$@"; TEMPLATE_DIR_ARG="$2"; shift 2 ;;
+        --template-version) need_value "$@"; TEMPLATE_VERSION_ARG="$2"; shift 2 ;;
         --*) echo "Error: unknown option $1"; show_help; exit 1 ;;
         *)
             # Reject a second path instead of silently scaffolding the last one.
@@ -283,14 +289,12 @@ find "$DEST" -depth -name '*MODULE__NAME*' | while read -r f; do
 done
 
 # Replace placeholders in file contents: MODULE__NAME = module name,
-# PROJECT__NAME = project name. The spellings are load-bearing. The old bare
-# PROJECT also matched inside CLAUDE_PROJECT_DIR, so it needed \b word
-# boundaries — and \b is a GNU extension that BSD sed on macOS reads as a
-# literal "b", so nothing matched and placeholders shipped silently.
-# PROJECT__NAME cannot occur inside another token, so a plain literal match is
-# correct on every platform; it is also still a valid package name, which keeps
-# template/ resolvable as a uv project. Do not shorten it to __PROJECT__: uv
-# rejects names that start or end with "_".
+# PROJECT__NAME = project name. The spellings are load-bearing. Neither occurs
+# inside another token (a bare PROJECT would match CLAUDE_PROJECT_DIR), so a
+# plain literal match is correct on every platform, with no need for a \b word
+# boundary, which BSD sed on macOS reads as a literal "b". PROJECT__NAME is
+# also a valid package name, which keeps template/ resolvable as a uv project.
+# Do not shorten it to __PROJECT__: uv rejects names that start or end with "_".
 # grep exits 1 when nothing matches, which is legitimate here but which pipefail
 # would turn into an abort — so tolerate exit 1 specifically and let a real grep
 # failure (exit 2) still stop the scaffold. Reading the list from a variable
@@ -301,8 +305,8 @@ while IFS= read -r f; do
     [ -n "$f" ] || continue
     sed "s/MODULE__NAME/${MOD_NAME}/g; s/PROJECT__NAME/${NAME}/g" "$f" > "$f.tmp"
     # Copy back with cat, not mv. mv installs the temp file's inode with default
-    # permissions, which strips the executable bit (0.9.2 fixed exactly that for
-    # .claude/hooks/lint-typecheck.sh); cat rewrites the original inode, so its
+    # permissions, which strips the executable bit from
+    # .claude/hooks/lint-typecheck.sh; cat rewrites the original inode, so its
     # mode survives. sed -i would too, but GNU and BSD sed spell it differently.
     cat "$f.tmp" > "$f"
     rm -f "$f.tmp"

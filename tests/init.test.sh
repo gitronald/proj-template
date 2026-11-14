@@ -252,7 +252,7 @@ check "a source with no template is rejected before anything is created" \
     rejects no-template "Error: $NOT_TEMPLATE has no template/MODULE__NAME/" \
     --deps dependabot --source "$NOT_TEMPLATE"
 
-# Mixed-case license key exercises the case fold that used to be ${LICENSE,,}.
+# A mixed-case license key exercises the case fold.
 if scaffold template-test --license MIT --deps dependabot; then
     pass "scaffold exits 0"
 else
