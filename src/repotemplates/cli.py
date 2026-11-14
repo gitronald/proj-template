@@ -1,9 +1,8 @@
 """The repotemplates command line.
 
 ``check``, ``upgrade``, ``stamp``, ``init``, ``path``, and ``version`` are
-defined here;
-``skill``, ``install``, and ``doc`` come from :func:`pkgskills.register`, which
-mounts them from :data:`repotemplates.host.HOST`.
+defined here; ``skill`` and ``install`` come from :func:`pkgskills.register`,
+which mounts them from :data:`repotemplates.host.HOST`.
 """
 
 from __future__ import annotations
@@ -22,7 +21,7 @@ from repotemplates.check import check_fleet, check_repo
 from repotemplates.host import HOST
 from repotemplates.manifest import load_manifest
 from repotemplates.render import render_fleet, render_repo, render_upgrade
-from repotemplates.upgrade import apply, dirty, plan_stamp, plan_upgrade
+from repotemplates.upgrade import UpgradePlan, apply, dirty, plan_stamp, plan_upgrade
 from repotemplates.versions import is_prerelease
 
 __all__ = ["app", "main"]
@@ -54,6 +53,38 @@ def _root(
     ] = False,
 ) -> None:
     """Scaffold repos from the repotemplates template and check repos against it."""
+
+
+def _require_dir(path: Path) -> None:
+    if not path.is_dir():
+        raise typer.BadParameter(f"not a directory: {path}")
+
+
+def _hold_prerelease(
+    plan: UpgradePlan, installed: str, *, verb: str, allowed: bool, dry_run: bool
+) -> None:
+    """Refuse to write a prerelease's stamp unless ``allowed``.
+
+    A checkout or an alpha install would stamp consumers with a release that
+    never shipped. A dry run still shows the plan, with a note.
+    """
+    if allowed or plan.refused is not None or not is_prerelease(installed):
+        return
+    note = f"{installed} is a prerelease; pass --prerelease to {verb} it anyway"
+    if dry_run:
+        plan.stamp_reason += f" ({note})"
+    else:
+        plan.refused = note
+
+
+def _print_plan(plan: UpgradePlan, *, as_json: bool, dry_run: bool) -> None:
+    """Print the plan, and exit 2 when it was refused."""
+    if as_json:
+        typer.echo(json.dumps({**plan.to_dict(), "dry_run": dry_run}, indent=2))
+    else:
+        typer.echo(render_upgrade(plan, dry_run=dry_run))
+    if plan.refused is not None:
+        raise typer.Exit(2)
 
 
 @app.command()
@@ -92,20 +123,13 @@ def check(
     if as_json and markdown:
         raise typer.BadParameter("--json and --markdown are exclusive")
     target = repos_dir or repo or Path(".")
-    if not target.is_dir():
-        raise typer.BadParameter(f"not a directory: {target}")
+    _require_dir(target)
 
-    template, manifest, installed = (
-        paths.template_root(),
-        load_manifest(),
-        paths.version(),
-    )
+    release = (paths.template_root(), load_manifest(), paths.version())
     if repos_dir is not None:
         reports = check_fleet(
             repos_dir,
-            template,
-            manifest,
-            installed,
+            *release,
             include_unstamped=all_repos,
             include_archived=include_archived,
         )
@@ -118,7 +142,7 @@ def check(
             raise typer.Exit(1)
         return
 
-    report = check_repo(target, template, manifest, installed)
+    report = check_repo(target, *release)
     if as_json:
         typer.echo(json.dumps(report.to_dict(), indent=2))
     else:
@@ -161,20 +185,12 @@ def upgrade(
     1 when files were left for the install-template skill, 2 on a usage error or
     a refusal.
     """
-    if not repo.is_dir():
-        raise typer.BadParameter(f"not a directory: {repo}")
+    _require_dir(repo)
     installed = paths.version()
     plan = plan_upgrade(
         repo, paths.template_root(), load_manifest(), installed, stamp=not no_stamp
     )
-    if is_prerelease(installed) and not prerelease and plan.refused is None:
-        # A checkout or an alpha install would stamp consumers with a release
-        # that never shipped. A dry run still shows the plan.
-        note = f"{installed} is a prerelease; pass --prerelease to apply it anyway"
-        if dry_run:
-            plan.stamp_reason += f" ({note})"
-        else:
-            plan.refused = note
+    _hold_prerelease(plan, installed, verb="apply", allowed=prerelease, dry_run=dry_run)
     if plan.refused is None and not dry_run and not allow_dirty:
         if changed := dirty(Path(plan.repo), list(plan.contents)):
             plan.refused = (
@@ -183,12 +199,7 @@ def upgrade(
             )
     if plan.refused is None and not dry_run:
         apply(plan)
-    if as_json:
-        typer.echo(json.dumps({**plan.to_dict(), "dry_run": dry_run}, indent=2))
-    else:
-        typer.echo(render_upgrade(plan, dry_run=dry_run))
-    if plan.refused is not None:
-        raise typer.Exit(2)
+    _print_plan(plan, as_json=as_json, dry_run=dry_run)
     if not plan.complete:
         raise typer.Exit(1)
 
@@ -213,32 +224,21 @@ def stamp(
 ) -> None:
     """Write the template stamp, the last step after ``upgrade --no-stamp``.
 
-    Sets ``version`` in ``[tool.repotemplates]`` to this release, keeping
-    ``omit`` and ``keep`` and writing the template's comment line, and renames
-    an old ``[tool.proj-template]`` table. Refuses while check still reports
-    anything but the stamp behind (pass --force to stamp anyway). Exits 0 when
-    stamped or already stamped, 2 on a usage error or a refusal.
+        Sets ``version`` in ``[tool.repotemplates]`` to this release, keeping
+        ``omit`` and ``keep`` and writing the template's comment line, and renames
+    a ``[tool.proj-template]`` table. Refuses while check still reports
+        anything but the stamp behind (pass --force to stamp anyway). Exits 0 when
+        stamped or already stamped, 2 on a usage error or a refusal.
     """
-    if not repo.is_dir():
-        raise typer.BadParameter(f"not a directory: {repo}")
+    _require_dir(repo)
     installed = paths.version()
     plan = plan_stamp(
         repo, paths.template_root(), load_manifest(), installed, force=force
     )
-    if is_prerelease(installed) and not prerelease and plan.refused is None:
-        note = f"{installed} is a prerelease; pass --prerelease to stamp it anyway"
-        if dry_run:
-            plan.stamp_reason += f" ({note})"
-        else:
-            plan.refused = note
+    _hold_prerelease(plan, installed, verb="stamp", allowed=prerelease, dry_run=dry_run)
     if plan.refused is None and not dry_run:
         apply(plan)
-    if as_json:
-        typer.echo(json.dumps({**plan.to_dict(), "dry_run": dry_run}, indent=2))
-    else:
-        typer.echo(render_upgrade(plan, dry_run=dry_run))
-    if plan.refused is not None:
-        raise typer.Exit(2)
+    _print_plan(plan, as_json=as_json, dry_run=dry_run)
 
 
 class Shipped(StrEnum):

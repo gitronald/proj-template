@@ -75,14 +75,10 @@ class Pin:
     line: int
 
 
-def _lines(text: str) -> list[str]:
-    return text.split("\n")
-
-
 def mask(text: str) -> str:
     """The file with every pin and the Python matrix list replaced by a marker."""
     out: list[str] = []
-    for line in _lines(text):
+    for line in text.split("\n"):
         if m := _REV.match(line):
             line = f"{m['head']}<pin>"
         elif m := _USES.match(line):
@@ -96,7 +92,7 @@ def mask(text: str) -> str:
 def pins(text: str) -> list[Pin]:
     found: list[Pin] = []
     repo: str | None = None
-    for number, line in enumerate(_lines(text)):
+    for number, line in enumerate(text.split("\n")):
         if m := _REPO.match(line):
             repo = m["name"]
         if (m := _REV.match(line)) and repo is not None:
@@ -165,11 +161,11 @@ def merge_pinned(template_text: str, repo_text: str) -> str:
     template's.
     """
     repo_pins: dict[str, tuple[str, str]] = {}
-    repo_lines = _lines(repo_text)
+    repo_lines = repo_text.split("\n")
     for pin in pins(repo_text):
         repo_pins.setdefault(pin.name, (pin.version, repo_lines[pin.line]))
     repo_matrix = [line for line in repo_lines if _MATRIX.match(line)]
-    template_lines = _lines(template_text)
+    template_lines = template_text.split("\n")
     template_matrix = [line for line in template_lines if _MATRIX.match(line)]
     by_line = {p.line: p for p in pins(template_text)}
     out: list[str] = []

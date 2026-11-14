@@ -21,9 +21,10 @@ whose template copy has changed since it was reviewed, a missing one (copy it,
 or declare it in ``omit``), an ignore file lacking rules, a retired one, a pin
 that is not a version, and a file a linked worktree reads from the main
 checkout because it ignores it. A file ``keep`` records is otherwise left as
-it is and counts as current. The
-stamp moves to this release last, and only when every file then reads current or
-omitted, so a stamp never overstates what the repo carries.
+it is and counts as current.
+
+The stamp moves to this release last, and only when every file then reads
+current or omitted, so a stamp never overstates what the repo carries.
 """
 
 from __future__ import annotations
@@ -64,9 +65,9 @@ STAMP_COMMENT = (
     "inert to consumers."
 )
 
-# The first line of the comment above the stamp table, in any wording the
-# template has shipped: the one-line form, and the four-line form from before
-# 0.11.6. Comment lines of the repo's own above it are left alone.
+# The first line of the comment above the stamp table, in each wording a
+# release has shipped: the current line, and an older one-line and four-line
+# form. Comment lines of the repo's own above it are left alone.
 _TEMPLATE_COMMENT = re.compile(
     r"^\s*#\s*(Which proj-template release|(proj-template|repotemplates) release stamp)"
 )
@@ -182,16 +183,8 @@ def plan_upgrade(
     not cover (``pyproject.toml`` tables, ``.python-version``) are settled too."""
     report: RepoReport = check_repo(repo, template, manifest, installed)
     plan = UpgradePlan(repo=report.path, release=installed, template=template.resolve())
-    # Compared with this release itself, not with the newest stable one the
-    # stamp's status is read against: a prerelease stamp reads "alpha" whichever
-    # side of the installed release it falls
-    stamp_key = sort_key(report.stamp.version) if report.stamp.version else None
-    release_key = sort_key(installed)
-    if stamp_key and release_key and stamp_key > release_key:
-        plan.refused = (
-            f"the repo is stamped {report.stamp.version}, newer than this release "
-            f"({installed}); run a newer repotemplates"
-        )
+    if (refusal := _newer_stamp(report, installed)) is not None:
+        plan.refused = refusal
         return plan
     root = Path(report.path)
     for f in report.files:
@@ -226,28 +219,52 @@ def plan_upgrade(
             f"left at {report.stamp.version or 'none'}: --no-stamp, so it is "
             "written once the rest of the upgrade lands"
         )
-    else:
-        try:
-            text = (root / "pyproject.toml").read_text()
-            stamped = set_stamp(text, installed)
-        except (OSError, UnicodeDecodeError, ValueError) as exc:
-            # tomllib's TOMLDecodeError is a ValueError
-            reason = f"cannot set the stamp: {exc}"
-            plan.actions.append(Action("pyproject.toml", "skip", reason))
-            plan.stamp_reason = f"left at {report.stamp.version or 'none'}: {reason}"
-            return plan
-        if stamped == text:
-            plan.stamp_reason = f"already {installed}"
-            return plan
-        plan.contents["pyproject.toml"] = stamped
-        plan.stamp = installed
-        if report.stamp.version != installed:
-            plan.stamp_reason = f"{report.stamp.version or 'none'} -> {installed}"
-        elif report.stamp.table != "tool.repotemplates":
-            plan.stamp_reason = f"already {installed}; table renamed"
-        else:
-            plan.stamp_reason = f"already {installed}; stamp comment refreshed"
+    elif (error := _plan_stamp_write(plan, report, installed)) is not None:
+        plan.actions.append(Action("pyproject.toml", "skip", error))
+        plan.stamp_reason = f"left at {report.stamp.version or 'none'}: {error}"
     return plan
+
+
+def _newer_stamp(report: RepoReport, installed: str) -> str | None:
+    """The refusal for a repo stamped newer than this release, or None.
+
+    Compared with this release itself, not with the newest stable one the
+    stamp's status is read against: a prerelease stamp reads "alpha" whichever
+    side of the installed release it falls.
+    """
+    stamp_key = sort_key(report.stamp.version) if report.stamp.version else None
+    release_key = sort_key(installed)
+    if stamp_key and release_key and stamp_key > release_key:
+        return (
+            f"the repo is stamped {report.stamp.version}, newer than this release "
+            f"({installed}); run a newer repotemplates"
+        )
+    return None
+
+
+def _plan_stamp_write(
+    plan: UpgradePlan, report: RepoReport, installed: str
+) -> str | None:
+    """Plan the stamped ``pyproject.toml``, when the stamp there has to change.
+    The reason the stamp cannot be set, or None."""
+    try:
+        text = (Path(report.path) / "pyproject.toml").read_text()
+        stamped = set_stamp(text, installed)
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
+        # tomllib's TOMLDecodeError is a ValueError
+        return f"cannot set the stamp: {exc}"
+    if stamped == text:
+        plan.stamp_reason = f"already {installed}"
+        return None
+    plan.contents["pyproject.toml"] = stamped
+    plan.stamp = installed
+    if report.stamp.version != installed:
+        plan.stamp_reason = f"{report.stamp.version or 'none'} -> {installed}"
+    elif report.stamp.table != "tool.repotemplates":
+        plan.stamp_reason = f"already {installed}; table renamed"
+    else:
+        plan.stamp_reason = f"already {installed}; stamp comment refreshed"
+    return None
 
 
 def _plan_ruff(
@@ -299,13 +316,8 @@ def plan_stamp(
     next upgrade skip the repo, unless ``force``."""
     report: RepoReport = check_repo(repo, template, manifest, installed)
     plan = UpgradePlan(repo=report.path, release=installed, template=template.resolve())
-    stamp_key = sort_key(report.stamp.version) if report.stamp.version else None
-    release_key = sort_key(installed)
-    if stamp_key and release_key and stamp_key > release_key:
-        plan.refused = (
-            f"the repo is stamped {report.stamp.version}, newer than this release "
-            f"({installed}); run a newer repotemplates"
-        )
+    if (refusal := _newer_stamp(report, installed)) is not None:
+        plan.refused = refusal
         return plan
     for f in report.files:
         if not f.current and f.status != "local":
@@ -321,27 +333,10 @@ def plan_stamp(
             "finish the upgrade first, or pass --force"
         )
         return plan
-    root = Path(report.path)
-    try:
-        text = (root / "pyproject.toml").read_text()
-        stamped = set_stamp(text, installed)
-    except (OSError, UnicodeDecodeError, ValueError) as exc:
-        plan.refused = f"cannot set the stamp: {exc}"
-        return plan
-    if stamped == text:
-        plan.stamp_reason = f"already {installed}"
-        return plan
-    plan.contents["pyproject.toml"] = stamped
-    plan.stamp = installed
-    was = report.stamp.version or "none"
-    plan.stamp_reason = f"{was} -> {installed}" + (
-        f" (forced past {len(behind)} file(s))" if behind else ""
-    )
-    if report.stamp.version == installed:
-        renamed = report.stamp.table != "tool.repotemplates"
-        plan.stamp_reason = f"already {installed}; " + (
-            "table renamed" if renamed else "stamp comment refreshed"
-        )
+    if (error := _plan_stamp_write(plan, report, installed)) is not None:
+        plan.refused = error
+    elif behind and plan.stamp is not None and report.stamp.version != installed:
+        plan.stamp_reason += f" (forced past {len(behind)} file(s))"
     return plan
 
 

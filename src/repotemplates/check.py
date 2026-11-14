@@ -40,7 +40,7 @@ __all__ = [
     "latest_release",
 ]
 
-# The stamp table, and the name it had before the rename in 0.12.0.
+# The stamp table, and its earlier name, which is still read
 STAMP_TABLES = ("repotemplates", "proj-template")
 CLAUDE_SETTINGS = (SETTINGS, ".claude/settings.local.json")
 # The file classes, in report order
@@ -268,11 +268,19 @@ def _absent(path: Path) -> bool:
     return False
 
 
-def git_state(repo: Path, path: str) -> str:
-    """tracked, ignored, untracked, absent, or no git."""
+def inside_git(repo: Path) -> bool:
+    return _git(repo, "rev-parse", "--git-dir") == 0
+
+
+def git_state(repo: Path, path: str, in_git: bool) -> str:
+    """tracked, ignored, untracked, absent, or no git.
+
+    ``in_git`` is whether ``repo`` is inside a git repo, which the caller asks
+    once for all its paths.
+    """
     if not (repo / path).exists():
         return "absent"
-    if _git(repo, "rev-parse", "--git-dir") != 0:
+    if not in_git:
         return "no git"
     if _git(repo, "ls-files", "--error-unmatch", "--", path) == 0:
         return "tracked"
@@ -326,6 +334,8 @@ def omitted(repo: Path, declared: tuple[str, ...]) -> set[str]:
 
 
 def _pins(repo: Path, template: Path, key: str) -> str | None:
+    """The pin verdict for a pinned file, or None: for any other file, and for
+    one that either side lacks or cannot read."""
     if key not in PINNED:
         return None
     try:
@@ -352,13 +362,24 @@ def _moved_since(
     return None
 
 
-def _ignore_report(repo: Path, template: Path, path: str, skip: set[str]) -> FileReport:
-    git = git_state(repo, path)
+def _awaits_write(repo: Path, main: Path | None, path: str) -> bool:
+    """Whether ``path`` is ignored and absent from both the repo and its main
+    worktree, so each checkout needs a copy written after the merge."""
+    return (
+        _absent(repo / path)
+        and (main is None or _absent(main / path))
+        and _git(repo, "check-ignore", "-q", "--", path) == 0
+    )
+
+
+def _ignore_report(
+    repo: Path, template: Path, path: str, skip: set[str], in_git: bool
+) -> FileReport:
+    git = git_state(repo, path, in_git)
     present = (repo / path).is_file()
     if not present and path in skip:
         return FileReport(path, "ignore", "omitted", git=git)
-    # git_state asked already when the file is there
-    if git == "no git" or (not present and _git(repo, "rev-parse", "--git-dir")):
+    if not in_git:
         # The rules are checked by asking git, so a directory that is not a repo
         # cannot answer
         return FileReport(path, "ignore", "unreadable", git="no git")
@@ -386,37 +407,37 @@ def check_repo(
     stamp = read_stamp(repo, latest)
     skip = omitted(repo, stamp.omit)
     main = main_worktree(repo)
+    # One answer covers the main worktree too: there is one only inside a repo
+    git = inside_git(repo)
     files: list[FileReport] = []
     for key in _ordered(set(shipped) | set(manifest.files)):
         path, kind = file_path(key), _kind(key)
         root = _root_for(repo, main, path)
         value, readable = _repo_digest(root, key)
         source = str(root) if root != repo else None
-        at = {"git": git_state(root, path), "source": source}
+        at = {"git": git_state(root, path, git), "source": source}
         if not readable:
             files.append(FileReport(key, kind, "unreadable", **at))
         elif value is None:
-            if key in shipped:
-                status = "omitted" if path in skip or key in skip else "missing"
-                detail = ()
-                if (
-                    status == "missing"
-                    and _absent(repo / path)
-                    and (main is None or _absent(main / path))
-                    and _git(repo, "check-ignore", "-q", "--", path) == 0
-                ):
-                    status = "local"
-                    detail = ("ignored; write it in each checkout after the merge",)
-                files.append(FileReport(key, kind, status, detail=detail, **at))
+            if key not in shipped:
+                # A retired file the repo does not carry either
+                continue
+            status, detail = "missing", ()
+            if path in skip or key in skip:
+                status = "omitted"
+            elif _awaits_write(repo, main, path):
+                status = "local"
+                detail = ("ignored; write it in each checkout after the merge",)
+            files.append(FileReport(key, kind, status, detail=detail, **at))
         elif value == shipped.get(key):
             pins = _pins(root, template, key)
             files.append(FileReport(key, kind, "current", pins=pins, **at))
         elif (release := manifest.match(key, value)) is not None:
             status = "matches" if key in shipped else "retired"
-            pins = _pins(root, template, key) if key in shipped else None
+            pins = _pins(root, template, key)
             files.append(FileReport(key, kind, status, release, pins=pins, **at))
         elif (reviewed := stamp.keep.get(path, stamp.keep.get(key))) is not None:
-            pins = _pins(root, template, key) if key in shipped else None
+            pins = _pins(root, template, key)
             moved = _moved_since(manifest, shipped, key, reviewed, installed)
             status = "kept" if moved is None else "kept-behind"
             detail = () if moved is None else (moved,)
@@ -427,9 +448,10 @@ def check_repo(
             files.append(FileReport(key, kind, "one-off", **at))
     for path in IGNORE:
         if (template / path).is_file():
-            files.append(_ignore_report(repo, template, path, skip))
+            files.append(_ignore_report(repo, template, path, skip, git))
     settings = {
-        path: git_state(_root_for(repo, main, path), path) for path in CLAUDE_SETTINGS
+        path: git_state(_root_for(repo, main, path), path, git)
+        for path in CLAUDE_SETTINGS
     }
     ruff = ruff_report(repo, template)
     return RepoReport(repo.name, str(repo), stamp, files, settings, ruff)

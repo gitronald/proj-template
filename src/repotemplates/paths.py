@@ -13,12 +13,11 @@ PACKAGE_DIR = Path(__file__).resolve().parent
 CHECKOUT_DIR = PACKAGE_DIR.parent.parent
 
 
-def _shipped() -> Path:
-    return PACKAGE_DIR / "template"
-
-
 def _in_checkout() -> bool:
-    return not _shipped().is_dir() and (CHECKOUT_DIR / "VERSION").is_file()
+    """Whether this is an editable install: no template under the package, and a
+    ``VERSION`` at the checkout root."""
+    shipped = (PACKAGE_DIR / "template").is_dir()
+    return not shipped and (CHECKOUT_DIR / "VERSION").is_file()
 
 
 def _data_dir(name: str) -> Path:

@@ -32,8 +32,6 @@ from repotemplates.versions import sort_key
 
 __all__ = [
     "HOOKS_DIR",
-    "file_digest",
-    "file_path",
     "SETTINGS",
     "SETTINGS_HOOKS",
     "DirSource",
@@ -41,9 +39,12 @@ __all__ = [
     "Manifest",
     "build_manifest",
     "digest",
+    "file_digest",
+    "file_path",
     "fingerprint",
     "hooks_block_digest",
     "load_manifest",
+    "release_tags",
 ]
 
 SCHEMA = 1
