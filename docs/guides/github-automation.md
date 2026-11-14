@@ -55,7 +55,7 @@ back here.
 
 `dependabot.yml` opens dependency-update PRs weekly, **grouped per ecosystem** (one PR for `uv`
 Python deps, one for `github-actions`). Zero setup — GitHub runs it natively, no token or workflow.
-It does keep action pins current, so the template ships workflow actions pinned to **commit SHAs**
+It keeps action pins current, so the template ships workflow actions pinned to **commit SHAs**
 with a `# vX.Y.Z` comment (e.g. `actions/checkout@3d3c42e…  # v7.0.1`); Dependabot bumps the SHA
 and the comment together.
 
@@ -194,7 +194,8 @@ on disk. **Org repos** can skip the cache entirely and set the secrets once at t
 **5. Enroll each repo** *(skill)* — run the `install-renovatabot` skill, or the script directly:
 
 ```bash
-scripts/renovatabot-enroll.sh <owner/repo>
+bash "$(repotemplates path scripts)/renovatabot-enroll.sh" <owner/repo>   # installed release
+scripts/renovatabot-enroll.sh <owner/repo>                                # repotemplates checkout
 ```
 
 It (1) pushes the two repo secrets, (2) normalizes Dependabot (alerts on, security-update PRs off —

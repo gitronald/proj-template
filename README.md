@@ -38,8 +38,9 @@ repo-init --license apache-2.0 ~/repos/myproject
 repo-init --source ~/repos/repotemplates ~/repos/myproject   # scaffold from a local checkout or fork
 ```
 
-With the `repotemplates` tool installed (see below), `repotemplates init` runs
-the same script on the template that release ships, with no clone:
+With the `repotemplates` tool installed ([below](#the-repotemplates-cli)),
+`repotemplates init` runs the same script on the template that release ships,
+with no clone:
 
 ```bash
 repotemplates init ~/repos/myproject
@@ -56,12 +57,12 @@ The script targets bash 3.2+, so it runs on stock macOS as well as Linux.
 ## What it does
 
 1. Copies the template (the curl script clones it; `repotemplates init` uses the copy its release ships) and replaces placeholders: `PROJECT__NAME` becomes your project name, and `MODULE__NAME` becomes its Python module name (dashes become underscores)
-2. Stamps the template release it used into `[tool.repotemplates]` in the new repo's `pyproject.toml`, so you can later tell which template version a repo carries (see [Template version stamp](#template-version-stamp))
-3. Fetches a LICENSE file from GitHub's API (default: MIT)
-4. Initializes a git repo on a `dev` branch
-5. Installs dependencies with `uv sync`
-6. Sets up pre-commit hooks and stanza
-7. Makes the initial commit
+2. Keeps the dependency-update automation chosen with `--deps` (Dependabot by default, or Renovate) and removes the other's files
+3. Stamps the template release it used into `[tool.repotemplates]` in the new repo's `pyproject.toml`, so you can later tell which template version a repo carries (see [Template version stamp](#template-version-stamp))
+4. Fetches a LICENSE file from GitHub's API (default: MIT) and records its SPDX id in `pyproject.toml`
+5. Initializes a git repo, installs dependencies with `uv sync --all-groups`, and registers the pre-commit and post-merge hooks
+6. Makes the initial commit
+7. Runs `stanza init`, which creates the GitHub repo, then creates and pushes a `dev` branch
 
 ## Template version stamp
 
@@ -82,13 +83,32 @@ The table is inert to anyone installing your package: build backends translate
 only `[project]`, so it never reaches the wheel or the PyPI metadata. It does
 appear in the sdist, which carries `pyproject.toml` unconditionally.
 
-Before the rename to `repotemplates` (0.12.0), the table was
-`[tool.proj-template]`, with the same `version` key. A repo not yet upgraded past
-that release still carries the old table, and the next `install-template` upgrade
-renames it. Tools that read the stamp should accept both, preferring
+A repo may carry the table under its earlier name, `[tool.proj-template]`, with
+the same `version` key. `check` reads both, and `stamp` and `upgrade` rename
+it. Tools that read the stamp should accept both, preferring
 `[tool.repotemplates]`.
 
 To audit drift across repos, use `repotemplates check` (below).
+
+## The repotemplates CLI
+
+```bash
+uv tool install repotemplates   # or run it once: uvx repotemplates check
+```
+
+| Command | What it does |
+|---|---|
+| `repotemplates init <path>` | Scaffold a new repo from this release's template |
+| `repotemplates check [repo]` | Compare a repo, or every clone under `--repos-dir`, with the template (read-only) |
+| `repotemplates upgrade [repo]` | Apply the mechanical part of a template upgrade |
+| `repotemplates stamp [repo]` | Write the template stamp, the last step of an upgrade |
+| `repotemplates skill [name]` | Print a bundled skill's instructions |
+| `repotemplates install` | Write the skill stubs Claude Code and Codex read |
+| `repotemplates path template\|scripts` | Print the directory of the template or scripts this release ships |
+| `repotemplates version` | Print the installed release |
+
+The tool carries the template and a manifest of every release's files, so it
+needs no clone and no network.
 
 ## Checking a repo against the template
 
@@ -96,27 +116,24 @@ To audit drift across repos, use `repotemplates check` (below).
 it never edits a repo (`repotemplates upgrade`, below, is the command that writes).
 
 ```bash
-uv tool install repotemplates            # or run it once: uvx repotemplates check
 repotemplates check                      # the repo in the current directory
 repotemplates check path/to/repo --json  # one JSON object, for scripts
 repotemplates check --repos-dir ~/repos  # every stamped clone, as one table
-repotemplates init path/to/new-repo      # scaffold from this release's template
-repotemplates version
 ```
 
 For each repo it reports:
 
 - **The stamp**: `latest`, `behind` or `ahead` of the newest release the tool
-  knows, `alpha`, `unknown`, or `missing`. Both `[tool.repotemplates]` and the
-  older `[tool.proj-template]` are read. A table with no `version` yet (written
-  to hold `omit` or `keep` before the first stamp) reads `missing`, and its
-  lists still count.
+  knows, `alpha` (a prerelease), `unknown` (not a release number), `unreadable`,
+  or `missing`. Both `[tool.repotemplates]` and `[tool.proj-template]` are
+  read. A table with no `version` yet (written to hold `omit` or `keep` before
+  the first stamp) reads `missing`, and its lists still count.
 - **Each template-owned file**: `current` (matches the template this release
   ships), `matches vX.Y.Z` (an earlier release), `one-off` (matches no release),
   `kept vX.Y.Z` or `kept-behind vX.Y.Z` (a customization the repo keeps, below),
   `missing`, `local` (ignored and absent from both checkouts, below),
-  `omitted` (left out by design, below), or `retired` (a file the
-  template no longer ships, still present). Each class has its own rule:
+  `omitted` (left out by design, below), `retired` (a file the template no
+  longer ships, still present), or `unreadable`. Each class has its own rule:
   - Claude hook scripts (`.claude/hooks/*.sh`), `.github/dependabot.yml`, and
     `.github/renovate.json`: exact content.
   - The `hooks` block of `.claude/settings.json`: normalized JSON, other keys
@@ -178,15 +195,11 @@ For each repo it reports:
   absent. An ignored file never reaches a fresh clone or a cloud session; the
   template ignores `.claude/` by default, so this is information, not drift.
 
-It exits 0 when the stamp is the latest and every file is current or omitted
-with no pin behind, 1 when
-anything differs or `--repos-dir` finds no repo to check, and 2 on a usage
-error. `--markdown` prints Markdown tables.
+It exits 0 when the stamp is the latest and every file is current, kept, or
+omitted with no pin behind, 1 when anything differs or `--repos-dir` finds no
+repo to check, and 2 on a usage error. `--markdown` prints Markdown tables.
 With `--repos-dir`, `--json` prints an array, and `*-archive` repos and repos
 with no stamp are skipped unless `--include-archived` or `--all` is given.
-
-The tool carries the template and a manifest of every release's files, so it
-needs no clone and no network.
 
 ## Upgrading a repo
 
@@ -220,10 +233,10 @@ repotemplates upgrade path/to/repo
   `install-template` skill passes it and writes the stamp once the rest lands.
 
 It exits 0 when the repo ends current (but for a stamp `--no-stamp` held back)
-and 1 when files were left. It refuses
-(exit 2) a repo stamped newer than the tool, a tracked file with uncommitted
-changes (`--allow-dirty` overrides), and a prerelease of the tool itself
-(`--prerelease` overrides), since that would stamp a release that never shipped.
+and 1 when files were left. It refuses (exit 2) a repo stamped newer than the
+tool, a tracked file with uncommitted changes (`--allow-dirty` overrides), and
+a prerelease of the tool itself (`--prerelease` overrides), since that would
+stamp a release that never shipped.
 
 `repotemplates stamp` writes the stamp alone, the last step after
 `upgrade --no-stamp`:
@@ -234,12 +247,12 @@ repotemplates stamp path/to/repo
 ```
 
 It sets `version` in `[tool.repotemplates]` to this release, keeps `omit` and
-`keep`, writes the template's comment line in place of an old one (or above a
-table written by hand), and renames a
-`[tool.proj-template]` table. It accepts `local` rows awaiting post-merge writes.
-It otherwise refuses (exit 2) while `check` still reports anything but the stamp
-behind, unless `--force`, and a repo stamped newer than the tool or a prerelease
-of the tool, as `upgrade` does.
+`keep`, writes the template's comment line in place of an earlier one (or above
+a table written by hand), and renames a `[tool.proj-template]` table. It
+accepts `local` rows awaiting post-merge writes. It otherwise refuses (exit 2)
+while `check` still reports anything but the stamp behind, unless `--force`.
+Like `upgrade`, it also refuses a repo stamped newer than the tool and a
+prerelease of the tool.
 
 ## Skills
 
@@ -261,10 +274,10 @@ always come from the installed release, and so does the template they apply:
 
 ## Developing repotemplates
 
-Working on the template itself needs only `uv` and `planners`. The root
-`pyproject.toml` is the `repotemplates` CLI package (`src/repotemplates/`), and
-its dev group supplies `pre-commit`, `shellcheck`, `pytest`, `ruff`, and
-`pyrefly`:
+Working on the template itself needs `uv`, `planners`, and, for the scaffold
+suite, `git` and `rsync`. The root `pyproject.toml` is the `repotemplates` CLI
+package (`src/repotemplates/`), and its dev group supplies `pre-commit`,
+`shellcheck`, `pytest`, `ruff`, and `pyrefly`:
 
 ```bash
 uv sync

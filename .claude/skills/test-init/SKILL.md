@@ -14,8 +14,9 @@ automated suite, which CI also runs on Linux and macOS:
 ```
 
 It covers placeholders (bare spellings included), renames, `CLAUDE_PROJECT_DIR`,
-executable bits surviving substitution, the version stamp, license handling, and deps selection, but stubs `uv` and GitHub — so it
-does not prove the scaffold *builds*. The two modes below do:
+executable bits surviving substitution, the version stamp, license handling,
+and deps selection, but stubs `uv` and GitHub — so it does not prove the
+scaffold *builds*. The two modes below do:
 
 - **local** — scaffold from this checkout with `--source`, then build and test the
   result. No GitHub repo. Use while iterating on placeholder or rename logic.

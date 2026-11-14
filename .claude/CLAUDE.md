@@ -60,7 +60,7 @@ the wheel as package data. The `install-template` and `install-renovatabot`
 skill bodies live in `src/repotemplates/prompts/`, not `.claude/skills/`; a body
 names the template as `{cli} path template`, never a checkout path, because it
 is printed from an installed release. `test-init` stays in `.claude/skills/`,
-since it tests this checkout. The version is still `VERSION` alone: hatchling reads it
+since it tests this checkout. The version is `VERSION` alone: hatchling reads it
 (`[tool.hatch.version]`), and stanza bumps it, so there is no second version
 source. An editable install's metadata keeps the version from its last
 `uv sync`; `repotemplates version` in a checkout reads `VERSION` directly.
@@ -114,6 +114,7 @@ git ls-files -co --exclude-standard -- '*.sh' | xargs uv run shellcheck
 
 The behavioral test scaffolds from this checkout's HEAD, so commit first — it
 refuses to run over uncommitted changes to `scripts/`, `template/`, or `VERSION`.
+It runs the real `init.sh`, so it needs `rsync` on `PATH`.
 
 `template/` **is** a real, resolvable uv project of its own, and uv discovers a
 project by walking up from the working directory to the nearest

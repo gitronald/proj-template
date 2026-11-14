@@ -34,10 +34,10 @@ script: `bash <checkout>/scripts/init.sh --source <checkout> ... <path>`
 (`--source` clones, so committed changes only).
 
 The basename of `<path>` becomes the project name (dashes map to underscores
-in the Python module name). The script is interactive
-about `--deps` when run on a TTY — pass `--deps dependabot` explicitly when
-running it from a tool. If the user chose renovate, finish with the
-`/install-renovatabot` skill after the repo exists on GitHub.
+in the Python module name). The script is interactive about `--deps` when run
+on a TTY — pass `--deps dependabot` explicitly when running it from a tool. If
+the user chose renovate, finish with the `/install-renovatabot` skill after the
+repo exists on GitHub.
 
 ## Mode 2 — Upgrade an existing repo
 
@@ -50,12 +50,11 @@ running it from a tool. If the user chose renovate, finish with the
    copy, named), `one-off` (customized), `kept` (a customization recorded in
    the stamp's `keep`), `kept-behind` (one the template has changed since it
    was reviewed), `missing`, `local` (ignored and absent from both checkouts),
-   `omitted` (left out by
-   design), `partial` (an ignore file lacking template rules, listed in
-   `detail`), and for pinned files a separate `pins` verdict, where `ahead` is
-   not drift. Use it instead of hashing or diffing those files by hand; the
-   diff is still needed for the files it reports as `one-off`, and for the
-   rows it does not cover (`pyproject.toml` tables, `.python-version`,
+   `omitted` (left out by design), `partial` (an ignore file lacking template
+   rules, listed in `detail`), and for pinned files a separate `pins` verdict,
+   where `ahead` is not drift. Use it instead of hashing or diffing those files
+   by hand; the diff is still needed for the files it reports as `one-off`, and
+   for the rows it does not cover (`pyproject.toml` tables, `.python-version`,
    `.claude/CLAUDE.md`). `{cli} upgrade <path> --dry-run` shows what the
    mechanical pass below will write and skip.
 3. Classify the repo — this drives the sync matrix below:
@@ -70,8 +69,8 @@ running it from a tool. If the user chose renovate, finish with the
    first and add `.worktrees/` if it isn't ignored. Do all tracked upgrade
    work inside the worktree. The exception is gitignored payload: when the
    target ignores `.claude/`, the worktree has no copy of `.claude/CLAUDE.md`,
-   `settings.json`, or `hooks/`, and anything written
-   there vanishes when the worktree is removed. Apply the `.claude/*` rows in
+   `settings.json`, or `hooks/`, and anything written there vanishes when the
+   worktree is removed. Apply the `.claude/*` rows in
    the main checkout instead, and note in the PR that those files changed on
    disk outside the branch. `check`, `upgrade`, and `stamp` run in the
    worktree read such a file from the main checkout (its row says so), so
@@ -114,11 +113,10 @@ run it). `--no-stamp` keeps it off the stamp: the pass sees only the files
 `check` tracks, not the `pyproject.toml` tables or `.python-version` rows still
 ahead, so the stamp waits for the rule below. Without the flag it stamps the
 release once every tracked file is current, which is right only when the pass
-is the whole upgrade. Everything it skips is listed with the
-reason, and those files are what the rest of this section decides: a `one-off`
-or `kept-behind` file goes to the diverging-file triage, a `missing` file is
-copied in or (when the
-repo leaves it out on purpose, like `publish.yml` in an app) listed in the
+is the whole upgrade. Everything it skips is listed with the reason, and those
+files are what the rest of this section decides: a `one-off` or `kept-behind`
+file goes to the diverging-file triage, a `missing` file is copied in or (when
+the repo leaves it out on purpose, like `publish.yml` in an app) listed in the
 stamp's `omit`, and a `partial` ignore file gets the merge its row describes.
 It refuses a prerelease without `--prerelease`, and a tracked file with
 uncommitted changes without `--allow-dirty`. When the target ignores `.claude/`,
@@ -141,14 +139,14 @@ overwrite" below.
 | `pyproject.toml` dev group (`ruff`, `pyrefly`, `pre-commit`) | merge | merge |
 | `pyproject.toml` dev group (`pytest`, `pytest-cov`), `[tool.pytest.ini_options]` (`addopts` uses bare `--cov`; drop a repo's `--cov=<pkg>` since `run.source` names it), `[tool.coverage.*]` (set `run.source` to the repo's package) | merge | only if `tests/` exists |
 | `pyproject.toml` `[build-system]`, sdist `only-include`, `[project.urls]`, `[project.scripts]` | merge | skip |
-| `pyproject.toml` `[tool.repotemplates]` `version` (formerly `[tool.proj-template]`) | stamp the release being applied; rename an old `[tool.proj-template]` table (see notes) | same |
+| `pyproject.toml` `[tool.repotemplates]` `version` | stamp the release being applied; rename a `[tool.proj-template]` table (see notes) | same |
 | `.pre-commit-config.yaml` | sync hooks (keep extra local hooks) | sync hooks (keep extra local hooks) |
 | `.gitattributes` | merge entries (`.planners/README.md merge=union`) | merge entries |
 | `.python-version` | sync | sync unless repo pins older deliberately |
 | `.gitignore` | merge entries | merge entries |
 | `.claude/settings.json`, `.claude/hooks/lint-typecheck.sh` | copy when absent; when `settings.json` exists, merge the `Stop` hook in and **ask** about anything else that differs — never copy over it (see note); apply in the main checkout when `.claude/` is gitignored (see preflight) | same |
 | `.claude/settings.local.json` (not shipped) | never — leave a target's copy alone (see note) | same |
-| `.claude/CLAUDE.md` | relocate if in an old spot; never overwrite its content, except the `## Development` tooling bullets and the "Before finishing a task" check list (see note) | same |
+| `.claude/CLAUDE.md` | relocate if misplaced; never overwrite its content, except the `## Development` tooling bullets and the "Before finishing a task" check list (see note) | same |
 | `.github/workflows/test.yml` | sync (full Python matrix, `UV_PYTHON` env pin **and** `--python` on `uv sync` — see note, SHA-pinned actions) | adapt: single Python from `.python-version`; drop pytest step if no tests; SHA-pinned actions |
 | `.github/workflows/publish.yml` | sync | skip, and list it in the stamp's `omit` |
 | `.github/dependabot.yml` (or renovate pair) | ensure one automation exists; reconcile each ecosystem (groups, cooldown, `target-branch` — see note); set repo alert toggles (see note) | same |
@@ -163,10 +161,10 @@ Notes:
   `[project.scripts]`, sdist `only-include`, and `[tool.coverage.run] source`.
   When a merge row brings in such a line, resolve the placeholder to the target's
   project name or package directory, and when diffing, treat a placeholder
-  against the target's real name as a match, not a divergence. Repos scaffolded
-  before 0.10.0 used the bare spellings `PROJECT` and `MODULE`; the same rule
-  applies — a bare or double-underscored placeholder left in a target is always
-  a bug, never a customization.
+  against the target's real name as a match, not a divergence. The same rule
+  covers the bare spellings `PROJECT` and `MODULE`, which some repos were
+  scaffolded with: a placeholder left in a target, bare or double-underscored,
+  is always a bug, never a customization.
 
 - **Diverging files are a question, not an overwrite.** Read this before
   applying any row. For every `sync`/`copy`/`merge` row, diff the target's
@@ -175,10 +173,10 @@ Notes:
     decide.
   - **Diverges, but the repo's copy holds nothing the template lacks** — the
     repo is simply carrying an older template revision. Replace it and say so
-    in the report; no question, since nothing is lost. (Example: a repo
-    upgraded before the Stop hook was made cwd-independent still has
-    `"command": ".claude/hooks/lint-typecheck.sh"` in `.claude/settings.json`
-    — stale template content with no repo value.)
+    in the report; no question, since nothing is lost. (Example: a
+    `.claude/settings.json` whose Stop hook reads
+    `"command": ".claude/hooks/lint-typecheck.sh"`, an earlier release's
+    cwd-dependent spelling with no repo value.)
   - **Diverges and the repo's copy holds content the template would drop or
     change** — a customized value, an extra entry, a different command or
     timeout — **ask before touching it.** Never assume the template wins: the
@@ -211,38 +209,36 @@ Notes:
   hand to hold `omit` or `keep` before the first stamp), renames a
   `[tool.proj-template]` table, and accepts `local` rows awaiting post-merge
   writes. It otherwise refuses while `check` still reports anything but the
-  stamp behind. A customization the user chose to keep does
-  not hold the stamp back once it is in `keep`. Stamp only if the upgrade
-  actually landed in full — if a file is still behind for any other reason,
-  stamp the older release the repo still matches, or leave the stamp
-  untouched, and say so in the report. `--force` stamps past
-  what `check` reports; a finished upgrade should not need it, so treat the
-  need as a sign that something is unfinished or that `check` is wrong. A
-  stamp that overstates is worse than an
-  absent one, since it makes the next upgrade skip the repo. The template ships
-  the literal `TEMPLATE_VERSION` placeholder there (`init.sh` substitutes
-  it at scaffold time), so never copy that string into a target — resolve it to
+  stamp behind. A customization the user chose to keep does not hold the stamp
+  back once it is in `keep`. Stamp only if the upgrade actually landed in
+  full — if a file is still behind for any other reason, stamp the older
+  release the repo still matches, or leave the stamp untouched, and say so in
+  the report. `--force` stamps past what `check` reports; a finished upgrade
+  should not need it, so treat the need as a sign that something is unfinished
+  or that `check` is wrong. A stamp that overstates is worse than an absent
+  one, since it makes the next upgrade skip the repo. The template ships the
+  literal `TEMPLATE_VERSION` placeholder there (`init.sh` substitutes it at
+  scaffold time), so never copy that string into a target — resolve it to
   the release being applied, and treat a `TEMPLATE_VERSION` or `unknown` value
   found in a repo as "never stamped". Keep the table's `omit` list when
   restamping: it records the template files the repo leaves out on purpose, so
   `check` reads them as `omitted` rather than `missing`. Add a path to it only
   for a file the repo should never carry, with the reason in the PR.
-- **A `[tool.proj-template]` table is the old name of the stamp.** Releases
-  before 0.12.0, when the repo was named proj-template, wrote the stamp there.
-  Read the repo's current version from it as you would from the new table. Then,
-  at the start of the upgrade, rename the header to `[tool.repotemplates]` and
-  its comment line to the template's, keeping the old `version` value. The
+- **A `[tool.proj-template]` table is the stamp under its earlier name.** Read
+  the repo's current version from it as you would from `[tool.repotemplates]`.
+  Then, at the start of the upgrade, rename the header to `[tool.repotemplates]`
+  and its comment line to the template's, keeping the `version` value. The
   stamp-last rule above still decides whether and when that value moves. Never
   leave both tables in a repo, and never add `[tool.proj-template]` to one that
   lacks it.
 - **Replace only the template's stamp comment.** When the comment above the
   table differs from the template's, as it does in every repo carrying
-  `[tool.proj-template]`, swap in the template's one line. The old comment is
-  one line, or four from releases before 0.11.6, starting
+  `[tool.proj-template]`, swap in the template's one line. An earlier comment
+  is one line, or four lines starting
   `# Which proj-template release this repo was scaffolded from`. Keep every
   other comment there, and a trailing comment on the `version` line. A run of
   `{cli} upgrade` without `--no-stamp` does this swap itself by deleting
-  everything from the old comment's first line down to the header, so after
+  everything from the earlier comment's first line down to the header, so after
   one, read the `pyproject.toml` diff and put back any repo comment it dropped.
 - **Claude settings are never a silent copy.** The template's
   `.claude/settings.json` carries only the `Stop` hook; the permission baseline
@@ -250,39 +246,39 @@ Notes:
   The template's `Stop` hook entry is template-owned plumbing: add it when
   missing, and a changed `command` or `timeout` replaces silently under the
   general rule. Everything else in a target's `settings.json` — a
-  `permissions` block (templates 0.5.0 through 0.8.4 shipped one), other hooks, a
+  `permissions` block (even one an earlier release shipped), other hooks, a
   hook the repo edited itself — belongs to the repo. Keep it, and ask before
   removing any of it, folded into the same batched round as everything else.
-- **`settings.local.json` is not template-managed.** The template stopped
-  shipping it in 0.11.5. It is where Claude Code records the permission grants
-  a user accepts in that repo, so a target's copy — including one templates
-  0.8.5 through 0.11.4 seeded — is the user's own: never replace, trim, or delete it during
-  an upgrade. When it duplicates the global baseline, say so in the PR and
-  leave the trimming to the owner.
+- **`settings.local.json` is not template-managed.** The template does not
+  ship it. It is where Claude Code records the permission grants a user
+  accepts in that repo, so a target's copy — even one an earlier release
+  seeded — is the user's own: never replace, trim, or delete it during an
+  upgrade. When it duplicates the global baseline, say so in the PR and leave
+  the trimming to the owner.
 - **Relocate misplaced files; never duplicate.** The template moves files
   between versions, so before applying a row check whether the target already
-  has that file in an *old/wrong* location (e.g. `CLAUDE.md` at the repo root
-  when the standard now keeps it at `.claude/CLAUDE.md`). When it does — and it
+  has that file in the *wrong* location (e.g. `CLAUDE.md` at the repo root
+  when the standard keeps it at `.claude/CLAUDE.md`). When it does — and it
   is genuinely the file this row manages, not a coincidental same-named file
   (confirm by content and role, not just basename) — `git mv` it to the
   canonical path first, then apply the row's normal action there. Moving beats
   leaving a stray copy or creating a second one. That is what "never overwrite"
   on the `.claude/CLAUDE.md` row means: preserve the existing content, but still
-  move it into place when it is sitting in the old spot.
+  move it into place when it is misplaced.
   The content exceptions describe template-owned tooling. The first is the
-  `## Development` section: its Install,
-  Tests, Linting, Type checking, and CI bullets describe template-owned
-  tooling, so refresh each of those bullets to the template's current wording
-  when the repo's copy is stale (e.g. a bare `uv run pytest` line that does
-  not mention the coverage gate). Match bullets by their leading label, keep
-  any repo-specific bullets and text outside that section untouched, and skip
-  a bullet the repo has clearly customized (a different command, extra flags).
+  `## Development` section: its Install, Tests, Linting, Type checking, and CI
+  bullets describe template-owned tooling, so refresh each of those bullets to
+  the template's current wording when the repo's copy is stale (e.g. a bare
+  `uv run pytest` line that does not mention the coverage gate). Match bullets
+  by their leading label, keep any repo-specific bullets and text outside that
+  section untouched, and skip a bullet the repo has clearly customized (a
+  different command, extra flags).
   The second is the "Before finishing a task" check list, at whatever heading
   level and wherever the repo keeps it: it names the checks the `Stop` hook
   runs, so when the upgrade brings a new hook, bring the list and its count
-  ("both checks", "all three checks") to the template's. A repo carrying a
-  hook from before 0.8.2 lists `ruff check` and `pyrefly check` only, while the current
-  hook also runs `ruff format --check`. Keep any checks the repo added.
+  ("both checks", "all three checks") to the template's. A repo with an older
+  hook may list `ruff check` and `pyrefly check` only, while the current hook
+  also runs `ruff format --check`. Keep any checks the repo added.
 - **Tracking `.claude/` is a per-repo decision.** The template default ignores
   `.claude/` in the target's `.gitignore`, so the payload lands on disk but is
   never committed. A repo may instead choose to track part of it (commonly
@@ -418,17 +414,18 @@ Run the autofixers before reading lint output: `uv run ruff format .` then
 `uv run ruff check --fix .` clear most errors on their own, so only study what
 survives them (typically long string literals and idioms needing a targeted
 `# noqa`). `ruff format` also reformats Python fences in the README and `docs/`;
-plans and the changelog are excluded. Fix the rest at the source (annotate or exclude for pyrefly) — do
-not commit with red checks. If the lint/format/annotation fixes touch a script
+plans and the changelog are excluded. Fix the rest at the source (annotate or
+exclude for pyrefly) — do not commit with red checks. If the
+lint/format/annotation fixes touch a script
 that generates output (site pages, reports, build artifacts), prove the
 behavior is unchanged: copy the pre-upgrade version from git to a sibling path
 in the *same directory* (so its `__file__`-relative paths still resolve — a
 copy in `/tmp` silently reads the wrong inputs), run old and new against the
 same explicit inputs into temp outputs, and diff for byte-identical results.
-The
-`.claude/settings.json` Stop hook runs ruff + pyrefly on every Claude session
-stop, so a repo with failing checks would gate every future session; that is
-why green checks are a hard requirement before this lands.
+
+The `.claude/settings.json` Stop hook runs ruff + pyrefly on every Claude
+session stop, so a repo with failing checks would gate every future session;
+that is why green checks are a hard requirement before this lands.
 
 ### Commit, PR, and clean up
 

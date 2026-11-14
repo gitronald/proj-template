@@ -55,21 +55,28 @@ uv run pre-commit run ruff-check --all-files
 
 ## Updating hook versions
 
-To update ruff-pre-commit to the latest release:
+The hook installs its own ruff at the pinned `rev`, while CI and the Stop hook run
+the ruff in `uv.lock`. When the two differ, a commit can pass the hook and then fail
+`ruff format --check` in CI, so the `rev` always equals the locked ruff.
+
+Dependabot's `uv` ecosystem bumps the lock and nothing bumps the rev, so after a
+lock update, set the rev to the locked version (`uv run ruff --version`).
+`repotemplates check` reports the pair as its own row (`ruff rev vs uv.lock`), and
+`repotemplates upgrade` moves the rev for you.
+
+To move both to a newer ruff, set the rev and relock to exactly that version:
 
 ```bash
-uv run pre-commit autoupdate
+uv run pre-commit autoupdate --repo https://github.com/astral-sh/ruff-pre-commit
+uv lock --upgrade-package ruff==<version>   # the version the rev now names
 ```
 
-The hook installs its own ruff at the pinned `rev`, while CI and the Stop hook run
-the ruff that `uv.lock` resolved, so keep the two on the same minor. When the rev
-moves to a new minor, move the `ruff>=X.Y,<X.Z` pin in the `dev` group with it and
-run `uv lock`. In the other direction, Dependabot bumps the lock and nothing bumps
-the rev: after `uv sync`, compare `uv run ruff --version` with the `rev` and move
-the rev when they differ.
+A bare `--upgrade-package ruff` takes the newest release, which may not be the
+rev's. When the rev moves to a new minor, widen the `ruff>=X.Y,<X.Z` range in the
+`dev` group first.
 
-Then commit the updated `.pre-commit-config.yaml` (and `pyproject.toml` and
-`uv.lock`, when the pin moved).
+Then commit `.pre-commit-config.yaml` and `uv.lock` (and `pyproject.toml`, when the
+range moved).
 
 ## Ruff configuration
 

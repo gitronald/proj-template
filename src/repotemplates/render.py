@@ -1,4 +1,4 @@
-"""Plain-text and Markdown tables for check reports."""
+"""Plain-text and Markdown tables for check reports and upgrade plans."""
 
 from __future__ import annotations
 

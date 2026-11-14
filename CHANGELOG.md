@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- `check` asks git whether a directory is a repo once per repo instead of once
+  per file, which cuts a check from 28 git calls to 18. Reports and exit codes
+  are unchanged.
+- The README gains a table of the CLI's commands, lists the scaffold's steps in
+  the order `init.sh` runs them, and names the `unreadable` status.
+- The pre-commit guide states the current ruff rule: the `ruff-pre-commit` rev
+  equals the locked ruff, and a relock names an exact version.
+- The `install-template` skill, the README, and the `init.sh` comments state
+  the rules for older repos (a `[tool.proj-template]` table, an earlier stamp
+  comment, a seeded `settings.local.json`) without the release history behind
+  them, which stays in this changelog.
+
 ## [0.17.0] - 2026-11-13
 
 ### Added
