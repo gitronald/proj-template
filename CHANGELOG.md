@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-13
+
 ### Added
 
 - `check` reports an ignored template file absent from both the repo and its
